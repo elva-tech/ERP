@@ -1,0 +1,43 @@
+# Environment and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets/
+credentials/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+
+# Common build outputs (language-specific rules should be added with the chosen stack)
+build/
+dist/
+out/
+coverage/
+.cache/
+.tmp/
+tmp/
+logs/
+*.log
+
+# Common language artifacts
+node_modules/
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+target/
+bin/
+obj/
+.gradle/
+vendor/
+
+# Test / generated artifacts
+test-results/
+playwright-report/
+artifacts/

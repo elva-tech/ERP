@@ -1,0 +1,5 @@
+# Replace team handles with actual GitHub usernames/teams.
+/docs/ @elva-platform
+/platform/ @elva-platform
+/modules/hr/ @elva-hr
+/contracts/ @elva-platform

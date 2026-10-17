@@ -12,3 +12,25 @@ body {
   background: #f3f4f6;
   color: #1f2937;
 }
+
+/* Hide sidebar scrollbar while keeping scrolling enabled */
+.sidebar-scroll {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.sidebar-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+/* Hide the main page scrollbar while keeping scrolling enabled */
+html,
+body {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+html::-webkit-scrollbar,
+body::-webkit-scrollbar {
+  display: none;
+}

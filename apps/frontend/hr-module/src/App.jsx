@@ -11,7 +11,7 @@ import {
   Settings,
   FileText,
   Download,
-  DollarSign,
+  IndianRupee,
   Shield,
   CirclePlus,
   Folder,
@@ -71,7 +71,7 @@ const menuSections = [
       { label: "Salary Structure", icon: FileText },
       { label: "Payroll Processing", icon: Settings },
       { label: "Payslips", icon: Download },
-      { label: "Employee Advances", icon: DollarSign },
+      { label: "Employee Advances", icon: IndianRupee },
     ],
   },
   {
@@ -144,6 +144,7 @@ function App() {
   const [showEmployeeForm, setShowEmployeeForm] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState(null);
   const [employeeForm, setEmployeeForm] = useState(emptyEmployeeForm);
+  const [employeeFiles, setEmployeeFiles] = useState([]);
   const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [profileTab, setProfileTab] = useState("Personal Info");
 
@@ -677,7 +678,7 @@ function App() {
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-3 pb-3 pt-1">
+        <div className="sidebar-scroll flex-1 overflow-y-auto px-3 pb-3 pt-1">
           {menuSections.map((section) => (
             <div key={section.title} className="mb-4">
               <p className="mb-2 px-2 pt-2 text-[11px] font-bold tracking-wide text-[#758391]">
@@ -1206,19 +1207,35 @@ function App() {
                           </select>
                         </div>
                         <div>
-                          <label htmlFor="employee-designation" className="mb-1.5 block text-sm font-medium">
+                          <label
+                            htmlFor="employee-designation"
+                            className="mb-1.5 block text-sm font-medium"
+                          >
                             Designation *
                           </label>
-                          <input
+
+                          <select
                             id="employee-designation"
                             required
                             value={employeeForm.designation}
                             onChange={(event) =>
-                              setEmployeeForm({ ...employeeForm, designation: event.target.value })
+                              setEmployeeForm({
+                                ...employeeForm,
+                                designation: event.target.value,
+                              })
                             }
-                            placeholder="e.g. HR Executive"
-                            className="w-full rounded-md border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500"
-                          />
+                            className="w-full rounded-md border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-500"
+                          >
+                            <option value="">Select Designation</option>
+
+                            {designationRecords
+                              .filter((designation) => designation.status === "Active")
+                              .map((designation) => (
+                                <option key={designation.id} value={designation.title}>
+                                  {designation.title}
+                                </option>
+                              ))}
+                          </select>
                         </div>
                       </div>
 
@@ -1255,6 +1272,32 @@ function App() {
                           placeholder="Enter phone number"
                           className="w-full rounded-md border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500"
                         />
+                      </div>
+
+                      {/* New: Employee document upload */}
+                      <div className="md:col-span-2">
+                        <label
+                          htmlFor="employee-files"
+                          className="mb-1.5 block text-sm font-medium"
+                        >
+                          Upload Employee Documents
+                        </label>
+
+                        <input
+                          id="employee-files"
+                          type="file"
+                          multiple
+                          onChange={(event) =>
+                            setEmployeeFiles(Array.from(event.target.files || []))
+                          }
+                          className="w-full rounded-md border border-slate-300 bg-white px-3 py-2.5 text-sm"
+                        />
+
+                        {employeeFiles.length > 0 && (
+                          <p className="mt-2 text-sm text-slate-500">
+                            {employeeFiles.length} file(s) selected
+                          </p>
+                        )}
                       </div>
 
                       <div className="flex justify-end gap-3 border-t border-slate-200 pt-4">

@@ -16,6 +16,10 @@ A modular, multi-tenant ERP platform designed to support shared business capabil
 
 The initial active module is **HR**. See [`modules/hr/README.md`](modules/hr/README.md).
 
+The running HR & Payroll application is in `apps/backend/hr-module` (API) and
+`apps/frontend/hr-module` (UI). Setup, database migrations and tests:
+[`apps/backend/hr-module/README.md`](apps/backend/hr-module/README.md).
+
 ## Suggested repository map
 
 - `platform/` — cross-cutting platform capabilities and their contracts.

@@ -1,16 +1,29 @@
-# React + Vite
+# ELVA TECH HR & Payroll ERP — Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React 19 + Vite + Tailwind UI for the ELVA TECH HRMS.
 
-Currently, two official plugins are available:
+```powershell
+npm install
+npm run dev      # http://localhost:5173
+npm run lint
+npm run build
+```
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+The API address comes from `VITE_API_BASE_URL` (see `.env.example`;
+defaults to `http://localhost:3000`). The backend must list this app's origin in
+`ALLOWED_ORIGINS` in production.
 
-## React Compiler
+The sidebar is filtered by role. Company admins see every page, including
+Payroll Policy (approve), Leave Carry Forward and Approval Delegation. HR
+managers see the operational pages; Payroll Policy is read-only for them.
+Employees see My Profile, the directory and their own attendance, leave,
+payslips and advances. **My Approvals** appears for admins, HR managers and
+approval delegates. My Profile appears when the login is linked to an employee. The
+backend enforces the same rules; hiding a page is not the security boundary.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+The employee profile (Employee Directory → an employee, or My Profile) has
+Personal Info, Employment, Documents, Salary, Attendance and Leave tabs, all
+loaded from the backend. Colleagues see directory fields only.
 
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+Full setup, database and test instructions:
+[`../../backend/hr-module/README.md`](../../backend/hr-module/README.md).

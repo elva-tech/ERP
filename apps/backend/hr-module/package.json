@@ -3,13 +3,24 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "predev": "npm run prisma:generate",
     "dev": "next dev",
+    "prebuild": "npm run prisma:generate",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test:e2e": "node tests/api.e2e.mjs",
+    "test:unit": "node --test \"tests/unit/*.test.mjs\"",
+    "prisma:generate": "prisma generate --config prisma7.config.ts",
+    "prisma:validate": "prisma validate --config prisma7.config.ts",
+    "db:status": "prisma migrate status --config prisma7.config.ts",
+    "db:deploy": "prisma migrate deploy --config prisma7.config.ts"
   },
   "dependencies": {
+    "@prisma/adapter-pg": "^7.10.1",
+    "@prisma/client": "^7.10.1",
     "bcryptjs": "^3.0.3",
+    "dotenv": "^18.0.8",
     "next": "16.4.2",
     "pg": "^8.23.1",
     "react": "19.3.0",
@@ -20,6 +31,7 @@
     "@types/pg": "^8.23.1",
     "eslint": "^9",
     "eslint-config-next": "16.4.2",
+    "prisma": "^7.10.1",
     "tailwindcss": "^4"
   }
 }

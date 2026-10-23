@@ -41,3 +41,9 @@ vendor/
 test-results/
 playwright-report/
 artifacts/
+
+# Local AI-assistant tooling (kept on disk, not versioned)
+.agents/
+.claude/
+.windsurf/
+skills-lock.json

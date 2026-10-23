@@ -1,294 +1,218 @@
 
-import { NextResponse } from "next/server";
 import { connection } from "next/server";
 import { pool } from "@/lib/db";
 import {
-  getAuthenticatedUser,
-  getActiveCompanyMembership,
-} from "@/lib/session";
-import { isSameOriginRequest } from "@/lib/security";
+  ADMIN_ROLES,
+  MANAGER_ROLES,
+  fail,
+  isManager,
+  isOwnRecord,
+  ok,
+  parseId,
+  readJsonObject,
+  requireCompanyAccess,
+  serverError,
+} from "@/lib/api";
+import {
+  EMPLOYEE_COLUMNS,
+  PUBLIC_EMPLOYEE_COLUMNS,
+  checkOrgReferences,
+  checkReportingManager,
+  checkUserLink,
+  duplicateEmployeeMessage,
+  recordEmploymentChanges,
+  validateEmployeeInput,
+} from "@/lib/employees";
+import { changeMembership, lockCompanyAccess } from "@/lib/access";
 
-function validId(value) {
-  return typeof value === "string" && /^[1-9]\d{0,18}$/.test(value);
-}
+const COLUMN_MAP = {
+  employeeCode: "employee_code",
+  name: "name",
+  department: "department",
+  designation: "designation",
+  email: "email",
+  phone: "phone",
+  status: "status",
+  userId: "user_id",
+  dateOfJoining: "date_of_joining",
+  dateOfBirth: "date_of_birth",
+  gender: "gender",
+  employmentType: "employment_type",
+  workLocation: "work_location",
+  reportingManagerId: "reporting_manager_id",
+};
 
-function parseCompanyId(value) {
-  if (typeof value === "number" && Number.isSafeInteger(value) && value > 0) {
-    return String(value);
-  }
-
-  if (typeof value === "string") {
-    return value.trim();
-  }
-
-  return "";
-}
-
-function validateEmployee(body) {
-  if (!body || typeof body !== "object" || Array.isArray(body)) {
-    return "Request body must be a JSON object.";
-  }
-
-  const employeeCode =
-    typeof body.employeeCode === "string" ? body.employeeCode.trim() : "";
-  const name = typeof body.name === "string" ? body.name.trim() : "";
-  const department =
-    typeof body.department === "string" ? body.department.trim() : "";
-  const designation =
-    typeof body.designation === "string" ? body.designation.trim() : "";
-  const email =
-    typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
-  const phone = typeof body.phone === "string" ? body.phone.trim() : "";
-  const status = body.status;
-
-  if (
-    employeeCode.length < 1 ||
-    employeeCode.length > 30 ||
-    name.length < 2 ||
-    name.length > 200 ||
-    department.length < 1 ||
-    department.length > 150 ||
-    designation.length < 1 ||
-    designation.length > 150 ||
-    email.length > 255 ||
-    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ||
-    phone.length > 30 ||
-    (status !== undefined && !["Active", "Inactive"].includes(status))
-  ) {
-    return "Enter valid employee details.";
-  }
-
-  return null;
-}
-
-function employeeValues(body) {
-  return [
-    body.employeeCode.trim(),
-    body.name.trim(),
-    body.department.trim(),
-    body.designation.trim(),
-    body.email.trim().toLowerCase(),
-    typeof body.phone === "string" ? body.phone.trim() || null : null,
-    body.status ?? "Active",
-  ];
-}
-
-async function authorizeEmployee(request, employeeId, requiredRoles = []) {
-  const user = await getAuthenticatedUser();
-
-  if (!user) {
-    return {
-      error: NextResponse.json(
-        { success: false, message: "Authentication required." },
-        { status: 401 }
-      ),
-    };
-  }
-
-  const companyId = parseCompanyId(
-    new URL(request.url).searchParams.get("companyId")
+async function loadEmployee(employeeId, companyId, columns = EMPLOYEE_COLUMNS) {
+  const result = await pool.query(
+    `SELECT ${columns} FROM employees
+     WHERE id = $1 AND company_id = $2
+     LIMIT 1`,
+    [employeeId, companyId]
   );
-
-  if (!validId(employeeId) || !validId(companyId)) {
-    return {
-      error: NextResponse.json(
-        {
-          success: false,
-          message: "A valid employeeId and companyId are required.",
-        },
-        { status: 400 }
-      ),
-    };
-  }
-
-  const membership = await getActiveCompanyMembership(user.id, companyId);
-
-  if (!membership) {
-    return {
-      error: NextResponse.json(
-        { success: false, message: "Active company membership required." },
-        { status: 403 }
-      ),
-    };
-  }
-
-  if (requiredRoles.length && !requiredRoles.includes(membership.role)) {
-    return {
-      error: NextResponse.json(
-        {
-          success: false,
-          message: "You do not have permission to perform this action.",
-        },
-        { status: 403 }
-      ),
-    };
-  }
-
-  return { user, companyId };
+  return result.rows[0] ?? null;
 }
 
 export async function GET(request, { params }) {
   await connection();
 
   try {
-    const { employeeId } = await params;
-    const access = await authorizeEmployee(request, employeeId);
+    const employeeId = parseId((await params).employeeId);
+    if (!employeeId) return fail(400, "A valid employeeId is required.");
 
+    const access = await requireCompanyAccess(request);
     if (access.error) return access.error;
 
-    const result = await pool.query(
-      `SELECT id, company_id, employee_code, name, department,
-              designation, email, phone, status, created_at, updated_at
-       FROM employees
-       WHERE id = $1 AND company_id = $2
-       LIMIT 1`,
-      [employeeId, access.companyId]
+    const fullAccess =
+      isManager(access.membership) ||
+      (await isOwnRecord(access.companyId, access.user, employeeId));
+    const employee = await loadEmployee(
+      employeeId,
+      access.companyId,
+      fullAccess ? EMPLOYEE_COLUMNS : PUBLIC_EMPLOYEE_COLUMNS
     );
+    if (!employee) return fail(404, "Employee not found.");
 
-    if (!result.rowCount) {
-      return NextResponse.json(
-        { success: false, message: "Employee not found." },
-        { status: 404 }
-      );
-    }
-
-    return NextResponse.json({
-      success: true,
-      employee: result.rows[0],
-    });
+    return ok({ employee });
   } catch (error) {
-    console.error("Get employee failed:", error);
-
-    return NextResponse.json(
-      { success: false, message: "Unable to retrieve employee." },
-      { status: 500 }
-    );
+    return serverError("Get employee failed", error, "Unable to retrieve employee.");
   }
 }
 
+/**
+ * PATCH /api/employees/[employeeId] (managers)
+ * Department, designation and status changes are recorded in the employee's
+ * employment history (source "system") in the same transaction.
+ */
 export async function PATCH(request, { params }) {
-  if (!isSameOriginRequest(request)) {
-    return NextResponse.json(
-      { success: false, message: "Forbidden request origin." },
-      { status: 403 }
-    );
-  }
-
   await connection();
 
+  let client;
   try {
-    const { employeeId } = await params;
-    const access = await authorizeEmployee(request, employeeId, [
-      "company_admin",
-      "hr_manager",
-    ]);
+    const employeeId = parseId((await params).employeeId);
+    if (!employeeId) return fail(400, "A valid employeeId is required.");
 
+    const access = await requireCompanyAccess(request, {
+      roles: MANAGER_ROLES,
+      mutation: true,
+    });
     if (access.error) return access.error;
 
-    let body;
+    const parsed = await readJsonObject(request);
+    if (parsed.error) return parsed.error;
 
-    try {
-      body = await request.json();
-    } catch {
-      return NextResponse.json(
-        { success: false, message: "Request body must be valid JSON." },
-        { status: 400 }
-      );
+    const { values, message } = validateEmployeeInput(parsed.body, { partial: true });
+    if (message) return fail(400, message);
+
+    const fields = Object.keys(values).filter((key) => COLUMN_MAP[key]);
+    if (fields.length === 0) return fail(400, "No valid fields provided for update.");
+
+    const current = await loadEmployee(employeeId, access.companyId);
+    if (!current) return fail(404, "Employee not found.");
+
+    const birth = values.dateOfBirth !== undefined ? values.dateOfBirth : current.date_of_birth;
+    const joining = values.dateOfJoining !== undefined ? values.dateOfJoining : current.date_of_joining;
+    if (birth && joining && joining <= birth) {
+      return fail(400, "Date of joining must be after the date of birth.");
     }
 
-    const validationError = validateEmployee(body);
+    const referenceError = await checkOrgReferences(access.companyId, values, current);
+    if (referenceError) return fail(400, referenceError);
 
-    if (validationError) {
-      return NextResponse.json(
-        { success: false, message: validationError },
-        { status: 400 }
-      );
+    if (values.userId !== undefined) {
+      const linkError = await checkUserLink(access.companyId, values.userId);
+      if (linkError) return fail(400, linkError);
     }
 
-    const [
-      employeeCode,
-      name,
-      department,
-      designation,
-      email,
-      phone,
-      status,
-    ] = employeeValues(body);
+    const linkedUserId = values.userId !== undefined ? values.userId : current.user_id;
+    const deactivating = values.status === "Inactive" && current.status !== "Inactive";
+    if (deactivating && linkedUserId && String(linkedUserId) === String(access.user.id)) {
+      return fail(403, "You cannot deactivate your own employee record.");
+    }
 
-    const result = await pool.query(
+    client = await pool.connect();
+    await client.query("BEGIN");
+
+    let accessSuspended = false;
+    if (deactivating && linkedUserId) {
+      // Deactivation suspends the linked login's access to this company only.
+      await lockCompanyAccess(client, access.companyId);
+      const change = await changeMembership(client, {
+        companyId: access.companyId,
+        actorUserId: access.user.id,
+        targetUserId: linkedUserId,
+        status: "suspended",
+        note: "Employee record deactivated",
+      });
+      if (change.error) {
+        await client.query("ROLLBACK");
+        return fail(...change.error);
+      }
+      accessSuspended = change.membership.changed;
+    }
+
+    if (values.reportingManagerId !== undefined) {
+      // Serialise reporting-line changes so concurrent edits cannot form a cycle.
+      await client.query("SELECT pg_advisory_xact_lock(hashtext('employee_reporting_lines'), $1::int)", [
+        Number(access.companyId) % 2147483647,
+      ]);
+      const managerError = await checkReportingManager(access.companyId, employeeId, values.reportingManagerId, client);
+      if (managerError) {
+        await client.query("ROLLBACK");
+        return fail(400, managerError);
+      }
+    }
+
+    const assignments = fields.map((key, index) => `${COLUMN_MAP[key]} = $${index + 1}`);
+    const result = await client.query(
       `UPDATE employees
-       SET employee_code = $1,
-           name = $2,
-           department = $3,
-           designation = $4,
-           email = $5,
-           phone = $6,
-           status = $7,
-           updated_at = NOW()
-       WHERE id = $8 AND company_id = $9
-       RETURNING id, company_id, employee_code, name, department,
-                 designation, email, phone, status, created_at, updated_at`,
-      [
-        employeeCode,
-        name,
-        department,
-        designation,
-        email,
-        phone,
-        status,
-        employeeId,
-        access.companyId,
-      ]
+       SET ${assignments.join(", ")}, updated_at = NOW()
+       WHERE id = $${fields.length + 1} AND company_id = $${fields.length + 2}
+       RETURNING ${EMPLOYEE_COLUMNS}`,
+      [...fields.map((key) => values[key]), employeeId, access.companyId]
     );
 
     if (!result.rowCount) {
-      return NextResponse.json(
-        { success: false, message: "Employee not found." },
-        { status: 404 }
-      );
+      await client.query("ROLLBACK");
+      return fail(404, "Employee not found.");
     }
+    await recordEmploymentChanges(client, {
+      companyId: access.companyId,
+      employeeId,
+      before: current,
+      after: result.rows[0],
+      userId: access.user.id,
+    });
+    await client.query("COMMIT");
 
-    return NextResponse.json({
-      success: true,
-      message: "Employee updated successfully.",
+    return ok({
+      message: accessSuspended
+        ? "Employee deactivated. Their access to this company has been suspended."
+        : "Employee updated successfully.",
       employee: result.rows[0],
+      accessSuspended,
     });
   } catch (error) {
+    if (client) await client.query("ROLLBACK").catch(() => {});
     if (error.code === "23505") {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Employee code or email already exists in this company.",
-        },
-        { status: 409 }
-      );
+      return fail(409, duplicateEmployeeMessage(error));
     }
-
-    console.error("Update employee failed:", error);
-
-    return NextResponse.json(
-      { success: false, message: "Unable to update employee." },
-      { status: 500 }
-    );
+    return serverError("Update employee failed", error, "Unable to update employee.");
+  } finally {
+    client?.release();
   }
 }
 
 export async function DELETE(request, { params }) {
-  if (!isSameOriginRequest(request)) {
-    return NextResponse.json(
-      { success: false, message: "Forbidden request origin." },
-      { status: 403 }
-    );
-  }
-
   await connection();
 
   try {
-    const { employeeId } = await params;
-    const access = await authorizeEmployee(request, employeeId, [
-      "company_admin",
-    ]);
+    const employeeId = parseId((await params).employeeId);
+    if (!employeeId) return fail(400, "A valid employeeId is required.");
 
+    const access = await requireCompanyAccess(request, {
+      roles: ADMIN_ROLES,
+      mutation: true,
+    });
     if (access.error) return access.error;
 
     const result = await pool.query(
@@ -298,24 +222,16 @@ export async function DELETE(request, { params }) {
       [employeeId, access.companyId]
     );
 
-    if (!result.rowCount) {
-      return NextResponse.json(
-        { success: false, message: "Employee not found." },
-        { status: 404 }
+    if (!result.rowCount) return fail(404, "Employee not found.");
+
+    return ok({ message: "Employee deleted successfully.", employeeId: result.rows[0].id });
+  } catch (error) {
+    if (error.code === "23503") {
+      return fail(
+        409,
+        "This employee has attendance, leave, payroll, document or reporting-line records. Deactivate the employee instead of deleting."
       );
     }
-
-    return NextResponse.json({
-      success: true,
-      message: "Employee deleted successfully.",
-      employeeId: result.rows[0].id,
-    });
-  } catch (error) {
-    console.error("Delete employee failed:", error);
-
-    return NextResponse.json(
-      { success: false, message: "Unable to delete employee." },
-      { status: 500 }
-    );
+    return serverError("Delete employee failed", error, "Unable to delete employee.");
   }
 }

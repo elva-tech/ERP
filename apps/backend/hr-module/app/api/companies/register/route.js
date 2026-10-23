@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { pool } from "@/lib/db";
 import { hashPassword } from "@/lib/auth";
 import { isSameOriginRequest } from "@/lib/security";
+import { admitRegistration } from "@/lib/registration-throttle";
 
 export async function POST(request) {
   if (!isSameOriginRequest(request)) {
@@ -60,6 +61,27 @@ export async function POST(request) {
           "Enter a valid company name, full name, email, and password (12-72 characters)."
       },
       { status: 400 }
+    );
+  }
+
+  let wait;
+  try {
+    wait = await admitRegistration(pool, request, email);
+  } catch (error) {
+    console.error("Registration rate limit check failed:", error.message);
+    return NextResponse.json(
+      { success: false, message: "Unable to complete company registration." },
+      { status: 500 }
+    );
+  }
+  if (wait > 0) {
+    const minutes = Math.ceil(wait / 60);
+    return NextResponse.json(
+      {
+        success: false,
+        message: `Too many registration attempts. Try again in ${minutes} minute${minutes === 1 ? "" : "s"}.`,
+      },
+      { status: 429, headers: { "Retry-After": String(wait) } }
     );
   }
 

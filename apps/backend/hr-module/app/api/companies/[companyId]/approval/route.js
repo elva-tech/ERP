@@ -1,4 +1,4 @@
-﻿
+
 import { NextResponse } from "next/server";
 import { pool } from "@/lib/db";
 import { getAuthenticatedUser } from "@/lib/session";
@@ -155,17 +155,11 @@ export async function PATCH(request, { params }) {
     }
 
   } catch (error) {
-    console.error("Company approval failed:", error);
+    console.error("Company approval failed:", error?.message || error);
 
     return NextResponse.json(
-        {
-        success: false,
-        message:
-            process.env.NODE_ENV === "development"
-            ? error.message
-            : "Unable to process company approval.",
-        },
-        { status: 500 }
+      { success: false, message: "Unable to process company approval." },
+      { status: 500 }
     );
   }
 }

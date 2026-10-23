@@ -2,18 +2,27 @@
 import { NextResponse } from "next/server";
 import { pool } from "@/lib/db";
 import { verifyPassword, createSessionToken, hashSessionToken } from "@/lib/auth";
-import { isSameOriginRequest } from "@/lib/security";
+import { isSafeRequestOrigin } from "@/lib/security";
+import {
+  clientIp,
+  lockIdentifier,
+  loginIdentifier,
+  recordAttempt,
+  retryAfterSeconds,
+} from "@/lib/login-throttle";
 
 const SESSION_COOKIE_NAME = "hrms_session";
 const SESSION_DURATION_SECONDS = 60 * 60 * 8;
 
 export async function POST(request) {
-  if (!isSameOriginRequest(request)) {
-  return NextResponse.json(
-    { success: false, message: "Forbidden request origin." },
-    { status: 403 }
-  );
+  if (!isSafeRequestOrigin(request)) {
+    return NextResponse.json(
+      { success: false, message: "Forbidden request origin." },
+      { status: 403 }
+    );
   }
+
+  let client;
   try {
     const body = await request.json();
     const email =
@@ -34,7 +43,27 @@ export async function POST(request) {
       );
     }
 
-    const result = await pool.query(
+    const identifierHash = loginIdentifier(email);
+    const ip = clientIp(request);
+
+    client = await pool.connect();
+    await client.query("BEGIN");
+    await lockIdentifier(client, identifierHash);
+
+    const retryAfter = await retryAfterSeconds(client, identifierHash, ip);
+    if (retryAfter > 0) {
+      await client.query("ROLLBACK");
+      const minutes = Math.ceil(retryAfter / 60);
+      return NextResponse.json(
+        {
+          success: false,
+          message: `Too many failed sign-in attempts. Try again in ${minutes} minute${minutes === 1 ? "" : "s"}.`,
+        },
+        { status: 429, headers: { "Retry-After": String(retryAfter) } }
+      );
+    }
+
+    const result = await client.query(
       `SELECT
          u.id,
          u.email,
@@ -62,6 +91,8 @@ export async function POST(request) {
     const user = result.rows[0];
 
     if (!user || !(await verifyPassword(password, user.password_hash))) {
+      await recordAttempt(client, identifierHash, ip, false);
+      await client.query("COMMIT");
       return NextResponse.json(
         { success: false, message: "Invalid email or password." },
         { status: 401 }
@@ -74,11 +105,13 @@ export async function POST(request) {
       Date.now() + SESSION_DURATION_SECONDS * 1000
     );
 
-    await pool.query(
+    await client.query(
       `INSERT INTO sessions (user_id, token_hash, expires_at)
        VALUES ($1, $2, $3)`,
       [user.id, tokenHash, expiresAt]
     );
+    await recordAttempt(client, identifierHash, ip, true);
+    await client.query("COMMIT");
 
     const response = NextResponse.json({
       success: true,
@@ -101,11 +134,14 @@ export async function POST(request) {
 
     return response;
   } catch (error) {
+    if (client) await client.query("ROLLBACK").catch(() => {});
     console.error("Login failed:", error.message);
 
     return NextResponse.json(
       { success: false, message: "Unable to process login." },
       { status: 500 }
     );
+  } finally {
+    client?.release();
   }
 }

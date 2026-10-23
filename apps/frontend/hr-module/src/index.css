@@ -1,5 +1,29 @@
-
 @import "tailwindcss";
+
+/* ELVA TECH design tokens: navy shell, brand blue-teal actions, teal accent. */
+@theme {
+  --font-sans: "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+
+  --color-navy-950: #0b1726;
+  --color-navy-900: #102236;
+  --color-navy-800: #172f48;
+  --color-navy-700: #21405f;
+  --color-navy-300: #9fb1c5;
+  --color-navy-200: #c9d5e2;
+
+  --color-brand-50: #eef5f9;
+  --color-brand-100: #d7e8f1;
+  --color-brand-200: #b1d1e3;
+  --color-brand-500: #2c79a3;
+  --color-brand-600: #205778;
+  --color-brand-700: #17445e;
+
+  --color-accent-400: #2dd4bf;
+  --color-accent-500: #14b8a6;
+
+  --color-canvas: #f3f5f8;
+  --color-line: #e3e8ee;
+}
 
 * {
   box-sizing: border-box;
@@ -8,29 +32,47 @@
 body {
   margin: 0;
   min-width: 320px;
-  font-family: Arial, Helvetica, sans-serif;
-  background: #f3f4f6;
-  color: #1f2937;
+  font-family: var(--font-sans);
+  background: var(--color-canvas);
+  color: #1c2733;
+  -webkit-font-smoothing: antialiased;
 }
 
-/* Hide sidebar scrollbar while keeping scrolling enabled */
+/* Visible keyboard focus everywhere; mouse clicks keep a clean look. */
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--color-brand-500);
+  outline-offset: 2px;
+}
+
+/* Scrollable without a visible scrollbar (wheel, touch and keyboard still scroll). */
 .sidebar-scroll {
   scrollbar-width: none;
-  -ms-overflow-style: none;
 }
 
 .sidebar-scroll::-webkit-scrollbar {
   display: none;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}
+
 /* Hide the main page scrollbar while keeping scrolling enabled */
 html,
-body {
+body,
+#root {
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
 
+/* Chrome, Edge and Safari */
 html::-webkit-scrollbar,
-body::-webkit-scrollbar {
+body::-webkit-scrollbar,
+#root::-webkit-scrollbar {
   display: none;
 }

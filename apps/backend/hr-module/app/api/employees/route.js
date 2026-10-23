@@ -1,236 +1,114 @@
 
-import { NextResponse } from "next/server";
 import { connection } from "next/server";
 import { pool } from "@/lib/db";
-import { getAuthenticatedUser, getActiveCompanyMembership } from "@/lib/session";
-import { isSameOriginRequest } from "@/lib/security";
-
-function validCompanyId(value) {
-  return typeof value === "string" && /^[1-9]\d*$/.test(value);
-}
+import {
+  MANAGER_ROLES,
+  fail,
+  isManager,
+  ok,
+  readJsonObject,
+  requireCompanyAccess,
+  serverError,
+} from "@/lib/api";
+import {
+  EMPLOYEE_COLUMNS,
+  PUBLIC_EMPLOYEE_COLUMNS,
+  checkOrgReferences,
+  checkReportingManager,
+  checkUserLink,
+  duplicateEmployeeMessage,
+  validateEmployeeInput,
+} from "@/lib/employees";
 
 export async function GET(request) {
   await connection();
 
   try {
-    const user = await getAuthenticatedUser();
+    const access = await requireCompanyAccess(request);
+    if (access.error) return access.error;
 
-    if (!user) {
-      return NextResponse.json(
-        { success: false, message: "Authentication required." },
-        { status: 401 }
-      );
+    const status = new URL(request.url).searchParams.get("status");
+    const values = [access.companyId];
+    let filter = "";
+    if (status === "Active" || status === "Inactive") {
+      values.push(status);
+      filter = " AND status = $2";
     }
 
-    const companyId = new URL(request.url).searchParams.get("companyId");
-
-    if (!validCompanyId(companyId)) {
-      return NextResponse.json(
-        { success: false, message: "A valid companyId is required." },
-        { status: 400 }
-      );
-    }
-
-    const membership = await getActiveCompanyMembership(user.id, companyId);
-
-    if (!membership) {
-      return NextResponse.json(
-        { success: false, message: "Active company membership required." },
-        { status: 403 }
-      );
-    }
-
+    const columns = isManager(access.membership) ? EMPLOYEE_COLUMNS : PUBLIC_EMPLOYEE_COLUMNS;
     const result = await pool.query(
-      `SELECT
-         id,
-         company_id,
-         employee_code,
-         name,
-         department,
-         designation,
-         email,
-         phone,
-         status,
-         created_at,
-         updated_at
+      `SELECT ${columns}
        FROM employees
-       WHERE company_id = $1
+       WHERE company_id = $1${filter}
        ORDER BY name ASC`,
-      [companyId]
+      values
     );
 
-    return NextResponse.json({
-      success: true,
-      count: result.rowCount,
-      employees: result.rows,
-    });
+    return ok({ count: result.rowCount, employees: result.rows });
   } catch (error) {
-    console.error("List employees failed:", error);
-
-    return NextResponse.json(
-      { success: false, message: "Unable to retrieve employees." },
-      { status: 500 }
-    );
+    return serverError("List employees failed", error, "Unable to retrieve employees.");
   }
 }
 
 export async function POST(request) {
-  if (!isSameOriginRequest(request)) {
-    return NextResponse.json(
-      { success: false, message: "Forbidden request origin." },
-      { status: 403 }
-    );
-  }
-
   await connection();
 
   try {
-    const user = await getAuthenticatedUser();
+    const parsed = await readJsonObject(request);
+    if (parsed.error) return parsed.error;
 
-    if (!user) {
-      return NextResponse.json(
-        { success: false, message: "Authentication required." },
-        { status: 401 }
-      );
-    }
+    const access = await requireCompanyAccess(request, {
+      roles: MANAGER_ROLES,
+      companyId: parsed.body.companyId ?? "",
+      mutation: true,
+    });
+    if (access.error) return access.error;
 
-    let body;
+    const { values, message } = validateEmployeeInput(parsed.body);
+    if (message) return fail(400, message);
 
-    try {
-      body = await request.json();
-    } catch {
-      return NextResponse.json(
-        { success: false, message: "Request body must be valid JSON." },
-        { status: 400 }
-      );
-    }
+    const referenceError = await checkOrgReferences(access.companyId, values);
+    if (referenceError) return fail(400, referenceError);
 
-    const companyId =
-      typeof body.companyId === "number" &&
-      Number.isSafeInteger(body.companyId) &&
-      body.companyId > 0
-        ? String(body.companyId)
-        : typeof body.companyId === "string"
-          ? body.companyId.trim()
-          : "";
+    const linkError = await checkUserLink(access.companyId, values.userId ?? null);
+    if (linkError) return fail(400, linkError);
 
-    const employeeCode =
-      typeof body.employeeCode === "string"
-        ? body.employeeCode.trim()
-        : "";
-
-    const name = typeof body.name === "string" ? body.name.trim() : "";
-    const department =
-      typeof body.department === "string" ? body.department.trim() : "";
-    const designation =
-      typeof body.designation === "string" ? body.designation.trim() : "";
-    const email =
-      typeof body.email === "string"
-        ? body.email.trim().toLowerCase()
-        : "";
-    const phone =
-      typeof body.phone === "string" ? body.phone.trim() : "";
-    const status = body.status === undefined ? "Active" : body.status;
-
-    if (
-      !validCompanyId(companyId) ||
-      employeeCode.length < 1 ||
-      employeeCode.length > 30 ||
-      name.length < 2 ||
-      name.length > 200 ||
-      department.length < 1 ||
-      department.length > 150 ||
-      designation.length < 1 ||
-      designation.length > 150 ||
-      email.length > 255 ||
-      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ||
-      phone.length > 30 ||
-      !["Active", "Inactive"].includes(status)
-    ) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Enter valid employee details and a valid companyId.",
-        },
-        { status: 400 }
-      );
-    }
-
-    const membership = await getActiveCompanyMembership(user.id, companyId);
-
-    if (
-      !membership ||
-      !["company_admin", "hr_manager"].includes(membership.role)
-    ) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "An active company administrator or HR manager is required.",
-        },
-        { status: 403 }
-      );
-    }
+    const managerError = await checkReportingManager(access.companyId, null, values.reportingManagerId ?? null);
+    if (managerError) return fail(400, managerError);
 
     const result = await pool.query(
-      `INSERT INTO employees (
-         company_id,
-         employee_code,
-         name,
-         department,
-         designation,
-         email,
-         phone,
-         status
-       )
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-       RETURNING
-         id,
-         company_id,
-         employee_code,
-         name,
-         department,
-         designation,
-         email,
-         phone,
-         status,
-         created_at,
-         updated_at`,
+      `INSERT INTO employees
+         (company_id, employee_code, name, department, designation, email, phone, status, user_id,
+          date_of_joining, date_of_birth, gender, employment_type, work_location, reporting_manager_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+       RETURNING ${EMPLOYEE_COLUMNS}`,
       [
-        companyId,
-        employeeCode,
-        name,
-        department,
-        designation,
-        email,
-        phone || null,
-        status,
+        access.companyId,
+        values.employeeCode,
+        values.name,
+        values.department,
+        values.designation,
+        values.email,
+        values.phone ?? null,
+        values.status,
+        values.userId ?? null,
+        values.dateOfJoining ?? null,
+        values.dateOfBirth ?? null,
+        values.gender ?? null,
+        values.employmentType ?? null,
+        values.workLocation ?? null,
+        values.reportingManagerId ?? null,
       ]
     );
 
-    return NextResponse.json(
-      {
-        success: true,
-        message: "Employee created successfully.",
-        employee: result.rows[0],
-      },
-      { status: 201 }
+    return ok(
+      { message: "Employee created successfully.", employee: result.rows[0] },
+      201
     );
   } catch (error) {
     if (error.code === "23505") {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Employee code or email already exists in this company.",
-        },
-        { status: 409 }
-      );
+      return fail(409, duplicateEmployeeMessage(error));
     }
-
-    console.error("Create employee failed:", error);
-
-    return NextResponse.json(
-      { success: false, message: "Unable to create employee." },
-      { status: 500 }
-    );
+    return serverError("Create employee failed", error, "Unable to create employee.");
   }
 }

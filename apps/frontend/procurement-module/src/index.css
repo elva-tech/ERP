@@ -1,0 +1,71 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter Variable", Inter, Arial, sans-serif;
+
+  --color-sidebar: #111c3a;
+  --color-sidebar-active: #1b2a4a;
+  --color-sidebar-text: #94a3b8;
+  --color-sidebar-line: #252f4a;
+
+  --color-brand: #c41e3a;
+  --color-brand-hover: #a9172f;
+  --color-brand-strong: #c91e3a;
+  --color-brand-soft: #fdecef;
+
+  --color-workspace: #f4f6f9;
+  --color-surface: #ffffff;
+  --color-surface-muted: #f8fafc;
+  --color-field: #fbfcfe;
+  --color-field-line: #dce3ed;
+  --color-modal-footer: #f7f9fc;
+  --color-ink: #1e293b;
+  --color-ink-soft: #334155;
+  --color-navy: #1b2a4a;
+  --color-muted: #64748b;
+  --color-placeholder: #94a3b8;
+  --color-line: #e2e8f0;
+  --color-line-soft: #f1f5f9;
+
+  --color-accent: #0e9f7e;
+  --color-login: #1a5276;
+  --color-login-hover: #154360;
+
+  --color-success: #10b981;
+  --color-success-soft: #d1fae5;
+  --color-success-muted: #e6f4ea;
+  --color-danger: #ef4444;
+  --color-danger-soft: #fee2e2;
+  --color-warning: #fbbf24;
+  --color-warning-strong: #f59e0b;
+  --color-warning-soft: #fef3c7;
+  --color-info: #3b82f6;
+  --color-info-soft: #eff6ff;
+  --color-sent-soft: #e0e9f5;
+  --color-link: #2563eb;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  font-family: var(--font-sans);
+  background: var(--color-workspace);
+  color: var(--color-ink);
+  -webkit-font-smoothing: antialiased;
+}
+
+html:has(dialog[open]) {
+  overflow: hidden;
+}
+
+.sidebar-scroll {
+  scrollbar-width: none;
+}
+
+.sidebar-scroll::-webkit-scrollbar {
+  display: none;
+}

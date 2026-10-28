@@ -321,6 +321,7 @@ export function createDemoState() {
     status,
     paymentScheduleId,
     termsAndConditions: "",
+    attachmentIds: n === 1 ? ["att-seed-agreement-001"] : [],
   }));
   const agreementById = new Map(agreements.map((a) => [a.id, a]));
 
@@ -409,6 +410,8 @@ export function createDemoState() {
 
   const generatedReports = [];
 
+  const seedAgreementPdf = Buffer.from("%PDF-1.4\n%\xE2\xE3\xCF\xD3\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF");
+
   return {
     suppliers,
     purchaseOrders,
@@ -422,7 +425,16 @@ export function createDemoState() {
     approvals,
     performance,
     generatedReports,
-    attachments: [],
+    attachments: [
+      {
+        id: "att-seed-agreement-001",
+        fileName: "SCA-001-signed-copy.pdf",
+        contentType: "application/pdf",
+        sizeBytes: seedAgreementPdf.length,
+        purpose: "subcontract_agreement",
+        data: seedAgreementPdf,
+      },
+    ],
     idempotency: new Map(),
     signedIn: true,
     outage: false,

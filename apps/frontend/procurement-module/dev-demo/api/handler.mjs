@@ -35,7 +35,7 @@ const DEMO_PASSWORD = "demo123";
 const NAVIGATION_KEYS = [
   "dashboard", "supplierMaster", "supplierLedger", "supplierPerformance", "purchaseRequisitions", "purchaseOrders",
   "purchaseInvoices", "purchaseReturns", "purchaseReports", "subcontractors", "subcontractAgreements",
-  "subcontractOrders", "subcontractBills", "pendingApprovals", "approvalHistory", "supplierReports", "spendAnalysis",
+  "subcontractBills", "pendingApprovals", "approvalHistory", "spendAnalysis",
 ];
 
 const DOCUMENT_TYPE_LABELS = {
@@ -421,7 +421,15 @@ export function createDemoApi({ latencyMs = 250 } = {}) {
     };
   };
 
-  const activeAgreementCount = (scId) => state.agreements.filter((a) => a.subcontractorId === scId && a.status === "active").length;
+  /** Stored `completed` is manual; otherwise expired when past end date (PRD list badges). */
+  function agreementEffectiveStatus(a) {
+    if (a.status === "completed") return "completed";
+    if (a.endDate < DEMO_TODAY) return "expired";
+    return "active";
+  }
+
+  const activeAgreementCount = (scId) =>
+    state.agreements.filter((a) => a.subcontractorId === scId && agreementEffectiveStatus(a) === "active").length;
 
   const subcontractorJson = (sc) => ({
     id: sc.id,
@@ -446,7 +454,20 @@ export function createDemoApi({ latencyMs = 250 } = {}) {
     agreementValue: money(a.agreementValuePaise),
     startDate: a.startDate,
     endDate: a.endDate,
-    status: a.status,
+    status: agreementEffectiveStatus(a),
+  });
+
+  const agreementDetailJson = (a) => ({
+    ...agreementJson(a),
+    title: a.title,
+    scopeOfWork: a.scopeOfWork,
+    termsAndConditions: a.termsAndConditions || null,
+    paymentScheduleLabel: nameOf(PAYMENT_SCHEDULES, a.paymentScheduleId),
+    attachments: (a.attachmentIds ?? [])
+      .map((id) => state.attachments.find((attachment) => attachment.id === id))
+      .filter(Boolean)
+      .map((attachment) => ({ id: attachment.id, fileName: attachment.fileName, contentType: attachment.contentType })),
+    allowedActions: agreementEffectiveStatus(a) === "active" ? ["complete"] : [],
   });
 
   const subcontractOrderJson = (o) => {
@@ -1300,7 +1321,9 @@ export function createDemoApi({ latencyMs = 250 } = {}) {
       const file = multipart?.file;
       if (!file || typeof file !== "object") v.add("file", "Choose a file to upload.");
       else {
-        if (!ATTACHMENT_TYPES.includes(file.contentType)) v.add("file", "Upload a PDF, JPG or PNG file.");
+        if (multipart.purpose === "subcontract_agreement" && file.contentType !== "application/pdf") {
+          v.add("file", "Upload a PDF file for the signed copy.");
+        } else if (!ATTACHMENT_TYPES.includes(file.contentType)) v.add("file", "Upload a PDF, JPG or PNG file.");
         if (file.size > MAX_ATTACHMENT_BYTES) v.add("file", "The file is larger than 10 MB.");
       }
       v.throwIfAny();
@@ -1310,10 +1333,22 @@ export function createDemoApi({ latencyMs = 250 } = {}) {
         sizeBytes: file.size,
         contentType: file.contentType,
         purpose: multipart.purpose ?? null,
+        data: file.data,
       };
       state.attachments.push(created);
       const { id, fileName, sizeBytes, contentType } = created;
       return { status: 201, body: { id, fileName, sizeBytes, contentType } };
+    }],
+    ["GET", /^\/procurement\/attachments\/([^/]+)\/file$/, ({ params }) => {
+      const attachment = state.attachments.find((a) => a.id === params[0]);
+      if (!attachment?.data) throw notFound("Attachment");
+      return {
+        file: {
+          buffer: attachment.data,
+          fileName: attachment.fileName,
+          contentType: attachment.contentType ?? "application/octet-stream",
+        },
+      };
     }],
     ["POST", /^\/procurement\/purchase-invoices$/, ({ body }) => {
       const v = createValidator();
@@ -1476,7 +1511,7 @@ export function createDemoApi({ latencyMs = 250 } = {}) {
     }],
     ["GET", /^\/procurement\/subcontractors\/summary$/, () => ({
       registeredCount: state.subcontractors.length,
-      activeAgreementCount: state.agreements.filter((a) => a.status === "active").length,
+      activeAgreementCount: state.agreements.filter((a) => agreementEffectiveStatus(a) === "active").length,
       topRatedCount: state.subcontractors.filter((sc) => sc.status === "active" && Number(sc.rating) >= DEMO_RULES.topRatedThreshold).length,
       topRatedThreshold: DEMO_RULES.topRatedThreshold.toFixed(1),
       suspendedOrBlacklistedCount: state.subcontractors.filter((sc) => sc.status === "suspended").length,
@@ -1520,7 +1555,7 @@ export function createDemoApi({ latencyMs = 250 } = {}) {
     ["GET", /^\/procurement\/subcontract-agreements$/, ({ query }) => {
       const status = query.get("status") ?? "";
       const rows = state.agreements
-        .filter((a) => !status || a.status === status)
+        .filter((a) => !status || agreementEffectiveStatus(a) === status)
         .sort((a, b) => b.agreementDate.localeCompare(a.agreementDate) || b.id.localeCompare(a.id))
         .map(agreementJson);
       return paginate(rows, query);
@@ -1528,12 +1563,33 @@ export function createDemoApi({ latencyMs = 250 } = {}) {
     ["GET", /^\/procurement\/subcontract-agreements\/summary$/, () => {
       const renewalCutoff = addDays(DEMO_TODAY, 30);
       return {
-        activeCount: state.agreements.filter((a) => a.status === "active").length,
+        activeCount: state.agreements.filter((a) => agreementEffectiveStatus(a) === "active").length,
         cumulativeValue: money(state.agreements.reduce((sum, a) => sum + a.agreementValuePaise, 0)),
         completedCount: state.agreements.filter((a) => a.status === "completed").length,
         completedPeriodLabel: "FY 2026-27",
-        expiredOrPendingRenewalCount: state.agreements.filter((a) => a.status === "expired" || (a.status === "active" && a.endDate <= renewalCutoff)).length,
+        expiredOrPendingRenewalCount: state.agreements.filter(
+          (a) => agreementEffectiveStatus(a) === "expired" || (agreementEffectiveStatus(a) === "active" && a.endDate <= renewalCutoff),
+        ).length,
       };
+    }],
+    ["GET", /^\/procurement\/subcontract-agreements\/([^/]+)$/, ({ params }) => {
+      const record = agreement(params[0]);
+      if (!record) throw notFound("Subcontract agreement");
+      return agreementDetailJson(record);
+    }],
+    ["POST", /^\/procurement\/subcontract-agreements\/([^/]+)\/status-changes$/, ({ params, body }) => {
+      const record = agreement(params[0]);
+      if (!record) throw notFound("Subcontract agreement");
+      if (body.status !== "completed") {
+        const v = createValidator();
+        v.add("status", "Only completed is supported.");
+        v.throwIfAny();
+      }
+      if (agreementEffectiveStatus(record) !== "active") {
+        throw conflict("Only an active agreement can be marked completed.");
+      }
+      record.status = "completed";
+      return agreementDetailJson(record);
     }],
     ["POST", /^\/procurement\/subcontract-agreements$/, ({ body }) => {
       const v = createValidator();
@@ -1546,6 +1602,8 @@ export function createDemoApi({ latencyMs = 250 } = {}) {
       if (isDate(body.startDate) && isDate(body.endDate) && body.endDate < body.startDate) v.add("endDate", "End date cannot be before the start date.");
       if (!isMoney(body.agreementValue) || toPaise(body.agreementValue) <= 0) v.add("agreementValue", "Enter an agreement value greater than zero.");
       if (!PAYMENT_SCHEDULES.some((p) => p.id === body.paymentScheduleId)) v.add("paymentScheduleId", "Select a payment schedule.");
+      const attachmentIds = Array.isArray(body.attachmentIds) ? body.attachmentIds : [];
+      if (attachmentIds.some((id) => !state.attachments.some((a) => a.id === id))) v.add("attachmentIds", "The attachment upload was not found. Upload it again.");
       v.throwIfAny();
       const n = nextNumber(state.agreements, "agreementNumber", /SCA\/26-27\/(\d+)/);
       const created = {
@@ -1559,9 +1617,10 @@ export function createDemoApi({ latencyMs = 250 } = {}) {
         agreementValuePaise: toPaise(body.agreementValue),
         startDate: body.startDate,
         endDate: body.endDate,
-        status: body.endDate < DEMO_TODAY ? "expired" : "active",
+        status: "active",
         paymentScheduleId: body.paymentScheduleId,
         termsAndConditions: String(body.termsAndConditions ?? ""),
+        attachmentIds,
       };
       state.agreements.push(created);
       return { status: 201, body: agreementJson(created) };
@@ -1906,7 +1965,7 @@ export function createDemoApi({ latencyMs = 250 } = {}) {
         const name = /;\s*name="([^"]*)"/i.exec(headers)?.[1];
         const fileName = /filename="([^"]*)"/i.exec(headers)?.[1];
         const type = /content-type:\s*([^\r\n]+)/i.exec(headers)?.[1]?.trim();
-        if (name) fields[name] = fileName !== undefined ? { fileName, contentType: type ?? "application/octet-stream", size: data.length } : data.toString("utf8");
+        if (name) fields[name] = fileName !== undefined ? { fileName, contentType: type ?? "application/octet-stream", size: data.length, data } : data.toString("utf8");
       }
       start = next;
     }

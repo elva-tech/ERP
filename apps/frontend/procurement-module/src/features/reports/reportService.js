@@ -40,11 +40,6 @@ export function downloadGeneratedReport(reportId) {
   return apiRequest(`/procurement/reports/generated/${encodeURIComponent(reportId)}/file`, { responseType: "blob" });
 }
 
-/** PROPOSED: GET /procurement/reports/supplier-overview */
-export function getSupplierReportOverview(signal) {
-  return apiRequest("/procurement/reports/supplier-overview", { signal });
-}
-
 /** PROPOSED: GET /procurement/reports/spend-analysis */
 export function getSpendAnalysis({ periodId }, signal) {
   return apiRequest("/procurement/reports/spend-analysis", { query: { periodId }, signal });

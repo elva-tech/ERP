@@ -19,13 +19,14 @@ import RecordDetailPage from "./pages/RecordDetailPage.jsx";
 import SpendAnalysisPage from "./pages/SpendAnalysisPage.jsx";
 import SubcontractAgreementsPage from "./pages/SubcontractAgreementsPage.jsx";
 import SubcontractBillsPage from "./pages/SubcontractBillsPage.jsx";
-import SubcontractOrdersPage from "./pages/SubcontractOrdersPage.jsx";
+// Subcontract Orders screen is disabled for now.
+// import SubcontractOrdersPage from "./pages/SubcontractOrdersPage.jsx";
 import SubcontractorsPage from "./pages/SubcontractorsPage.jsx";
 import SupplierLedgerDetailPage from "./pages/SupplierLedgerDetailPage.jsx";
 import SupplierLedgerPage from "./pages/SupplierLedgerPage.jsx";
 import SupplierMasterPage from "./pages/SupplierMasterPage.jsx";
 import SupplierPerformancePage from "./pages/SupplierPerformancePage.jsx";
-import SupplierReportsPage from "./pages/SupplierReportsPage.jsx";
+// Supplier Reports screen removed.
 
 const TOAST_DURATION_MS = 3200;
 const DEFAULT_SEARCH_PLACEHOLDER = "Search transactions, suppliers...";
@@ -73,7 +74,7 @@ const PAGES = {
     navKey: "subcontractAgreements",
     component: SubcontractAgreementsPage,
   },
-  [ROUTES.subcontractOrders]: { title: "Subcontract Orders", navKey: "subcontractOrders", component: SubcontractOrdersPage },
+  // [ROUTES.subcontractOrders]: { title: "Subcontract Orders", navKey: "subcontractOrders", component: SubcontractOrdersPage },
   [ROUTES.subcontractBills]: { title: "Subcontract Bills", navKey: "subcontractBills", component: SubcontractBillsPage },
   [ROUTES.pendingApprovals]: {
     title: "Pending Approvals",
@@ -87,12 +88,6 @@ const PAGES = {
     navKey: "approvalHistory",
     searchPlaceholder: SHORT_SEARCH_PLACEHOLDER,
     component: ApprovalHistoryPage,
-  },
-  [ROUTES.supplierReports]: {
-    title: "Supplier Reports",
-    navKey: "supplierReports",
-    searchPlaceholder: SHORT_SEARCH_PLACEHOLDER,
-    component: SupplierReportsPage,
   },
   [ROUTES.spendAnalysis]: {
     title: "Spend Analysis",

@@ -84,7 +84,6 @@ function RequisitionDetail({ id, onNotify }) {
             { label: "Priority", value: <StatusBadge status={pr.priority} statusMap={REQUISITION_PRIORITY_BADGES} /> },
             { label: "Approver", value: displayText(pr.approver?.displayName) },
             { label: "Estimated Amount", value: <span className="font-bold">{formatInr(pr.estimatedAmount)}</span> },
-            { label: "Purchase Order", value: displayText(pr.purchaseOrder?.orderNumber) },
             { label: "Title", value: displayText(pr.title), wide: true },
             { label: "Justification", value: displayText(pr.justification), wide: true },
           ]}

@@ -43,8 +43,9 @@ The sign-in and sign-out endpoints are placeholders so the screens can be wired 
 
 - `navigation` contains route keys from `src/config/navigation.js` (`dashboard`, `supplierMaster`,
   `supplierLedger`, `supplierPerformance`, `purchaseRequisitions`, `purchaseOrders`, `purchaseInvoices`,
-  `purchaseReturns`, `purchaseReports`, `subcontractors`, `subcontractAgreements`, `subcontractOrders`,
-  `subcontractBills`, `pendingApprovals`, `approvalHistory`, `supplierReports`, `spendAnalysis`).
+  `purchaseReturns`, `purchaseReports`, `subcontractors`, `subcontractAgreements`,
+  `subcontractBills`, `pendingApprovals`, `approvalHistory`, `spendAnalysis`).
+  (`subcontractOrders` and `supplierReports` are not in the sidebar for now.)
   Sidebar items not in the list are hidden, and opening one shows "Access denied".
 - If `navigation` or `permissions` is missing or not an array, nothing is hidden. Visibility is cosmetic only;
   **the backend must authorise every request.**
@@ -290,7 +291,6 @@ The sign-in and sign-out endpoints are placeholders so the screens can be wired 
 - **Detail:** every list-item field plus
   - `title`, `requiredDate`, `approver { id, displayName } | null`, `justification`
   - `items[]: { description, quantity, unitLabel, estimatedCost }`
-  - `purchaseOrder { id, orderNumber } | null`
   - `pendingApproval { id, version } | null`: when set, View shows Approve and Reject. The decision is sent to
     `POST /procurement/approvals/{id}/decisions` (§15) with `expectedVersion = version`, and the detail is reloaded.
   - `approvalHistory[]: { id, decision, decidedBy { id, displayName }, decidedAt, comment }`
@@ -309,6 +309,7 @@ The sign-in and sign-out endpoints are placeholders so the screens can be wired 
 | --- | --- | --- | --- |
 | `GET /procurement/purchase-orders` | Purchase Orders (default filter `sent`) | query `page`, `pageSize`, `status`, `search` (`search` is not sent by the current screen) | paginated list |
 | `POST /procurement/purchase-orders` | Create PO modal | body below | created PO; `orderNumber` is used in the toast |
+| `GET /procurement/purchase-requisitions/{id}` | Create PO modal (after PR Reference is chosen) | none | requisition detail; `items[]` pre-fill the PO line editor |
 | `GET /procurement/purchase-orders/{id}` | View (record detail) | none | detail below |
 | `POST /procurement/purchase-orders/{id}/status-changes` | View: Mark as Sent / Mark Completed / Cancel PO | `{ "status": "sent" \| "completed" \| "cancelled" }` | detail |
 | `POST /procurement/purchase-orders/{id}/receipts` | View: Record Receipt | `{ "receivedDate", "items": [{ "lineId", "quantity" }] }` | detail |
@@ -450,6 +451,9 @@ The sign-in and sign-out endpoints are placeholders so the screens can be wired 
 | --- | --- | --- | --- |
 | `GET /procurement/subcontract-agreements` | Subcontract Agreements | query `page`, `pageSize`, `status` | paginated list |
 | `GET /procurement/subcontract-agreements/summary` | Summary cards | none | `{ activeCount, cumulativeValue, completedCount, completedPeriodLabel, expiredOrPendingRenewalCount }` |
+| `GET /procurement/subcontract-agreements/{id}` | View (record detail) | none | detail below |
+| `POST /procurement/subcontract-agreements/{id}/status-changes` | View: Mark as Completed | `{ "status": "completed" }` | detail |
+| `GET /procurement/attachments/{id}/file` | View signed copy | none | PDF file (blob) |
 | `POST /procurement/subcontract-agreements` | New Agreement modal | body below | created record; `agreementNumber` is used in the toast |
 
 - **List item:**
@@ -458,7 +462,14 @@ The sign-in and sign-out endpoints are placeholders so the screens can be wired 
   - `projectName`, `scopeSummary`, `agreementValue`, `startDate`, `endDate`
   - `status` (`active` \| `completed` \| `expired`)
 - **Create body:** `title`, `subcontractorId`, `projectId`, `startDate`, `endDate`, `scopeOfWork`,
-  `agreementValue`, `paymentScheduleId`, `termsAndConditions`.
+  `agreementValue`, `paymentScheduleId`, `termsAndConditions`, `attachmentIds: string[]` (signed copy PDF; optional).
+  Upload uses `POST /procurement/attachments` with `purpose=subcontract_agreement` (PDF only) before create.
+- **Detail:** every list-item field plus `title`, full `scopeOfWork`, `termsAndConditions`, `paymentScheduleLabel`,
+  `attachments[]: { id, fileName, contentType }`, `allowedActions: ["complete"]` while status is Active.
+- **Status (PRD-aligned, not toggled on the list):**
+  - **Active** — current date is on or before the end date and the agreement is not completed.
+  - **Expired** — end date has passed and the agreement is not completed (backend-derived on read).
+  - **Completed** — user chooses **Mark as Completed** on View when work is finished.
 
 **UNRESOLVED**
 
@@ -469,6 +480,8 @@ The sign-in and sign-out endpoints are placeholders so the screens can be wired 
 ---
 
 ## 13. Subcontract orders — `features/subcontract-orders/subcontractOrderService.js`
+
+The Subcontract Orders route and sidebar item are **commented out** in the frontend for now; list services remain for when the screen is re-enabled.
 
 | | |
 | --- | --- |
@@ -576,7 +589,7 @@ The sign-in and sign-out endpoints are placeholders so the screens can be wired 
 | `GET /procurement/reports/generated` | Purchase Reports, "Recently Generated" | query `page`, `pageSize` (5) | paginated `{ id, fileName, generatedAt, sizeBytes, format, status: ready \| processing \| failed }` |
 | `POST /procurement/reports/generate` | Generate button | `{ "reportKey", "periodId": "string \| null", "format" }` (the first format listed for the report) | any 2xx; the list is reloaded afterwards |
 | `GET /procurement/reports/generated/{id}/file` | Download | none | file (blob) |
-| `GET /procurement/reports/supplier-overview` | Supplier Reports | none | see below |
+| `GET /procurement/reports/supplier-overview` | *(no screen; reserved for a future Supplier Reports page)* | none | see below |
 | `GET /procurement/reports/spend-analysis` | Spend Analysis | query `periodId` (currently always empty) | see below |
 
 - **Supplier overview:**
@@ -604,7 +617,7 @@ The sign-in and sign-out endpoints are placeholders so the screens can be wired 
 | Item | Current frontend behaviour | Status |
 | --- | --- | --- |
 | Workspace (PRD screen) | Not built; no route or sidebar item | **UNRESOLVED**: purpose not confirmed |
-| Record detail (`#/record?type=&id=&number=`) for returns, subcontract agreements/orders/bills, approvals and reports | Placeholder that states no detail design exists; no request is made | **UNRESOLVED**: detail screens and endpoints. Requisition, purchase order and invoice detail are PROPOSED in §7, §8 and §9. |
+| Record detail (`#/record?type=&id=&number=`) for returns, subcontract orders/bills, approvals and reports | Placeholder that states no detail design exists; no request is made | **UNRESOLVED**: detail screens and endpoints. Requisition, purchase order, invoice and subcontract agreement detail are PROPOSED in §7–§9 and §12. |
 | Subcontract Orders "Create Order" | Disabled | **UNRESOLVED**: form design and endpoint |
 | Subcontract Bills "Record Bill" | Disabled | **UNRESOLVED**: form design and endpoint |
 | Bulk approval | Disabled checkbox | **UNRESOLVED**: rules |

@@ -2,13 +2,11 @@ import { pool } from "@/lib/db";
 import { MANAGER_ROLES, isManager, isOwnRecord } from "@/lib/api";
 
 /**
- * Separation of duties for leave, regularization and advance reviews:
- * - nobody may review a request for their own employee record;
- * - company admins and HR managers review everyone else's requests;
- * - a member a company admin has designated as an approval delegate may
- *   review requests raised by the company's admins/HR managers only. This
- *   resolves the case where the only admin needs their own request reviewed
- *   without removing the self-approval rule.
+ * Separation of duties for leave, regularization, advance and overtime reviews:
+ * - company admins and HR managers may review any request in their company,
+ *   including a request on their own employee record;
+ * - an approval delegate may review requests raised by admins or HR managers,
+ *   but not their own request and not an ordinary employee's request.
  * Every decision is written to approval_audit_log with the authority used.
  */
 
@@ -41,13 +39,13 @@ async function requesterRole(companyId, employeeId, db) {
 
 /**
  * Returns { authority: "manager" | "delegate" } or { status, message }.
- * noun: "leave request", "regularization request", "advance request".
+ * noun: "leave request", "regularization request", "advance request", "overtime record".
  */
 export async function reviewAuthority({ companyId, user, membership, employeeId, noun }, db = pool) {
+  if (isManager(membership)) return { authority: "manager" };
   if (await isOwnRecord(companyId, user, employeeId, db)) {
     return { status: 403, message: `You cannot approve or reject your own ${noun}.` };
   }
-  if (isManager(membership)) return { authority: "manager" };
   if (!(await isActiveDelegate(companyId, user.id, db))) {
     return { status: 403, message: `Only company admins, HR managers or an approval delegate can review a ${noun}.` };
   }

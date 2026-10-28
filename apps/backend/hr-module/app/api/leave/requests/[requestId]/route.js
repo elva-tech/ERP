@@ -49,7 +49,7 @@ export async function GET(request, { params }) {
  * PATCH /api/leave/requests/[requestId]  { action: approve | reject | cancel, reviewNote? }
  * - approve/reject: company_admin or hr_manager (or an approval delegate for
  *   requests raised by admins/HR managers), only while Pending, and never for
- *   the reviewer's own request. Decisions are written to approval_audit_log.
+ *   including the reviewer's own request. Decisions are written to approval_audit_log.
  * - cancel: managers, or the employee for their own request; Pending or
  *   Approved. Cancelling an approved request restores the balance.
  */

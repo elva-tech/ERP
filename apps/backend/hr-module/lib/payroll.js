@@ -24,7 +24,7 @@ export const PAYSLIP_SELECT = `SELECT
 export const ADVANCE_SELECT = `SELECT
   a.id, a.employee_id, e.name AS employee_name, e.employee_code, e.department,
   a.amount::float8 AS amount, a.emi_amount::float8 AS emi_amount, a.balance::float8 AS balance,
-  a.purpose, a.status, a.approved_at, u.full_name AS approved_by_name, a.created_at, a.updated_at
+  a.requested_months, a.purpose, a.status, a.approved_at, u.full_name AS approved_by_name, a.created_at, a.updated_at
   FROM employee_advances a
   JOIN employees e ON e.id = a.employee_id
   LEFT JOIN users u ON u.id = a.approved_by`;

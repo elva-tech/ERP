@@ -17,6 +17,7 @@ import {
   checkReportingManager,
   checkUserLink,
   duplicateEmployeeMessage,
+  nextEmployeeCode,
   validateEmployeeInput,
 } from "@/lib/employees";
 
@@ -64,7 +65,9 @@ export async function POST(request) {
     });
     if (access.error) return access.error;
 
-    const { values, message } = validateEmployeeInput(parsed.body);
+    const rawCode = parsed.body.employeeCode;
+    const autoCode = rawCode === undefined || rawCode === null || (typeof rawCode === "string" && !rawCode.trim());
+    const { values, message } = validateEmployeeInput(autoCode ? { ...parsed.body, employeeCode: "auto" } : parsed.body);
     if (message) return fail(400, message);
 
     const referenceError = await checkOrgReferences(access.companyId, values);
@@ -76,30 +79,42 @@ export async function POST(request) {
     const managerError = await checkReportingManager(access.companyId, null, values.reportingManagerId ?? null);
     if (managerError) return fail(400, managerError);
 
-    const result = await pool.query(
-      `INSERT INTO employees
-         (company_id, employee_code, name, department, designation, email, phone, status, user_id,
-          date_of_joining, date_of_birth, gender, employment_type, work_location, reporting_manager_id)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
-       RETURNING ${EMPLOYEE_COLUMNS}`,
-      [
-        access.companyId,
-        values.employeeCode,
-        values.name,
-        values.department,
-        values.designation,
-        values.email,
-        values.phone ?? null,
-        values.status,
-        values.userId ?? null,
-        values.dateOfJoining ?? null,
-        values.dateOfBirth ?? null,
-        values.gender ?? null,
-        values.employmentType ?? null,
-        values.workLocation ?? null,
-        values.reportingManagerId ?? null,
-      ]
-    );
+    const client = await pool.connect();
+    let result;
+    try {
+      await client.query("BEGIN");
+      if (autoCode) values.employeeCode = await nextEmployeeCode(client, access.companyId);
+      result = await client.query(
+        `INSERT INTO employees
+           (company_id, employee_code, name, department, designation, email, phone, status, user_id,
+            date_of_joining, date_of_birth, gender, employment_type, work_location, reporting_manager_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+         RETURNING ${EMPLOYEE_COLUMNS}`,
+        [
+          access.companyId,
+          values.employeeCode,
+          values.name,
+          values.department,
+          values.designation,
+          values.email,
+          values.phone ?? null,
+          values.status,
+          values.userId ?? null,
+          values.dateOfJoining ?? null,
+          values.dateOfBirth ?? null,
+          values.gender ?? null,
+          values.employmentType ?? null,
+          values.workLocation ?? null,
+          values.reportingManagerId ?? null,
+        ]
+      );
+      await client.query("COMMIT");
+    } catch (error) {
+      await client.query("ROLLBACK").catch(() => {});
+      throw error;
+    } finally {
+      client.release();
+    }
 
     return ok(
       { message: "Employee created successfully.", employee: result.rows[0] },

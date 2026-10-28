@@ -17,6 +17,22 @@ export const PUBLIC_EMPLOYEE_COLUMNS = `id, company_id, employee_code, name, dep
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+/**
+ * Next sequential employee code for a company: one more than the highest all-digit code,
+ * zero-padded to at least three digits (001, 002, ...). Codes with letters are left alone.
+ * Must run inside a transaction: the per-company advisory lock is held until commit,
+ * so concurrent creations cannot draw the same number.
+ */
+export async function nextEmployeeCode(client, companyId) {
+  await client.query("SELECT pg_advisory_xact_lock(hashtextextended('employee_code:' || $1::text, 0))", [companyId]);
+  const result = await client.query(
+    `SELECT (COALESCE(MAX(employee_code::numeric), 0) + 1)::text AS next
+     FROM employees WHERE company_id = $1 AND employee_code ~ '^[0-9]{1,18}$'`,
+    [companyId]
+  );
+  return result.rows[0].next.padStart(3, "0");
+}
+
 const FIELD_RULES = {
   employeeCode: { min: 1, max: 30, label: "Employee code" },
   name: { min: 2, max: 200, label: "Name" },

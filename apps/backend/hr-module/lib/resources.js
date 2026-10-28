@@ -214,6 +214,9 @@ export const salaryStructures = createCrud({
   readRoles: PAYROLL_READ,
   duplicateMessage: "A salary structure with this name already exists.",
   select: `id, company_id, name, description, ctc_min::float8 AS ctc_min, ctc_max::float8 AS ctc_max, status,
+    department_id, designation_id,
+    (SELECT department_name FROM departments d WHERE d.id = salary_structures.department_id) AS department_name,
+    (SELECT designation_name FROM designations g WHERE g.id = salary_structures.designation_id) AS designation_name,
     (SELECT COUNT(*)::int FROM salary_structure_components c WHERE c.structure_id = salary_structures.id) AS component_count,
     (SELECT COUNT(*)::int FROM employee_salary_assignments a WHERE a.structure_id = salary_structures.id) AS assignment_count,
     created_at, updated_at`,
@@ -224,14 +227,16 @@ export const salaryStructures = createCrud({
   fields: {
     name: { column: "name", type: "string", label: "Structure name", required: true, min: 2, max: 200 },
     description: { column: "description", type: "string", label: "Description", max: 2000 },
-    ctcMin: { column: "ctc_min", type: "decimal", label: "Minimum CTC", min: 0, max: 1e12 },
-    ctcMax: { column: "ctc_max", type: "decimal", label: "Maximum CTC", min: 0, max: 1e12 },
+    ctcMin: { column: "ctc_min", type: "decimal", label: "Minimum annual salary", min: 0, max: 1e12 },
+    ctcMax: { column: "ctc_max", type: "decimal", label: "Maximum annual salary", min: 0, max: 1e12 },
+    departmentId: { column: "department_id", type: "id", label: "Department", references: "departments" },
+    designationId: { column: "designation_id", type: "id", label: "Designation", references: "designations" },
     status: STATUS,
   },
   validate: (values, { current } = {}) => {
     const min = values.ctcMin === undefined ? current?.ctc_min : values.ctcMin;
     const max = values.ctcMax === undefined ? current?.ctc_max : values.ctcMax;
-    if (min != null && max != null && Number(max) < Number(min)) return "Maximum CTC must be at least the minimum CTC.";
+    if (min != null && max != null && Number(max) < Number(min)) return "Maximum annual salary must be at least the minimum annual salary.";
     return null;
   },
 });

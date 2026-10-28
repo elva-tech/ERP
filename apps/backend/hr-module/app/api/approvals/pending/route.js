@@ -59,7 +59,7 @@ export async function GET(request) {
       ),
       pool.query(
         `SELECT a.id, a.employee_id, e.name AS employee_name, e.employee_code,
-                a.amount::float8 AS amount, a.emi_amount::float8 AS emi_amount, a.purpose, a.created_at
+                a.amount::float8 AS amount, a.emi_amount::float8 AS emi_amount, a.requested_months, a.purpose, a.created_at
          FROM employee_advances a
          JOIN employees e ON e.id = a.employee_id
          WHERE a.company_id = $1 AND a.status = 'Pending' AND ${scope}

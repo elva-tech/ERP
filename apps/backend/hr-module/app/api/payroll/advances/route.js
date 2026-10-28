@@ -57,8 +57,9 @@ export async function GET(request) {
 }
 
 /**
- * POST /api/payroll/advances { companyId, employeeId?, amount, emiAmount?, purpose? }
- * Employees may only request for themselves.
+ * POST /api/payroll/advances { companyId, employeeId?, amount?, months?, emiAmount?, purpose? }
+ * At least one of amount or months (1-3, the requested repayment period) is required;
+ * a months-only request gets its amount from the approver. Employees may only request for themselves.
  */
 export async function POST(request) {
   await connection();
@@ -71,10 +72,18 @@ export async function POST(request) {
     const access = await requireCompanyAccess(request, { companyId: body.companyId ?? "", mutation: true });
     if (access.error) return access.error;
 
-    const amount = parseAmount(body.amount);
+    const hasAmount = body.amount !== undefined && body.amount !== null && body.amount !== "";
+    const hasMonths = body.months !== undefined && body.months !== null && body.months !== "";
+    const amount = hasAmount ? parseAmount(body.amount) : null;
+    const months = hasMonths ? Number(body.months) : null;
     const emiAmount = body.emiAmount === undefined || body.emiAmount === "" ? null : parseAmount(body.emiAmount);
     const purpose = trimmed(body.purpose) || null;
-    if (!amount) return fail(400, "Enter a valid advance amount.");
+    if (!hasAmount && !hasMonths) return fail(400, "Enter an advance amount or the number of months.");
+    if (hasAmount && !amount) return fail(400, "Enter a valid advance amount.");
+    if (hasMonths && !(Number.isInteger(months) && months >= 1 && months <= 3)) {
+      return fail(400, "Number of months must be 1, 2 or 3.");
+    }
+    if (emiAmount && !amount) return fail(400, "An EMI amount needs an advance amount.");
     if (body.emiAmount !== undefined && body.emiAmount !== "" && !emiAmount) return fail(400, "Enter a valid EMI amount.");
     if (emiAmount && emiAmount > amount) return fail(400, "EMI amount cannot exceed the advance amount.");
     if (purpose && purpose.length > 2000) return fail(400, "Purpose is too long.");
@@ -96,9 +105,9 @@ export async function POST(request) {
     if (employee.rows[0].status !== "Active") return fail(400, "Advances cannot be requested for an inactive employee.");
 
     const inserted = await pool.query(
-      `INSERT INTO employee_advances (company_id, employee_id, amount, purpose, emi_amount, balance, status)
-       VALUES ($1, $2, $3, $4, $5, $3, 'Pending') RETURNING id`,
-      [access.companyId, employeeId, amount, purpose, emiAmount]
+      `INSERT INTO employee_advances (company_id, employee_id, amount, purpose, emi_amount, balance, requested_months, status)
+       VALUES ($1, $2, $3, $4, $5, $3, $6, 'Pending') RETURNING id`,
+      [access.companyId, employeeId, amount, purpose, emiAmount, months]
     );
     const created = await pool.query(`${ADVANCE_SELECT} WHERE a.id = $1`, [inserted.rows[0].id]);
     return ok({ message: "Advance request submitted.", advance: created.rows[0] }, 201);

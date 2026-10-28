@@ -8,8 +8,9 @@ import { canReview, logApproval, reviewAuthority } from "@/lib/approvals";
 /**
  * PATCH /api/attendance/regularizations/[regularizationId]
  * { action: approve | reject, reviewNote? } — managers (or an approval
- * delegate for requests raised by admins/HR managers), Pending only, never
- * for the reviewer's own request. Decisions go to approval_audit_log.
+ * delegate for requests raised by admins/HR managers), Pending only.
+ * Company admins and HR managers may review their own request.
+ * Decisions go to approval_audit_log.
  * Approval writes the requested times to the attendance record.
  */
 export async function PATCH(request, { params }) {

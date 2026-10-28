@@ -14,6 +14,8 @@ export const ATTENDANCE_STATUSES = [
   "On Leave",
   "Holiday",
   "Missing Punch",
+  "On Duty",
+  "Compensation",
 ];
 
 const TIME_PATTERN = /^([01]\d|2[0-3]):([0-5]\d)$/;
@@ -99,15 +101,20 @@ export function localTimestamp(dateParam, timeParam, tzParam) {
 }
 
 export const ATTENDANCE_SELECT = `SELECT
-  ar.id, ar.employee_id, e.name AS employee_name, e.employee_code, e.department,
+  ar.id, ar.employee_id, e.name AS employee_name, e.employee_code, e.department, e.designation, e.work_location,
   to_char(ar.attendance_date, 'YYYY-MM-DD') AS attendance_date,
   to_char(ar.check_in AT TIME ZONE $TZ, 'HH24:MI') AS check_in_time,
   to_char(ar.check_out AT TIME ZONE $TZ, 'HH24:MI') AS check_out_time,
   ar.check_in, ar.check_out, ar.status, ar.working_minutes, ar.overtime_minutes,
-  ar.is_regularized, ar.shift_id, s.name AS shift_name, ar.updated_at
+  ar.overtime_status, ar.overtime_reason, ar.overtime_review_note, ar.overtime_reviewed_at,
+  reviewer.full_name AS overtime_reviewed_by_name,
+  ar.is_regularized, ar.shift_id, s.name AS shift_name,
+  to_char(s.start_time, 'HH24:MI') AS shift_start, to_char(s.end_time, 'HH24:MI') AS shift_end,
+  s.overtime_threshold, ar.updated_at
   FROM attendance_records ar
   JOIN employees e ON e.id = ar.employee_id
-  LEFT JOIN shifts s ON s.id = ar.shift_id`;
+  LEFT JOIN shifts s ON s.id = ar.shift_id
+  LEFT JOIN users reviewer ON reviewer.id = ar.overtime_reviewed_by`;
 
 export const REGULARIZATION_SELECT = `SELECT
   r.id, r.employee_id, e.name AS employee_name, e.employee_code, e.department,
@@ -150,18 +157,42 @@ export async function upsertAttendance(
   const result = await client.query(
     `INSERT INTO attendance_records
        (company_id, employee_id, shift_id, attendance_date, check_in, check_out, status,
-        working_minutes, overtime_minutes, is_regularized)
+        working_minutes, overtime_minutes, is_regularized, overtime_status)
      VALUES ($1, $2, $3, $4::date,
        ${localTimestamp("COALESCE($12::date, $4::date)", "$5", "$11")},
        CASE WHEN $13::date IS NOT NULL THEN ${localTimestamp("$13", "$6", "$11")}
          ELSE ${localTimestamp("COALESCE($12::date, $4::date)", "$6", "$11")}
            + CASE WHEN $6::time <= $5::time THEN INTERVAL '1 day' ELSE INTERVAL '0' END END,
-       $7, $8, $9, $10)
+       $7, $8, $9, $10, CASE WHEN COALESCE($9, 0) > 0 THEN 'Pending' ELSE NULL END)
      ON CONFLICT (company_id, employee_id, attendance_date) DO UPDATE SET
        shift_id = EXCLUDED.shift_id, check_in = EXCLUDED.check_in, check_out = EXCLUDED.check_out,
        status = EXCLUDED.status, working_minutes = EXCLUDED.working_minutes,
        overtime_minutes = EXCLUDED.overtime_minutes,
        is_regularized = attendance_records.is_regularized OR EXCLUDED.is_regularized,
+       overtime_status = CASE
+         WHEN COALESCE(EXCLUDED.overtime_minutes, 0) = 0 THEN NULL
+         WHEN attendance_records.overtime_minutes IS NOT DISTINCT FROM EXCLUDED.overtime_minutes
+           THEN COALESCE(attendance_records.overtime_status, 'Pending')
+         ELSE 'Pending'
+       END,
+       overtime_reviewed_by = CASE
+         WHEN COALESCE(EXCLUDED.overtime_minutes, 0) > 0
+           AND attendance_records.overtime_minutes IS NOT DISTINCT FROM EXCLUDED.overtime_minutes
+           THEN attendance_records.overtime_reviewed_by
+         ELSE NULL
+       END,
+       overtime_reviewed_at = CASE
+         WHEN COALESCE(EXCLUDED.overtime_minutes, 0) > 0
+           AND attendance_records.overtime_minutes IS NOT DISTINCT FROM EXCLUDED.overtime_minutes
+           THEN attendance_records.overtime_reviewed_at
+         ELSE NULL
+       END,
+       overtime_review_note = CASE
+         WHEN COALESCE(EXCLUDED.overtime_minutes, 0) > 0
+           AND attendance_records.overtime_minutes IS NOT DISTINCT FROM EXCLUDED.overtime_minutes
+           THEN attendance_records.overtime_review_note
+         ELSE NULL
+       END,
        updated_at = NOW()
      RETURNING id`,
     [

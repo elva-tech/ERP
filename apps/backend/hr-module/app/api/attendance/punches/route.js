@@ -45,8 +45,9 @@ export async function GET(request) {
 
     const result = await pool.query(
       `SELECT p.id, p.employee_id, e.name AS employee_name, e.employee_code, p.device_id,
-              d.device_name, p.device_user_id, p.punch_type, p.punch_time,
-              to_char(p.punch_time AT TIME ZONE $3::text, 'YYYY-MM-DD HH24:MI:SS') AS punch_local_time
+              d.device_name, d.location AS device_location, p.device_user_id, p.punch_type, p.punch_time,
+              to_char(p.punch_time AT TIME ZONE $3::text, 'YYYY-MM-DD HH24:MI:SS') AS punch_local_time,
+              to_char(p.created_at AT TIME ZONE $3::text, 'YYYY-MM-DD HH24:MI:SS') AS received_local_time
        FROM raw_punches p
        LEFT JOIN employees e ON e.id = p.employee_id
        LEFT JOIN biometric_devices d ON d.id = p.device_id

@@ -6,8 +6,9 @@ import { ADVANCE_SELECT } from "@/lib/payroll";
 import { canReview, logApproval, reviewAuthority } from "@/lib/approvals";
 
 /**
- * PATCH /api/payroll/advances/[advanceId] { action: approve | reject | close, emiAmount? }
- * approve: Pending -> Active (EMI required, from body or request).
+ * PATCH /api/payroll/advances/[advanceId] { action: approve | reject | close, emiAmount?, amount? }
+ * approve: Pending -> Active (EMI required, from body or request; amount required when the
+ * request only stated a number of months).
  * reject: Pending -> Rejected. close: Active -> Closed (manual settlement).
  * approve/reject: managers, or an approval delegate for advances of admins/HR
  * managers; never the requester. close: managers only.
@@ -87,17 +88,26 @@ export async function PATCH(request, { params }) {
     }
 
     if (action === "approve") {
+      let amount = advance.amount;
+      if (amount == null) {
+        const rawAmount = Number(parsed.body.amount);
+        if (!Number.isFinite(rawAmount) || rawAmount <= 0 || rawAmount > 1e10) {
+          await client.query("ROLLBACK");
+          return fail(400, "This request has no amount. Enter the approved advance amount.");
+        }
+        amount = Math.round(rawAmount * 100) / 100;
+      }
       const raw = parsed.body.emiAmount;
       const emi = raw === undefined || raw === "" ? advance.emi_amount : Number(raw);
-      if (!Number.isFinite(emi) || emi <= 0 || emi > advance.amount) {
+      if (!Number.isFinite(emi) || emi <= 0 || emi > amount) {
         await client.query("ROLLBACK");
         return fail(400, "Set a monthly EMI amount greater than 0 and not more than the advance amount.");
       }
       await client.query(
         `UPDATE employee_advances
-         SET status = 'Active', emi_amount = $1, balance = amount, approved_by = $2, approved_at = NOW(), updated_at = NOW()
-         WHERE id = $3`,
-        [Math.round(emi * 100) / 100, access.user.id, advanceId]
+         SET status = 'Active', amount = $1, emi_amount = $2, balance = $1, approved_by = $3, approved_at = NOW(), updated_at = NOW()
+         WHERE id = $4`,
+        [amount, Math.round(emi * 100) / 100, access.user.id, advanceId]
       );
     } else {
       await client.query(

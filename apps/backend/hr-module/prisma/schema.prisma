@@ -17,14 +17,20 @@ model attendance_records {
   check_in         DateTime? @db.Timestamptz(6)
   check_out        DateTime? @db.Timestamptz(6)
   status           String    @default("Absent") @db.VarChar(30)
-  working_minutes  Int?
-  overtime_minutes Int?      @default(0)
-  is_regularized   Boolean   @default(false)
-  created_at       DateTime  @default(now()) @db.Timestamptz(6)
-  updated_at       DateTime  @default(now()) @db.Timestamptz(6)
-  companies        companies @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  employees        employees @relation(fields: [employee_id, company_id], references: [id, company_id], onDelete: NoAction, onUpdate: NoAction, map: "attendance_records_employee_company_fkey")
-  shifts           shifts?   @relation(fields: [shift_id, company_id], references: [id, company_id], onDelete: NoAction, onUpdate: NoAction, map: "attendance_records_shift_company_fkey")
+  working_minutes      Int?
+  overtime_minutes     Int?      @default(0)
+  overtime_status      String?   @db.VarChar(20)
+  overtime_reason      String?
+  overtime_review_note String?
+  overtime_reviewed_by BigInt?
+  overtime_reviewed_at DateTime? @db.Timestamptz(6)
+  is_regularized       Boolean   @default(false)
+  created_at           DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at           DateTime  @default(now()) @db.Timestamptz(6)
+  companies            companies @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  employees            employees @relation(fields: [employee_id, company_id], references: [id, company_id], onDelete: NoAction, onUpdate: NoAction, map: "attendance_records_employee_company_fkey")
+  shifts               shifts?   @relation(fields: [shift_id, company_id], references: [id, company_id], onDelete: NoAction, onUpdate: NoAction, map: "attendance_records_shift_company_fkey")
+  overtime_reviewer    users?    @relation("attendance_overtime_reviewer", fields: [overtime_reviewed_by], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "attendance_records_overtime_reviewer_fkey")
 
   @@unique([company_id, employee_id, attendance_date])
   @@index([company_id, attendance_date], map: "idx_attendance_company_date")
@@ -141,6 +147,7 @@ model departments {
   updated_at              DateTime                  @default(now()) @db.Timestamptz(6)
   companies               companies                 @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   designation_departments designation_departments[]
+  salary_structures       salary_structures[]
 
   @@unique([company_id, department_name])
   @@unique([id, company_id])
@@ -157,6 +164,7 @@ model designations {
   updated_at              DateTime                  @default(now()) @db.Timestamptz(6)
   companies               companies                 @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   designation_departments designation_departments[]
+  salary_structures       salary_structures[]
 
   @@unique([company_id, designation_name])
   @@unique([id, company_id])
@@ -167,10 +175,11 @@ model employee_advances {
   id                         BigInt                       @id @default(autoincrement())
   company_id                 BigInt
   employee_id                BigInt
-  amount                     Decimal                      @db.Decimal(15, 2)
+  amount                     Decimal?                     @db.Decimal(15, 2)
   purpose                    String?
   emi_amount                 Decimal?                     @db.Decimal(15, 2)
-  balance                    Decimal                      @db.Decimal(15, 2)
+  balance                    Decimal?                     @db.Decimal(15, 2)
+  requested_months           Int?                         @db.SmallInt
   status                     String                       @default("Pending") @db.VarChar(20)
   approved_by                BigInt?
   approved_at                DateTime?                    @db.Timestamptz(6)
@@ -510,15 +519,21 @@ model salary_structures {
   ctc_min                     Decimal?                      @db.Decimal(15, 2)
   ctc_max                     Decimal?                      @db.Decimal(15, 2)
   status                      String                        @default("Active") @db.VarChar(20)
+  department_id               BigInt?
+  designation_id              BigInt?
   created_at                  DateTime                      @default(now()) @db.Timestamptz(6)
   updated_at                  DateTime                      @default(now()) @db.Timestamptz(6)
   employee_salary_assignments employee_salary_assignments[]
   salary_structure_components salary_structure_components[]
   companies                   companies                     @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  departments                 departments?                  @relation(fields: [department_id, company_id], references: [id, company_id], onDelete: NoAction, onUpdate: NoAction, map: "salary_structures_department_company_fkey")
+  designations                designations?                 @relation(fields: [designation_id, company_id], references: [id, company_id], onDelete: NoAction, onUpdate: NoAction, map: "salary_structures_designation_company_fkey")
 
   @@unique([company_id, name])
   @@unique([id, company_id])
   @@index([company_id], map: "idx_salary_structures_company")
+  @@index([department_id], map: "idx_salary_structures_department")
+  @@index([designation_id], map: "idx_salary_structures_designation")
 }
 
 model sessions {
@@ -568,6 +583,7 @@ model users {
   email_verified_at          DateTime?                    @db.Timestamptz(6)
   created_at                 DateTime                     @default(now()) @db.Timestamptz(6)
   attendance_regularizations attendance_regularizations[]
+  overtime_reviews           attendance_records[]         @relation("attendance_overtime_reviewer")
   company_memberships        company_memberships[]
   employee_advances          employee_advances[]
   employees                  employees[]

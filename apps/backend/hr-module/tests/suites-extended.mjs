@@ -440,7 +440,7 @@ export async function delegationSuite(t, { fixtures, state, pool }) {
     expectStatus(await delegate.patch(`/api/payroll/advances/${advId}${q(cid)}`, { action: "close" }), 403);
     expectStatus(await admin.patch(`/api/payroll/advances/${advId}${q(cid)}`, { action: "close" }), 200);
   });
-  await t.check("the HR manager still cannot approve their own request", async () => {
+  await t.check("an HR manager can approve their own leave request", async () => {
     const r = await state.hrA.post("/api/leave/requests", {
       companyId: cid,
       employeeId: state.employee2Id,
@@ -450,14 +450,22 @@ export async function delegationSuite(t, { fixtures, state, pool }) {
     });
     expectStatus(r, 201);
     state.hrLeave2Id = String(r.data.request.id);
-    expectStatus(await state.hrA.patch(`/api/leave/requests/${state.hrLeave2Id}${q(cid)}`, { action: "approve" }), 403);
+    expectStatus(await state.hrA.patch(`/api/leave/requests/${state.hrLeave2Id}${q(cid)}`, { action: "approve" }), 200);
   });
   await t.check("revoking the delegation removes the authority; the grant stays listed", async () => {
     expectStatus(await state.hrA.delete(`/api/approvals/delegates/${state.delegationId}${q(cid)}`), 403);
     expectStatus(await state.adminB.delete(`/api/approvals/delegates/${state.delegationId}${q(fixtures.companyB)}`), 404);
     expectStatus(await admin.delete(`/api/approvals/delegates/${state.delegationId}${q(cid)}`), 200);
     expectStatus(await admin.delete(`/api/approvals/delegates/${state.delegationId}${q(cid)}`), 404);
-    expectStatus(await delegate.patch(`/api/leave/requests/${state.hrLeave2Id}${q(cid)}`, { action: "approve" }), 403);
+    const stillPending = await state.hrA.post("/api/leave/requests", {
+      companyId: cid,
+      employeeId: state.employee2Id,
+      leaveTypeId: state.unpaidTypeId,
+      fromDate: "2099-10-14",
+      toDate: "2099-10-14",
+    });
+    expectStatus(stillPending, 201);
+    expectStatus(await delegate.patch(`/api/leave/requests/${stillPending.data.request.id}${q(cid)}`, { action: "approve" }), 403);
     const list = await admin.get(`/api/approvals/delegates${q(cid)}`);
     const row = list.data.delegates.find((d) => String(d.id) === state.delegationId);
     expect(row && row.revoked_at && row.granted_by_name === "E2E Admin A", JSON.stringify(row));

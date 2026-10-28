@@ -75,7 +75,7 @@ export function TotalsList({ rows }) {
 }
 
 const ACTION_TONES = {
-  brand: "bg-brand-strong text-white hover:bg-brand-hover focus-visible:outline-brand",
+  brand: "bg-navy text-white hover:bg-sidebar focus-visible:outline-navy",
   success: "bg-success text-white hover:bg-[#059669] focus-visible:outline-success",
   danger: "border border-danger/40 bg-surface text-danger hover:bg-danger-soft focus-visible:outline-danger",
   neutral: "border border-line bg-surface text-ink hover:bg-workspace focus-visible:outline-navy",

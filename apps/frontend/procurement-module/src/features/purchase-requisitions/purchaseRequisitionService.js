@@ -42,9 +42,19 @@ export function getPurchaseRequisition(id, signal) {
   return apiRequest(`/procurement/purchase-requisitions/${encodeURIComponent(id)}`, { signal });
 }
 
-/** PROPOSED: GET /procurement/purchase-requisitions */
-export function listPurchaseRequisitions({ page, pageSize, status, search }, signal) {
-  return apiRequest("/procurement/purchase-requisitions", { query: { page, pageSize, status, search }, signal });
+/**
+ * PROPOSED: GET /procurement/purchase-requisitions
+ * `search` is a case-insensitive substring match on requisition number, title, department name, and requester display name.
+ * `requisitionNumber`, `departmentId`, and `requestedById` remain optional exact/partial filters for existing callers.
+ */
+export function listPurchaseRequisitions(
+  { page, pageSize, status, search, requisitionNumber, departmentId, requestedById },
+  signal,
+) {
+  return apiRequest("/procurement/purchase-requisitions", {
+    query: { page, pageSize, status, search, requisitionNumber, departmentId, requestedById },
+    signal,
+  });
 }
 
 /** PROPOSED: POST /procurement/purchase-requisitions (submitted for approval) */

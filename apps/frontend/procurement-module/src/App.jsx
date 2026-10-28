@@ -29,6 +29,7 @@ import SupplierPerformancePage from "./pages/SupplierPerformancePage.jsx";
 // Supplier Reports screen removed.
 
 const TOAST_DURATION_MS = 3200;
+const HEADER_SEARCH_DEBOUNCE_MS = 350;
 const DEFAULT_SEARCH_PLACEHOLDER = "Search transactions, suppliers...";
 const SHORT_SEARCH_PLACEHOLDER = "Search transactions...";
 
@@ -57,6 +58,8 @@ const PAGES = {
   [ROUTES.purchaseRequisitions]: {
     title: "Purchase Requisitions",
     navKey: "purchaseRequisitions",
+    searchPlaceholder: "Search PR, department, or requester...",
+    usesHeaderSearch: true,
     component: PurchaseRequisitionsPage,
   },
   [ROUTES.purchaseOrders]: { title: "Purchase Orders", navKey: "purchaseOrders", component: PurchaseOrdersPage },
@@ -159,6 +162,8 @@ function ProcurementApp({ route }) {
   const { session } = useSession();
   const [toast, setToast] = useState(null);
   const [adornment, setAdornment] = useState({ path: null, value: null });
+  const [headerSearch, setHeaderSearch] = useState("");
+  const [appliedHeaderSearch, setAppliedHeaderSearch] = useState("");
 
   const page = route.path ? PAGES[route.path] : null;
   const isForbidden = Boolean(page?.navKey) && !canAccessRoute(session, page.navKey);
@@ -183,6 +188,11 @@ function ProcurementApp({ route }) {
     return () => window.clearTimeout(timeoutId);
   }, [toast]);
 
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => setAppliedHeaderSearch(headerSearch.trim()), HEADER_SEARCH_DEBOUNCE_MS);
+    return () => window.clearTimeout(timeoutId);
+  }, [headerSearch]);
+
   const handleNotify = useCallback((message, tone = "success") => {
     setToast({ message, tone, shownAt: Date.now() });
   }, []);
@@ -201,6 +211,7 @@ function ProcurementApp({ route }) {
         route={route}
         onNotify={handleNotify}
         onHeaderAdornmentChange={handleAdornmentChange}
+        headerSearch={page.usesHeaderSearch ? appliedHeaderSearch : undefined}
       />
     );
 
@@ -209,6 +220,8 @@ function ProcurementApp({ route }) {
       <AppShell
         activeNavKey={page?.navKey ?? null}
         navSections={navSections}
+        headerSearch={headerSearch}
+        onHeaderSearchChange={setHeaderSearch}
         page={{
           title,
           titleAdornment: page?.adornment && adornment.path === route.path && (

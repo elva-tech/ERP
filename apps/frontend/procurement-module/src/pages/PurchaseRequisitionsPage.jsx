@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import ListFooter from "../components/ui/ListFooter.jsx";
 import Panel from "../components/ui/Panel.jsx";
 import PrimaryActionButton from "../components/ui/PrimaryActionButton.jsx";
@@ -9,9 +9,17 @@ import RequisitionTable from "../features/purchase-requisitions/components/Requi
 import { listPurchaseRequisitions } from "../features/purchase-requisitions/purchaseRequisitionService.js";
 import { REQUISITION_STATUS_TABS } from "../features/purchase-requisitions/requisitionStatus.js";
 
-function PurchaseRequisitionsPage({ onNotify }) {
-  const list = useServerList(listPurchaseRequisitions, { status: "pending_approval" });
+function PurchaseRequisitionsPage({ onNotify, headerSearch = "" }) {
+  const list = useServerList(listPurchaseRequisitions, { status: "pending_approval", search: headerSearch });
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const { setFilter } = list;
+  const appliedSearch = useRef(headerSearch);
+
+  useEffect(() => {
+    if (appliedSearch.current === headerSearch) return;
+    appliedSearch.current = headerSearch;
+    setFilter("search", headerSearch);
+  }, [headerSearch, setFilter]);
 
   function handleCreated(requisition) {
     setIsCreateOpen(false);
@@ -22,6 +30,8 @@ function PurchaseRequisitionsPage({ onNotify }) {
         : "Requisition submitted for approval.",
     );
   }
+
+  const searching = Boolean(list.filters.search);
 
   return (
     <div className="flex flex-1 flex-col gap-4">
@@ -36,7 +46,12 @@ function PurchaseRequisitionsPage({ onNotify }) {
       </div>
 
       <Panel className="flex-1 px-[15px] pb-4 pt-4">
-        <RequisitionTable requisitions={list.items} resource={list.resource} />
+        <RequisitionTable
+          requisitions={list.items}
+          resource={list.resource}
+          emptyTitle={searching ? "No requisitions match this search" : "No requisitions in this view"}
+          emptyMessage={searching ? "Try a different requisition number, department, or requester." : undefined}
+        />
         <ListFooter pagination={list.pagination} itemCount={list.items.length} noun="requisitions" onPageChange={list.setPage} />
       </Panel>
 

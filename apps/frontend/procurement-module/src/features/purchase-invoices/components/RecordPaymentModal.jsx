@@ -1,8 +1,8 @@
 import Modal from "../../../components/ui/Modal.jsx";
 import ModalForm from "../../../components/ui/ModalForm.jsx";
-import { DateField, MoneyField, TextField } from "../../../components/ui/FormFields.jsx";
+import { DateField, IndianMoneyField, TextField } from "../../../components/ui/FormFields.jsx";
 import { useFormSubmission } from "../../../hooks/useFormSubmission.js";
-import { formatInr } from "../../../lib/formatters.js";
+import { formatInr, parseIndianMoneyInput } from "../../../lib/formatters.js";
 import { exceedsDecimal, isBlank, isMoneyAmount, isPositiveDecimal } from "../../../lib/validation.js";
 import { recordInvoicePayment } from "../purchaseInvoiceService.js";
 
@@ -15,9 +15,10 @@ function RecordPaymentModal({ invoice, onClose, onRecorded }) {
     initialValues: INITIAL_VALUES,
     validate: (values) => {
       const errors = {};
-      if (!isMoneyAmount(values.amount) || !isPositiveDecimal(values.amount)) {
+      const amount = parseIndianMoneyInput(values.amount);
+      if (!isMoneyAmount(amount) || !isPositiveDecimal(amount)) {
         errors.amount = "Enter an amount greater than zero, with up to two decimals.";
-      } else if (exceedsDecimal(values.amount, invoice.balanceDue, 2)) {
+      } else if (exceedsDecimal(amount, invoice.balanceDue, 2)) {
         errors.amount = `Cannot exceed the balance due of ${formatInr(invoice.balanceDue, { fractionDigits: 2 })}.`;
       }
       if (isBlank(values.transactionId)) errors.transactionId = "Enter the transaction ID.";
@@ -27,7 +28,7 @@ function RecordPaymentModal({ invoice, onClose, onRecorded }) {
     submit: (values, context) =>
       recordInvoicePayment(
         invoice.id,
-        { amount: values.amount.trim(), transactionId: values.transactionId.trim(), paymentDate: values.paymentDate },
+        { amount: parseIndianMoneyInput(values.amount), transactionId: values.transactionId.trim(), paymentDate: values.paymentDate },
         context,
       ),
     onSuccess: onRecorded,
@@ -43,7 +44,7 @@ function RecordPaymentModal({ invoice, onClose, onRecorded }) {
     >
       <ModalForm onSubmit={form.handleSubmit} onCancel={onClose} submitLabel="Record Payment" isSubmitting={form.isSubmitting} formError={form.formError}>
         <div className="grid grid-cols-1 gap-y-[11px]">
-          <MoneyField {...field} name="amount" label="Payment Amount" required />
+          <IndianMoneyField {...field} name="amount" label="Payment Amount" required />
           <TextField {...field} name="transactionId" label="Transaction ID" required placeholder="UTR / cheque / reference number" autoComplete="off" />
           <DateField {...field} name="paymentDate" label="Payment Date" required />
         </div>

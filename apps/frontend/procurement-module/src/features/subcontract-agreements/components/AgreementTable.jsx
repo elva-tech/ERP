@@ -1,5 +1,6 @@
 import { StatusBadge } from "../../../components/ui/Badge.jsx";
 import DataTable from "../../../components/ui/DataTable.jsx";
+import { viewColumn } from "../../../components/ui/viewColumn.js";
 import { displayText, formatDate, formatInr } from "../../../lib/formatters.js";
 import { AGREEMENT_STATUS_BADGES } from "../subcontractAgreementStatus.js";
 
@@ -12,7 +13,8 @@ const COLUMNS = [
   { key: "value", header: "Agreement Value", width: "140px", align: "right", cellClass: "font-bold text-ink", render: (a) => formatInr(a.agreementValue) },
   { key: "start", header: "Start Date", width: "89px", render: (a) => formatDate(a.startDate) },
   { key: "end", header: "End Date", width: "100px", render: (a) => formatDate(a.endDate) },
-  { key: "status", header: "Status", width: "90px", align: "right", cellClass: "", render: (a) => <StatusBadge status={a.status} statusMap={AGREEMENT_STATUS_BADGES} /> },
+  { key: "status", header: "Status", width: "90px", cellClass: "", render: (a) => <StatusBadge status={a.status} statusMap={AGREEMENT_STATUS_BADGES} /> },
+  viewColumn("subcontractAgreement", (a) => a.id, (a) => a.agreementNumber),
 ];
 
 function AgreementTable({ agreements, resource }) {

@@ -3,7 +3,6 @@ import {
   ChartNoAxesColumnIncreasing,
   ChartPie,
   CircleX,
-  ClipboardList,
   Database,
   GitPullRequestArrow,
   Handshake,
@@ -13,7 +12,6 @@ import {
   ReceiptText,
   Route,
   Subscript,
-  Users,
 } from "lucide-react";
 
 export const ROUTES = {
@@ -90,12 +88,13 @@ export const NAV_SECTIONS = [
         icon: Handshake,
         path: ROUTES.subcontractAgreements,
       },
-      {
-        key: "subcontractOrders",
-        label: "Subcontract Orders",
-        icon: ClipboardList,
-        path: ROUTES.subcontractOrders,
-      },
+      // Subcontract Orders nav item disabled for now.
+      // {
+      //   key: "subcontractOrders",
+      //   label: "Subcontract Orders",
+      //   icon: ClipboardList,
+      //   path: ROUTES.subcontractOrders,
+      // },
       {
         key: "subcontractBills",
         label: "Subcontract Bills",
@@ -113,9 +112,6 @@ export const NAV_SECTIONS = [
   },
   {
     title: "Reports & Analytics",
-    items: [
-      { key: "supplierReports", label: "Supplier Reports", icon: Users, path: ROUTES.supplierReports },
-      { key: "spendAnalysis", label: "Spend Analysis", icon: ChartPie, path: ROUTES.spendAnalysis },
-    ],
+    items: [{ key: "spendAnalysis", label: "Spend Analysis", icon: ChartPie, path: ROUTES.spendAnalysis }],
   },
 ];

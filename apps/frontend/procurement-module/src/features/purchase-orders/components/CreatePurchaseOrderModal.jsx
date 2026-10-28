@@ -1,10 +1,14 @@
+import { useRef } from "react";
+import FormField from "../../../components/ui/FormField.jsx";
 import LineItemsEditor from "../../../components/ui/LineItemsEditor.jsx";
 import Modal from "../../../components/ui/Modal.jsx";
 import ModalForm from "../../../components/ui/ModalForm.jsx";
+import SelectInput from "../../../components/ui/SelectInput.jsx";
 import { DateField, SelectField, TextAreaField } from "../../../components/ui/FormFields.jsx";
 import { useFormSubmission } from "../../../hooks/useFormSubmission.js";
 import { useLookupOptions } from "../../../hooks/useLookupOptions.js";
 import { isBlank, isMoneyAmount, isPositiveDecimal } from "../../../lib/validation.js";
+import { getPurchaseRequisition } from "../../purchase-requisitions/purchaseRequisitionService.js";
 import { createPurchaseOrder } from "../purchaseOrderService.js";
 
 const ID_PREFIX = "purchase-order";
@@ -32,10 +36,20 @@ function validate(values) {
   return errors;
 }
 
+/** Derive a per-unit price from the PR line total (decimal strings from the backend). */
+function unitPriceFromLine(quantity, estimatedCost) {
+  const qty = Number(quantity);
+  if (!Number.isFinite(qty) || qty <= 0 || !estimatedCost) return "";
+  const total = Number(estimatedCost);
+  if (!Number.isFinite(total)) return "";
+  return (total / qty).toFixed(2);
+}
+
 function CreatePurchaseOrderModal({ onClose, onCreated }) {
   const suppliers = useLookupOptions("suppliers");
   const requisitions = useLookupOptions("approvedRequisitions");
   const paymentTerms = useLookupOptions("paymentTerms");
+  const prRequestRef = useRef(null);
   const form = useFormSubmission({
     initialValues: INITIAL_VALUES,
     validate,
@@ -55,6 +69,30 @@ function CreatePurchaseOrderModal({ onClose, onCreated }) {
   });
   const field = { form, idPrefix: ID_PREFIX };
 
+  async function handleRequisitionChange(event) {
+    const requisitionId = event.target.value;
+    form.setValue("requisitionId", requisitionId);
+    prRequestRef.current?.abort();
+    if (isBlank(requisitionId)) {
+      form.setValue("items", [{ ...EMPTY_ITEM }]);
+      return;
+    }
+    const controller = new AbortController();
+    prRequestRef.current = controller;
+    try {
+      const pr = await getPurchaseRequisition(requisitionId, controller.signal);
+      const lines = (pr.items ?? []).map((line) => ({
+        description: line.description ?? "",
+        quantity: line.quantity ?? "",
+        unitPrice: unitPriceFromLine(line.quantity, line.estimatedCost),
+      }));
+      form.setValue("items", lines.length > 0 ? lines : [{ ...EMPTY_ITEM }]);
+    } catch (error) {
+      if (error?.kind === "aborted") return;
+      form.setValue("items", [{ ...EMPTY_ITEM }]);
+    }
+  }
+
   return (
     <Modal
       title="Create Purchase Order"
@@ -71,7 +109,18 @@ function CreatePurchaseOrderModal({ onClose, onCreated }) {
       >
         <div className="grid grid-cols-1 gap-x-3 gap-y-[11px] sm:grid-cols-2">
           <SelectField {...field} name="supplierId" label="Supplier" placeholder="Select supplier" lookup={suppliers} />
-          <SelectField {...field} name="requisitionId" label="PR Reference" placeholder="Select approved PR" lookup={requisitions} />
+          <FormField label="PR Reference" htmlFor={`${ID_PREFIX}-requisitionId`} error={form.fieldErrors.requisitionId}>
+            <SelectInput
+              id={`${ID_PREFIX}-requisitionId`}
+              name="requisitionId"
+              value={form.values.requisitionId}
+              placeholder="Select approved PR"
+              options={requisitions.options}
+              status={requisitions.status}
+              invalid={Boolean(form.fieldErrors.requisitionId)}
+              onChange={handleRequisitionChange}
+            />
+          </FormField>
           <DateField {...field} name="deliveryDate" label="Delivery Date" />
           <SelectField {...field} name="paymentTermId" label="Payment Terms" placeholder="Select payment terms" lookup={paymentTerms} />
           <div className="sm:col-span-2">
@@ -80,9 +129,13 @@ function CreatePurchaseOrderModal({ onClose, onCreated }) {
               idPrefix={ID_PREFIX}
               emptyItem={EMPTY_ITEM}
               addLabel="Add line item"
-              computedHint="Line amounts, taxes and the order total are calculated by the server when the order is saved."
+              computedHint={
+                form.values.requisitionId
+                  ? "Items are filled from the selected requisition. Adjust quantities or unit prices if needed before saving."
+                  : "Select a PR reference to load its items, or add lines manually."
+              }
               columns={[
-                { key: "description", label: "Description", width: "minmax(0,1fr)", placeholder: "Select item..." },
+                { key: "description", label: "Description", width: "minmax(0,1fr)", placeholder: "Item description" },
                 { key: "quantity", label: "Qty", width: "96px", kind: "quantity", placeholder: "1" },
                 { key: "unitPrice", label: "Unit Price", width: "130px", kind: "decimal", placeholder: "0.00" },
                 { key: "amount", label: "Amount", width: "120px", kind: "computed" },

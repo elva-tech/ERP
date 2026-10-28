@@ -4,6 +4,7 @@ import Panel from "../components/ui/Panel.jsx";
 import PurchaseInvoiceDetail from "../features/purchase-invoices/components/PurchaseInvoiceDetail.jsx";
 import PurchaseOrderDetail from "../features/purchase-orders/components/PurchaseOrderDetail.jsx";
 import RequisitionDetail from "../features/purchase-requisitions/components/RequisitionDetail.jsx";
+import AgreementDetail from "../features/subcontract-agreements/components/AgreementDetail.jsx";
 
 const RECORD_TYPE_LABELS = {
   purchaseRequisition: "Purchase requisition",
@@ -21,6 +22,7 @@ const DETAIL_SCREENS = {
   purchaseRequisition: RequisitionDetail,
   purchaseOrder: PurchaseOrderDetail,
   purchaseInvoice: PurchaseInvoiceDetail,
+  subcontractAgreement: AgreementDetail,
 };
 
 /** Record types without an agreed detail contract state that plainly instead of inventing one. */

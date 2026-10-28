@@ -1,12 +1,17 @@
+import { useRef, useState } from "react";
+import FileDropzone from "../../../components/ui/FileDropzone.jsx";
 import Modal from "../../../components/ui/Modal.jsx";
 import ModalForm from "../../../components/ui/ModalForm.jsx";
 import { DateField, MoneyField, SelectField, TextAreaField, TextField } from "../../../components/ui/FormFields.jsx";
 import { useFormSubmission } from "../../../hooks/useFormSubmission.js";
 import { useLookupOptions } from "../../../hooks/useLookupOptions.js";
+import { createIdempotencyKey } from "../../../lib/apiClient.js";
 import { isBlank, isMoneyAmount } from "../../../lib/validation.js";
-import { createSubcontractAgreement } from "../subcontractAgreementService.js";
+import { createSubcontractAgreement, uploadAgreementAttachment } from "../subcontractAgreementService.js";
 
 const ID_PREFIX = "agreement";
+const ACCEPTED_TYPES = ["application/pdf"];
+const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024;
 const INITIAL_VALUES = {
   title: "",
   subcontractorId: "",
@@ -34,13 +39,28 @@ function NewAgreementModal({ onClose, onCreated }) {
   const subcontractors = useLookupOptions("subcontractors");
   const projects = useLookupOptions("projects");
   const schedules = useLookupOptions("paymentSchedules");
-  const form = useFormSubmission({
-    initialValues: INITIAL_VALUES,
-    validate,
-    submit: (values, context) =>
-      createSubcontractAgreement({ ...values, agreementValue: values.agreementValue.trim() }, context),
-    onSuccess: onCreated,
-  });
+  const [signedCopy, setSignedCopy] = useState(null);
+  const uploaded = useRef({ file: null, id: null, idempotencyKey: createIdempotencyKey() });
+
+  async function submit(values, context) {
+    let attachmentId = null;
+    if (signedCopy) {
+      if (uploaded.current.file !== signedCopy) {
+        uploaded.current = { file: signedCopy, id: null, idempotencyKey: createIdempotencyKey() };
+      }
+      if (!uploaded.current.id) {
+        const result = await uploadAgreementAttachment(signedCopy, { idempotencyKey: uploaded.current.idempotencyKey });
+        uploaded.current.id = result.id;
+      }
+      attachmentId = uploaded.current.id;
+    }
+    return createSubcontractAgreement(
+      { ...values, agreementValue: values.agreementValue.trim(), attachmentIds: attachmentId ? [attachmentId] : [] },
+      context,
+    );
+  }
+
+  const form = useFormSubmission({ initialValues: INITIAL_VALUES, validate, submit, onSuccess: onCreated });
   const field = { form, idPrefix: ID_PREFIX };
 
   return (
@@ -79,6 +99,19 @@ function NewAgreementModal({ onClose, onCreated }) {
             placeholder="Enter contractual terms, compliance requirements and special conditions"
             className="sm:col-span-2"
           />
+          <div className="sm:col-span-2">
+            <FileDropzone
+              id={`${ID_PREFIX}-signed-copy`}
+              label="Signed copy (PDF)"
+              hint="PDF only · max 10 MB"
+              accept=".pdf,application/pdf"
+              acceptedTypes={ACCEPTED_TYPES}
+              maxBytes={MAX_ATTACHMENT_BYTES}
+              file={signedCopy}
+              onChange={setSignedCopy}
+              error={form.fieldErrors.attachmentIds}
+            />
+          </div>
         </div>
       </ModalForm>
     </Modal>

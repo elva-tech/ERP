@@ -1,11 +1,16 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { apiRequest, withQuery, UNAUTHORIZED_EVENT } from "./api";
+import {
+  apiRequest,
+  withQuery,
+  UNAUTHORIZED_EVENT,
+} from "./api";
 
 function mockResponse(ok, status, data) {
   return {
     ok,
     status,
+    headers: new Headers(),
     json: vi.fn().mockResolvedValue(data),
   };
 }
@@ -21,13 +26,17 @@ describe("apiRequest", () => {
   });
 
   it("includes cookies in API requests", async () => {
-    fetch.mockResolvedValue(mockResponse(true, 200, { success: true }));
+    fetch.mockResolvedValue(
+      mockResponse(true, 200, { success: true }),
+    );
 
     await apiRequest("/api/employees");
 
     expect(fetch).toHaveBeenCalledWith(
       "http://localhost:3000/api/employees",
-      expect.objectContaining({ credentials: "include" }),
+      expect.objectContaining({
+        credentials: "include",
+      }),
     );
   });
 
@@ -37,10 +46,14 @@ describe("apiRequest", () => {
 
     try {
       fetch.mockResolvedValue(
-        mockResponse(false, 401, { message: "Unauthorized" }),
+        mockResponse(false, 401, {
+          message: "Unauthorized",
+        }),
       );
 
-      await expect(apiRequest("/api/payroll")).rejects.toMatchObject({
+      await expect(
+        apiRequest("/api/payroll"),
+      ).rejects.toMatchObject({
         status: 401,
         message: "Unauthorized",
       });
@@ -57,21 +70,86 @@ describe("apiRequest", () => {
     "/api/auth/logout",
     "/api/invitations/lookup",
     "/api/invitations/accept",
-  ])("does not dispatch the unauthorized event for %s", async (path) => {
-    const handler = vi.fn();
-    window.addEventListener(UNAUTHORIZED_EVENT, handler);
+  ])(
+    "does not dispatch the unauthorized event for %s",
+    async (path) => {
+      const handler = vi.fn();
+      window.addEventListener(UNAUTHORIZED_EVENT, handler);
 
-    try {
-      fetch.mockResolvedValue(
-        mockResponse(false, 401, { message: "Unauthorized" }),
-      );
+      try {
+        fetch.mockResolvedValue(
+          mockResponse(false, 401, {
+            message: "Unauthorized",
+          }),
+        );
 
-      await expect(apiRequest(path)).rejects.toMatchObject({ status: 401 });
+        await expect(
+          apiRequest(path),
+        ).rejects.toMatchObject({
+          status: 401,
+        });
 
-      expect(handler).not.toHaveBeenCalled();
-    } finally {
-      window.removeEventListener(UNAUTHORIZED_EVENT, handler);
-    }
+        expect(handler).not.toHaveBeenCalled();
+      } finally {
+        window.removeEventListener(UNAUTHORIZED_EVENT, handler);
+      }
+    },
+  );
+
+  it("returns a structured error for validation failures", async () => {
+    fetch.mockResolvedValue({
+      ok: false,
+      status: 422,
+      headers: new Headers({
+        "x-request-id": "req-test-1",
+      }),
+      json: vi.fn().mockResolvedValue({
+        message: "Validation failed",
+        code: "VALIDATION_ERROR",
+        errors: {
+          email: "Invalid email",
+        },
+      }),
+    });
+
+    await expect(
+      apiRequest("/api/employees"),
+    ).rejects.toMatchObject({
+      name: "ApiError",
+      status: 422,
+      message: "Validation failed",
+      code: "VALIDATION_ERROR",
+      requestId: "req-test-1",
+      fieldErrors: {
+        email: "Invalid email",
+      },
+    });
+  });
+
+  it("uses the configured timeout", async () => {
+    fetch.mockImplementation((_url, options) =>
+      new Promise((_resolve, reject) => {
+        options.signal.addEventListener(
+          "abort",
+          () => {
+            reject(
+              new DOMException("Aborted", "AbortError"),
+            );
+          },
+          { once: true },
+        );
+      }),
+    );
+
+    await expect(
+      apiRequest("/api/employees", {
+        timeoutMs: 10,
+      }),
+    ).rejects.toMatchObject({
+      name: "ApiError",
+      code: "REQUEST_TIMEOUT",
+      status: 0,
+    });
   });
 });
 

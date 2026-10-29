@@ -136,9 +136,40 @@ export function useAction() {
       setNotice({ type: "success", message: successMessage || result?.message || "Saved." });
       return result ?? true;
     } catch (error) {
-      const details = Array.isArray(error.details) ? ` ${error.details.join(" ")}` : "";
-      setNotice({ type: "error", message: `${error.message || "Request failed."}${details}` });
+      const fieldErrors = error.fieldErrors ?? error.details;
+      let details = "";
+
+      if (Array.isArray(fieldErrors)) {
+        details = fieldErrors
+          .map((item) =>
+            typeof item === "string"
+              ? item
+              : item?.message || item?.msg || ""
+          )
+          .filter(Boolean)
+          .join(" ");
+      } else if (fieldErrors && typeof fieldErrors === "object") {
+        details = Object.entries(fieldErrors)
+          .map(([field, messages]) => {
+            const text = Array.isArray(messages)
+              ? messages.join(", ")
+              : String(messages ?? "");
+
+            return text ? `${field}: ${text}` : "";
+          })
+          .filter(Boolean)
+          .join(" ");
+      } else if (typeof fieldErrors === "string") {
+        details = fieldErrors;
+      }
+
+      const message = [error.message || "Request failed.", details]
+        .filter(Boolean)
+        .join(" ");
+
+      setNotice({ type: "error", message });
       return null;
+
     } finally {
       setBusy(false);
     }

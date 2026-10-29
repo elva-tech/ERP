@@ -242,7 +242,7 @@ function App({
       <Sidebar
         sections={visibleSections}
         // Preserve compatibility with the existing label-based Sidebar.
-        activePage={activeRoute?.label || activePage}
+        activePage={activePage}
         onNavigate={navigate}
         collapsed={sidebarCollapsed}
         onToggleCollapsed={toggleSidebar}

@@ -82,7 +82,9 @@ function BrandMark({ collapsed }) {
  */
 export function Sidebar({ sections, activePage, onNavigate, collapsed, onToggleCollapsed, mobileOpen, onCloseMobile }) {
   const [closed, setClosed] = useState(() => new Set());
-  const activeSection = sections.find((s) => s.items.some((i) => i.label === activePage))?.title;
+  const activeSection = sections.find((s) =>
+    s.items.some((item) => item.id === activePage)
+  )?.title;
 
   function toggle(title) {
     setClosed((previous) => {
@@ -147,13 +149,13 @@ export function Sidebar({ sections, activePage, onNavigate, collapsed, onToggleC
                 )}
                 {open && (
                   <ul id={listId} className="mt-1 space-y-1">
-                    {section.items.map(({ label, icon: Icon }) => {
-                      const active = activePage === label;
+                    {section.items.map(({ id, label, icon: Icon }) => {
+                      const active = activePage === id;
                       return (
                         <li key={label}>
                           <button
                             type="button"
-                            onClick={() => onNavigate(label)}
+                            onClick={() => onNavigate(id)}
                             title={compact ? label : undefined}
                             aria-current={active ? "page" : undefined}
                             className={`relative flex h-9 w-full items-center gap-2.5 rounded-md text-left text-[13px] leading-4 transition-colors focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-surface/70 ${
@@ -204,16 +206,34 @@ function GlobalSearch({ pages, employees, onOpenPage, onOpenEmployee, className 
   const pageResults = q ? pages.filter((p) => p.label.toLowerCase().includes(q)).slice(0, 5) : [];
   const employeeResults = q
     ? employees
-        .filter((e) => `${e.name} ${e.employeeCode} ${e.email} ${e.department} ${e.designation}`.toLowerCase().includes(q))
+        .filter((e) =>
+          `${e.name} ${e.employeeCode} ${e.email} ${e.department} ${e.designation}`
+            .toLowerCase()
+            .includes(q)
+        )
         .slice(0, 6)
     : [];
+
   const results = [
-    ...pageResults.map((p) => ({ key: `page-${p.label}`, kind: "page", label: p.label, hint: p.section, icon: p.icon })),
-    ...employeeResults.map((e) => ({ key: `emp-${e.id}`, kind: "employee", label: e.name, hint: [e.employeeCode, e.department].filter(Boolean).join(" · "), employee: e })),
+    ...pageResults.map((p) => ({
+      key: `page-${p.id}`,
+      id: p.id,
+      kind: "page",
+      label: p.label,
+      hint: p.section,
+      icon: p.icon,
+    })),
+    ...employeeResults.map((employee) => ({
+      key: `employee-${employee.id ?? employee.employeeCode}`,
+      kind: "employee",
+      label: employee.name,
+      hint: employee.employeeCode || employee.department || "Employee",
+      employee,
+    })),
   ];
 
   function choose(result) {
-    if (result.kind === "page") onOpenPage(result.label);
+    if (result.kind === "page") onOpenPage(result.id);
     else onOpenEmployee(result.employee);
     setQuery("");
     setOpen(false);
@@ -487,7 +507,12 @@ export function TopBar({
           </label>
         )}
 
-        {showApprovals && <NotificationBell companyId={companyId} onOpenApprovals={() => onOpenPage("My Approvals")} />}
+        {showApprovals && (
+          <NotificationBell
+            companyId={companyId}
+            onOpenApprovals={() => onOpenPage("my-approvals")}
+          />
+        )}
 
         <UserMenu
           user={session.user}

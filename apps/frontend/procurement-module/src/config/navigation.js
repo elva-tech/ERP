@@ -115,3 +115,45 @@ export const NAV_SECTIONS = [
     items: [{ key: "spendAnalysis", label: "Spend Analysis", icon: ChartPie, path: ROUTES.spendAnalysis }],
   },
 ];
+
+/**
+ * Record-detail `type` query values and the sidebar item they belong to.
+ * One shared `/record` route serves every document, so the highlight follows the type.
+ */
+export const RECORD_TYPE_NAV_KEYS = {
+  purchaseRequisition: "purchaseRequisitions",
+  purchaseOrder: "purchaseOrders",
+  purchaseInvoice: "purchaseInvoices",
+  purchaseReturn: "purchaseReturns",
+  subcontractAgreement: "subcontractAgreements",
+  subcontractOrder: "subcontractOrders",
+  subcontractBill: "subcontractBills",
+};
+
+/**
+ * Sidebar item for the current hash route.
+ * Registered pages use their own `navKey` (including nested pages such as the supplier ledger detail).
+ * `/record?type=&id=` inherits the parent menu item for that record type.
+ * Any other path nested under a menu path inherits that menu item.
+ */
+export function resolveActiveNavKey(pageNavKey, route) {
+  if (pageNavKey) return pageNavKey;
+  if (!route) return null;
+
+  if (route.path === ROUTES.recordDetail) {
+    const type = route.query.get("type");
+    return (type && RECORD_TYPE_NAV_KEYS[type]) || null;
+  }
+
+  const path = route.requestedPath || route.path;
+  if (!path) return null;
+
+  let match = null;
+  for (const section of NAV_SECTIONS) {
+    for (const item of section.items) {
+      const nested = path === item.path || path.startsWith(`${item.path}/`);
+      if (nested && (!match || item.path.length > match.path.length)) match = item;
+    }
+  }
+  return match?.key ?? null;
+}

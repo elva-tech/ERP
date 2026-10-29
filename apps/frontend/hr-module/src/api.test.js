@@ -1,0 +1,90 @@
+
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { apiRequest, withQuery, UNAUTHORIZED_EVENT } from "./api";
+
+function mockResponse(ok, status, data) {
+  return {
+    ok,
+    status,
+    json: vi.fn().mockResolvedValue(data),
+  };
+}
+
+describe("apiRequest", () => {
+  beforeEach(() => {
+    vi.stubGlobal("fetch", vi.fn());
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it("includes cookies in API requests", async () => {
+    fetch.mockResolvedValue(mockResponse(true, 200, { success: true }));
+
+    await apiRequest("/api/employees");
+
+    expect(fetch).toHaveBeenCalledWith(
+      "http://localhost:3000/api/employees",
+      expect.objectContaining({ credentials: "include" }),
+    );
+  });
+
+  it("dispatches the unauthorized event for protected 401 responses", async () => {
+    const handler = vi.fn();
+    window.addEventListener(UNAUTHORIZED_EVENT, handler);
+
+    try {
+      fetch.mockResolvedValue(
+        mockResponse(false, 401, { message: "Unauthorized" }),
+      );
+
+      await expect(apiRequest("/api/payroll")).rejects.toMatchObject({
+        status: 401,
+        message: "Unauthorized",
+      });
+
+      expect(handler).toHaveBeenCalledTimes(1);
+    } finally {
+      window.removeEventListener(UNAUTHORIZED_EVENT, handler);
+    }
+  });
+
+  it.each([
+    "/api/auth/me",
+    "/api/auth/login",
+    "/api/auth/logout",
+    "/api/invitations/lookup",
+    "/api/invitations/accept",
+  ])("does not dispatch the unauthorized event for %s", async (path) => {
+    const handler = vi.fn();
+    window.addEventListener(UNAUTHORIZED_EVENT, handler);
+
+    try {
+      fetch.mockResolvedValue(
+        mockResponse(false, 401, { message: "Unauthorized" }),
+      );
+
+      await expect(apiRequest(path)).rejects.toMatchObject({ status: 401 });
+
+      expect(handler).not.toHaveBeenCalled();
+    } finally {
+      window.removeEventListener(UNAUTHORIZED_EVENT, handler);
+    }
+  });
+});
+
+describe("withQuery", () => {
+  it("skips empty query parameters", () => {
+    expect(
+      withQuery("/api/employees", {
+        companyId: 1,
+        search: "Tarun",
+        empty: "",
+        missing: undefined,
+        nullable: null,
+      }),
+    ).toBe("/api/employees?companyId=1&search=Tarun");
+  });
+});

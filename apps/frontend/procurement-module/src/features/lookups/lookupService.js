@@ -7,7 +7,7 @@ import { apiRequest } from "../../lib/apiClient.js";
  * Known lookup keys used by this module:
  * supplierCategories, paymentTerms, departments, requisitionPriorities, approvers, units,
  * suppliers, approvedRequisitions, purchaseOrders, returnReasons, subcontractors, projects,
- * tradeSpecialties, paymentSchedules, reportingPeriods, performancePeriods
+ * tradeSpecialties, paymentSchedules, reportingPeriods, performancePeriods, requisitionRequesters
  *
  * @param {string} lookupKey
  * @param {AbortSignal} [signal]

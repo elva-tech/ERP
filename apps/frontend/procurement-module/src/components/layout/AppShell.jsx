@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import Sidebar from "./Sidebar.jsx";
 import TopBar from "./TopBar.jsx";
 
-function AppShell({ activeNavKey, navSections, page, children }) {
+function AppShell({ activeNavKey, navSections, page, headerSearch, onHeaderSearchChange, children }) {
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
 
   useEffect(() => {
@@ -42,6 +42,8 @@ function AppShell({ activeNavKey, navSections, page, children }) {
           title={page.title}
           titleAdornment={page.titleAdornment}
           searchPlaceholder={page.searchPlaceholder}
+          searchValue={headerSearch}
+          onSearchChange={onHeaderSearchChange}
           variant={page.headerVariant}
           isMenuOpen={isMobileNavOpen}
           onOpenMenu={() => setIsMobileNavOpen(true)}

@@ -16,7 +16,7 @@ const COLUMNS = [
   viewColumn("purchaseRequisition", (r) => r.id, (r) => r.requisitionNumber),
 ];
 
-function RequisitionTable({ requisitions, resource }) {
+function RequisitionTable({ requisitions, resource, emptyTitle = "No requisitions in this view", emptyMessage }) {
   return (
     <DataTable
       caption="Purchase requisitions"
@@ -24,7 +24,8 @@ function RequisitionTable({ requisitions, resource }) {
       rows={requisitions}
       getRowKey={(row) => row.id}
       resource={resource}
-      emptyTitle="No requisitions in this view"
+      emptyTitle={emptyTitle}
+      emptyMessage={emptyMessage}
     />
   );
 }

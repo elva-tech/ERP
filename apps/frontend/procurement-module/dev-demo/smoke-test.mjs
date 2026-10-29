@@ -59,7 +59,7 @@ async function main() {
 
   const lookupKeys = ["supplierCategories", "paymentTerms", "departments", "requisitionPriorities", "approvers", "units", "suppliers",
     "approvedRequisitions", "purchaseOrders", "returnReasons", "subcontractors", "projects", "tradeSpecialties", "paymentSchedules",
-    "reportingPeriods", "performancePeriods"];
+    "reportingPeriods", "performancePeriods", "requisitionRequesters"];
   const lookups = {};
   for (const key of lookupKeys) {
     lookups[key] = await get(`${P}/lookups/${key}`, `lookup ${key}`);
@@ -70,6 +70,64 @@ async function main() {
   await list(`${P}/suppliers?page=1&pageSize=8&status=active`, "suppliers");
   await list(`${P}/suppliers?page=2&pageSize=8&search=steel`, "suppliers search page 2", false);
   await list(`${P}/purchase-requisitions?page=1&pageSize=8&status=pending_approval`, "requisitions");
+  const projects = lookups.departments.options.find((option) => option.label === "Projects");
+  const neha = lookups.requisitionRequesters.options.find((option) => option.label === "Neha Kulkarni");
+  const byNumber = await list(`${P}/purchase-requisitions?page=1&pageSize=8&requisitionNumber=0014`, "requisitions by number");
+  check("pr number is a partial match", byNumber.pagination.totalItems >= 1 && byNumber.items.every((item) => item.requisitionNumber.toLowerCase().includes("0014")));
+  const numberIgnoresTitle = await list(`${P}/purchase-requisitions?page=1&pageSize=8&requisitionNumber=waterproof`, "requisition number ignores title", false);
+  check("pr number does not match title", numberIgnoresTitle.pagination.totalItems === 0);
+  const byDept = await list(`${P}/purchase-requisitions?page=1&pageSize=8&departmentId=${encodeURIComponent(projects.value)}`, "requisitions by department");
+  check("department filter", byDept.pagination.totalItems > 8 && byDept.items.every((item) => item.departmentName === "Projects"));
+  const deptPage2 = await list(`${P}/purchase-requisitions?page=2&pageSize=8&departmentId=${encodeURIComponent(projects.value)}`, "requisitions department page 2");
+  check(
+    "department page 2 stays filtered",
+    deptPage2.pagination.page === 2 && deptPage2.items.length > 0 && deptPage2.items.every((item) => item.departmentName === "Projects") && deptPage2.items[0].id !== byDept.items[0].id,
+  );
+  const byPerson = await list(`${P}/purchase-requisitions?page=1&pageSize=8&requestedById=${encodeURIComponent(neha.value)}`, "requisitions by requester");
+  check("requester filter", byPerson.pagination.totalItems > 0 && byPerson.items.every((item) => item.requestedBy?.id === neha.value));
+  const combined = await list(
+    `${P}/purchase-requisitions?page=1&pageSize=8&status=pending_approval&requisitionNumber=0018&departmentId=${encodeURIComponent(projects.value)}&requestedById=${encodeURIComponent(neha.value)}`,
+    "requisitions combined filters",
+  );
+  check("combined filters", combined.pagination.totalItems === 1 && combined.items[0].requisitionNumber.endsWith("0018") && combined.items[0].status === "pending_approval");
+  const cleared = await list(`${P}/purchase-requisitions?page=1&pageSize=8&status=pending_approval`, "requisitions after clearing filters");
+  check("clearing filters keeps status", cleared.pagination.totalItems === 8 && cleared.items.every((item) => item.status === "pending_approval"));
+  const noMatch = await list(`${P}/purchase-requisitions?page=1&pageSize=8&status=pending_approval&requisitionNumber=ZZZ-NO-MATCH`, "requisitions no match", false);
+  check("no-match filter is empty", noMatch.items.length === 0 && noMatch.pagination.totalItems === 0 && noMatch.pagination.page === 1);
+  const titleSearch = await list(`${P}/purchase-requisitions?page=1&pageSize=8&search=waterproof`, "requisitions legacy search");
+  check("search still matches title", titleSearch.items.some((item) => item.id === "pr-018"));
+  const searchAndNumber = await list(`${P}/purchase-requisitions?page=1&pageSize=8&search=steel&requisitionNumber=0008`, "requisitions search plus number");
+  check("search stays independent of pr number", searchAndNumber.pagination.totalItems === 1 && searchAndNumber.items[0].id === "pr-008");
+  const stores = await list(`${P}/purchase-requisitions?page=1&pageSize=8&search=${encodeURIComponent("Stores")}`, "search stores department");
+  check("search matches stores department", stores.pagination.totalItems > 0 && stores.items.every((item) => item.departmentName === "Stores"));
+  const maintenance = await list(`${P}/purchase-requisitions?page=1&pageSize=8&search=${encodeURIComponent("Maintenance")}`, "search maintenance department");
+  check("search matches maintenance department", maintenance.pagination.totalItems > 0 && maintenance.items.every((item) => item.departmentName === "Maintenance"));
+  const sana = await list(`${P}/purchase-requisitions?page=1&pageSize=8&search=${encodeURIComponent("Sana Sheikh")}`, "search requester");
+  check("search matches requester", sana.pagination.totalItems > 0 && sana.items.every((item) => item.requestedBy?.displayName === "Sana Sheikh"));
+  const exactNumber = await list(`${P}/purchase-requisitions?page=1&pageSize=8&search=${encodeURIComponent("PR/26-27/0024")}`, "search exact pr number");
+  check("search matches pr number", exactNumber.pagination.totalItems === 1 && exactNumber.items[0].requisitionNumber === "PR/26-27/0024");
+  const pendingStores = await list(
+    `${P}/purchase-requisitions?page=1&pageSize=8&status=pending_approval&search=${encodeURIComponent("Stores")}`,
+    "search with status",
+  );
+  check(
+    "search combines with status",
+    pendingStores.pagination.totalItems > 0 && pendingStores.items.every((item) => item.status === "pending_approval" && item.departmentName === "Stores"),
+  );
+  const noSearchMatch = await list(`${P}/purchase-requisitions?page=1&pageSize=8&status=pending_approval&search=${encodeURIComponent("no-such-requisition")}`, "search no match", false);
+  check("search no match is empty", noSearchMatch.items.length === 0 && noSearchMatch.pagination.totalItems === 0);
+  const clearedSearch = await list(`${P}/purchase-requisitions?page=1&pageSize=8&status=pending_approval`, "search cleared");
+  check("clearing search restores status list", clearedSearch.pagination.totalItems === 8 && clearedSearch.items.every((item) => item.status === "pending_approval"));
+  const projectsPage = await list(`${P}/purchase-requisitions?page=1&pageSize=8&search=${encodeURIComponent("Projects")}`, "search projects page 1");
+  const projectsPage2 = await list(`${P}/purchase-requisitions?page=2&pageSize=8&search=${encodeURIComponent("Projects")}`, "search projects page 2");
+  check(
+    "search is paginated across the full match set",
+    projectsPage.pagination.totalItems > 8 &&
+      projectsPage2.pagination.page === 2 &&
+      projectsPage2.items.length > 0 &&
+      projectsPage2.items.every((item) => item.departmentName === "Projects") &&
+      projectsPage2.items[0].id !== projectsPage.items[0].id,
+  );
   await list(`${P}/purchase-orders?page=1&pageSize=8&status=sent`, "purchase orders");
   await list(`${P}/purchase-invoices?page=1&pageSize=8&status=draft`, "invoices");
   await list(`${P}/purchase-returns?page=1&pageSize=8`, "returns");

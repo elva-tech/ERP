@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import AppShell from "./components/layout/AppShell.jsx";
 import Toast from "./components/ui/Toast.jsx";
-import { DEFAULT_ROUTE, NAV_SECTIONS, ROUTES } from "./config/navigation.js";
+import { DEFAULT_ROUTE, NAV_SECTIONS, resolveActiveNavKey, ROUTES } from "./config/navigation.js";
 import SessionProvider from "./features/auth/SessionProvider.jsx";
 import { canAccessRoute, useSession } from "./features/auth/sessionContext.js";
 import { buildHref, useHashRoute } from "./hooks/useHashRoute.js";
@@ -29,12 +29,14 @@ import SupplierPerformancePage from "./pages/SupplierPerformancePage.jsx";
 // Supplier Reports screen removed.
 
 const TOAST_DURATION_MS = 3200;
+const HEADER_SEARCH_DEBOUNCE_MS = 350;
 const DEFAULT_SEARCH_PLACEHOLDER = "Search transactions, suppliers...";
 const SHORT_SEARCH_PLACEHOLDER = "Search transactions...";
 
 /**
- * `navKey` is the sidebar item highlighted for the route; `adornment` names the header element a page
- * may fill in once its data has loaded.
+ * `navKey` is the sidebar item for a registered route. Record details leave it empty and
+ * `resolveActiveNavKey` highlights the parent item from the record `type`. `adornment` names the
+ * header element a page may fill in once its data has loaded.
  */
 const PAGES = {
   [ROUTES.dashboard]: { title: "Procurement Dashboard", navKey: "dashboard", component: DashboardPage },
@@ -57,6 +59,8 @@ const PAGES = {
   [ROUTES.purchaseRequisitions]: {
     title: "Purchase Requisitions",
     navKey: "purchaseRequisitions",
+    searchPlaceholder: "Search PR, department, or requester...",
+    usesHeaderSearch: true,
     component: PurchaseRequisitionsPage,
   },
   [ROUTES.purchaseOrders]: { title: "Purchase Orders", navKey: "purchaseOrders", component: PurchaseOrdersPage },
@@ -159,8 +163,11 @@ function ProcurementApp({ route }) {
   const { session } = useSession();
   const [toast, setToast] = useState(null);
   const [adornment, setAdornment] = useState({ path: null, value: null });
+  const [headerSearch, setHeaderSearch] = useState("");
+  const [appliedHeaderSearch, setAppliedHeaderSearch] = useState("");
 
   const page = route.path ? PAGES[route.path] : null;
+  const activeNavKey = resolveActiveNavKey(page?.navKey ?? null, route);
   const isForbidden = Boolean(page?.navKey) && !canAccessRoute(session, page.navKey);
   const title = page?.title ?? "Page not found";
 
@@ -183,6 +190,11 @@ function ProcurementApp({ route }) {
     return () => window.clearTimeout(timeoutId);
   }, [toast]);
 
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => setAppliedHeaderSearch(headerSearch.trim()), HEADER_SEARCH_DEBOUNCE_MS);
+    return () => window.clearTimeout(timeoutId);
+  }, [headerSearch]);
+
   const handleNotify = useCallback((message, tone = "success") => {
     setToast({ message, tone, shownAt: Date.now() });
   }, []);
@@ -201,14 +213,17 @@ function ProcurementApp({ route }) {
         route={route}
         onNotify={handleNotify}
         onHeaderAdornmentChange={handleAdornmentChange}
+        headerSearch={page.usesHeaderSearch ? appliedHeaderSearch : undefined}
       />
     );
 
   return (
     <>
       <AppShell
-        activeNavKey={page?.navKey ?? null}
+        activeNavKey={activeNavKey}
         navSections={navSections}
+        headerSearch={headerSearch}
+        onHeaderSearchChange={setHeaderSearch}
         page={{
           title,
           titleAdornment: page?.adornment && adornment.path === route.path && (

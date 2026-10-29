@@ -16,14 +16,15 @@ function MenuButton({ isMenuOpen, onOpenMenu }) {
   );
 }
 
-// The header search is presentational until its behaviour is confirmed (PRD §5.1).
-function SearchField({ placeholder, className }) {
+function SearchField({ placeholder, className, value, onChange }) {
   return (
     <label className={className}>
       <Search size={16} strokeWidth={2.25} className="shrink-0" aria-hidden="true" />
       <span className="sr-only">Search</span>
       <input
         type="search"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
         className="w-full min-w-0 bg-transparent text-[12px] text-ink outline-none placeholder:text-muted"
       />
@@ -31,7 +32,7 @@ function SearchField({ placeholder, className }) {
   );
 }
 
-function TopBar({ title, titleAdornment, searchPlaceholder, variant = "default", isMenuOpen, onOpenMenu }) {
+function TopBar({ title, titleAdornment, searchPlaceholder, searchValue, onSearchChange, variant = "default", isMenuOpen, onOpenMenu }) {
   if (variant === "ledger-detail") {
     return (
       <header className="sticky top-0 z-20 flex h-[63px] items-center justify-between gap-3 border-b border-[#e0e0e0] bg-surface px-4 sm:px-6">
@@ -43,6 +44,8 @@ function TopBar({ title, titleAdornment, searchPlaceholder, variant = "default",
         <div className="flex shrink-0 items-center gap-4">
           <SearchField
             placeholder={searchPlaceholder}
+            value={searchValue}
+            onChange={onSearchChange}
             className="hidden h-[34px] w-[240px] items-center gap-2 rounded-md bg-[#f1f3f5] px-3 text-[#4b5563] focus-within:ring-2 focus-within:ring-navy/15 md:flex"
           />
           <button
@@ -70,6 +73,8 @@ function TopBar({ title, titleAdornment, searchPlaceholder, variant = "default",
       <div className="flex shrink-0 items-center gap-4">
         <SearchField
           placeholder={searchPlaceholder}
+          value={searchValue}
+          onChange={onSearchChange}
           className="hidden h-9 w-[240px] items-center gap-2 rounded-full border border-line bg-workspace px-3 text-muted focus-within:border-muted md:flex"
         />
         <button

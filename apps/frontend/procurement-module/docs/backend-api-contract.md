@@ -274,10 +274,15 @@ The sign-in and sign-out endpoints are placeholders so the screens can be wired 
 
 | Method and path (PROPOSED) | Used by | Request | Response read |
 | --- | --- | --- | --- |
-| `GET /procurement/purchase-requisitions` | Purchase Requisitions (default filter `pending_approval`) | query `page`, `pageSize`, `status`, `search` (`search` is not sent by the current screen) | paginated list |
+| `GET /procurement/purchase-requisitions` | Purchase Requisitions (default filter `pending_approval`) | query `page`, `pageSize`, `status`, `search`, `requisitionNumber`, `departmentId`, `requestedById` | paginated list |
 | `POST /procurement/purchase-requisitions` | New PR modal | body below | created PR; `requisitionNumber` is used in the toast |
 | `GET /procurement/purchase-requisitions/{id}` | View (record detail) | none | detail below |
 
+- **List filters:** every filter applies to the full result set before pagination, and filters combine with AND.
+  - `search`: case-insensitive substring match on requisition number, title, department name, and the requester's display name. The header search on Purchase Requisitions sends this. Existing callers keep the same parameter; matches now also include department and requester.
+  - `requisitionNumber`: case-insensitive substring match on the requisition number only.
+  - `departmentId`: exact department id from `GET /procurement/lookups/departments`. Empty means all departments.
+  - `requestedById`: exact `requestedBy.id` from `GET /procurement/lookups/requisitionRequesters` (distinct requesters already on requisitions). Empty means all requesters.
 - **List item:**
   - `id`, `requisitionNumber`, `requestDate`
   - `requestedBy { id, displayName }`

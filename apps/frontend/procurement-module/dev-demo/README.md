@@ -152,7 +152,7 @@ All paths are relative to `/demo-api`. They mirror the frontend services in `src
 | GET | `/procurement/session` | Session or user identity |
 | POST | `/procurement/session` | Sign in (`demo` / `demo123`; works while signed out) |
 | DELETE | `/procurement/session` | Log out (returns 204) |
-| GET | `/procurement/lookups/{key}` | Dropdowns. Keys: `supplierCategories`, `paymentTerms`, `departments`, `requisitionPriorities`, `approvers`, `units`, `suppliers`, `approvedRequisitions`, `purchaseOrders`, `returnReasons`, `subcontractors`, `projects`, `tradeSpecialties`, `paymentSchedules`, `reportingPeriods`, `performancePeriods` |
+| GET | `/procurement/lookups/{key}` | Dropdowns. Keys: `supplierCategories`, `paymentTerms`, `departments`, `requisitionPriorities`, `approvers`, `units`, `suppliers`, `approvedRequisitions`, `purchaseOrders`, `returnReasons`, `subcontractors`, `projects`, `tradeSpecialties`, `paymentSchedules`, `reportingPeriods`, `performancePeriods`, `requisitionRequesters` |
 | GET | `/procurement/dashboard` | Dashboard |
 | GET, POST | `/procurement/suppliers` | Supplier Master list (`search`, `categoryId`, `status`, `page`, `pageSize`) and Add Supplier |
 | POST | `/procurement/suppliers/{id}/status-changes` | Activate or deactivate a supplier |
@@ -160,7 +160,7 @@ All paths are relative to `/demo-api`. They mirror the frontend services in `src
 | GET | `/procurement/suppliers/{id}/statement` | Supplier Ledger detail |
 | GET | `/procurement/suppliers/{id}/ledger/export?format=xlsx\|pdf` | Ledger export (real .xlsx and .pdf files) |
 | GET | `/procurement/supplier-performance` | Supplier Performance (`periodId`, `categoryId`) |
-| GET, POST | `/procurement/purchase-requisitions` | Requisitions list (`status`, `search`) and New Requisition |
+| GET, POST | `/procurement/purchase-requisitions` | Requisitions list (`status`, `search`, `requisitionNumber`, `departmentId`, `requestedById`) and New Requisition |
 | GET | `/procurement/purchase-requisitions/{id}` | Requisition View (all fields, items, approval history, Approve/Reject) |
 | GET, POST | `/procurement/purchase-orders` | Purchase Orders list (`status`, `search`) and Create PO |
 | GET | `/procurement/purchase-orders/{id}` | Purchase Order View (items with ordered/received/remaining, receipts) |

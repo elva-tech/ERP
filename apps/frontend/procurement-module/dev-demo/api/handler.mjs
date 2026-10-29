@@ -855,6 +855,17 @@ export function createDemoApi({ latencyMs = 250 } = {}) {
         return { options: options(PAYMENT_TERMS) };
       case "departments":
         return { options: options(DEPARTMENTS) };
+      case "requisitionRequesters": {
+        const byId = new Map();
+        for (const pr of state.requisitions) {
+          if (pr.requestedBy?.id && !byId.has(pr.requestedBy.id)) byId.set(pr.requestedBy.id, pr.requestedBy.displayName);
+        }
+        return {
+          options: [...byId.entries()]
+            .map(([value, label]) => ({ value, label }))
+            .sort((a, b) => a.label.localeCompare(b.label)),
+        };
+      }
       case "requisitionPriorities":
         return { options: [{ value: "high", label: "High" }, { value: "medium", label: "Medium" }, { value: "low", label: "Low" }] };
       case "approvers":
@@ -1147,9 +1158,22 @@ export function createDemoApi({ latencyMs = 250 } = {}) {
     ["GET", /^\/procurement\/purchase-requisitions$/, ({ query }) => {
       const status = query.get("status") ?? "";
       const search = (query.get("search") ?? "").trim().toLowerCase();
+      const requisitionNumber = (query.get("requisitionNumber") ?? "").trim().toLowerCase();
+      const departmentId = query.get("departmentId") ?? "";
+      const requestedById = query.get("requestedById") ?? "";
       const rows = state.requisitions
         .filter((pr) => !status || pr.status === status)
-        .filter((pr) => !search || `${pr.requisitionNumber} ${pr.title}`.toLowerCase().includes(search))
+        .filter((pr) => {
+          if (!search) return true;
+          const haystack = [pr.requisitionNumber, pr.title, nameOf(DEPARTMENTS, pr.departmentId), pr.requestedBy?.displayName]
+            .filter(Boolean)
+            .join(" ")
+            .toLowerCase();
+          return haystack.includes(search);
+        })
+        .filter((pr) => !requisitionNumber || pr.requisitionNumber.toLowerCase().includes(requisitionNumber))
+        .filter((pr) => !departmentId || pr.departmentId === departmentId)
+        .filter((pr) => !requestedById || pr.requestedBy?.id === requestedById)
         .sort((a, b) => b.requestDate.localeCompare(a.requestDate) || b.id.localeCompare(a.id))
         .map(requisitionJson);
       return paginate(rows, query);

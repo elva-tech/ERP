@@ -42,6 +42,41 @@ function groupIndian(integerDigits) {
 }
 
 /**
+ * Indian grouping for an amount being typed. Keeps a trailing decimal point and at most two fraction digits.
+ * "150000" -> "1,50,000"; "1500.5" -> "1,500.5"; "" -> "".
+ * @param {string | null | undefined} value
+ */
+export function formatIndianMoneyInput(value) {
+  const compact = String(value ?? "").replace(/,/g, "").replace(/[^\d.]/g, "");
+  if (compact === "") return "";
+  const dot = compact.indexOf(".");
+  const integerSource = dot === -1 ? compact : compact.slice(0, dot);
+  const fractionSource = dot === -1 ? null : compact.slice(dot + 1).replace(/\./g, "").slice(0, 2);
+  const integerDigits = integerSource.replace(/^0+(?=\d)/, "") || "0";
+  const grouped = groupIndian(integerDigits);
+  return fractionSource === null ? grouped : `${grouped}.${fractionSource}`;
+}
+
+/** Canonical decimal string for validation and API submission. Commas and other decoration are removed. */
+export function parseIndianMoneyInput(value) {
+  return formatIndianMoneyInput(value).replace(/,/g, "");
+}
+
+/** Caret position in a formatted amount after `significantCount` digits or decimal points. */
+export function indianMoneyCaret(formatted, significantCount) {
+  if (significantCount <= 0) return 0;
+  let seen = 0;
+  for (let index = 0; index < formatted.length; index += 1) {
+    const char = formatted[index];
+    if ((char >= "0" && char <= "9") || char === ".") {
+      seen += 1;
+      if (seen === significantCount) return index + 1;
+    }
+  }
+  return formatted.length;
+}
+
+/**
  * Formats a backend decimal string as Indian-grouped rupees without binary floating point.
  * "4520000.00" -> "₹45,20,000"; fraction digits are kept only when non-zero.
  * @param {string | null | undefined} amount

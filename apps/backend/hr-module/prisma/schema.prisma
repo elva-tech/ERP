@@ -1,0 +1,880 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model attendance_records {
+  id               BigInt    @id @default(autoincrement())
+  company_id       BigInt
+  employee_id      BigInt
+  shift_id         BigInt?
+  attendance_date  DateTime  @db.Date
+  check_in         DateTime? @db.Timestamptz(6)
+  check_out        DateTime? @db.Timestamptz(6)
+  status           String    @default("Absent") @db.VarChar(30)
+  working_minutes      Int?
+  overtime_minutes     Int?      @default(0)
+  overtime_status      String?   @db.VarChar(20)
+  overtime_reason      String?
+  overtime_review_note String?
+  overtime_reviewed_by BigInt?
+  overtime_reviewed_at DateTime? @db.Timestamptz(6)
+  is_regularized       Boolean   @default(false)
+  created_at           DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at           DateTime  @default(now()) @db.Timestamptz(6)
+  companies            companies @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  employees            employees @relation(fields: [employee_id, company_id], references: [id, company_id], onDelete: NoAction, onUpdate: NoAction, map: "attendance_records_employee_company_fkey")
+  shifts               shifts?   @relation(fields: [shift_id, company_id], references: [id, company_id], onDelete: NoAction, onUpdate: NoAction, map: "attendance_records_shift_company_fkey")
+  overtime_reviewer    users?    @relation("attendance_overtime_reviewer", fields: [overtime_reviewed_by], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "attendance_records_overtime_reviewer_fkey")
+
+  @@unique([company_id, employee_id, attendance_date])
+  @@index([company_id, attendance_date], map: "idx_attendance_company_date")
+  @@index([employee_id, attendance_date], map: "idx_attendance_employee_date")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model attendance_regularizations {
+  id                  BigInt    @id @default(autoincrement())
+  company_id          BigInt
+  employee_id         BigInt
+  attendance_date     DateTime  @db.Date
+  requested_check_in  DateTime? @db.Timestamptz(6)
+  requested_check_out DateTime? @db.Timestamptz(6)
+  reason              String?
+  status              String    @default("Pending") @db.VarChar(20)
+  reviewed_by         BigInt?
+  reviewed_at         DateTime? @db.Timestamptz(6)
+  review_note         String?
+  created_at          DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime  @default(now()) @db.Timestamptz(6)
+  companies           companies @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  employees           employees @relation(fields: [employee_id, company_id], references: [id, company_id], onDelete: NoAction, onUpdate: NoAction, map: "attendance_regularizations_employee_company_fkey")
+  users               users?    @relation(fields: [reviewed_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([company_id, status], map: "idx_regularizations_company")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model biometric_devices {
+  id              BigInt        @id @default(autoincrement())
+  company_id      BigInt
+  device_name     String        @db.VarChar(200)
+  brand           String?       @db.VarChar(100)
+  model           String?       @db.VarChar(100)
+  location        String?       @db.VarChar(200)
+  connection_type String?       @default("LAN") @db.VarChar(30)
+  ip_address      String?       @db.VarChar(50)
+  serial_number   String?       @db.VarChar(100)
+  status          String        @default("Unknown") @db.VarChar(30)
+  last_sync_at    DateTime?     @db.Timestamptz(6)
+  created_at      DateTime      @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime      @default(now()) @db.Timestamptz(6)
+  companies       companies     @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  raw_punches     raw_punches[]
+
+  @@unique([company_id, device_name])
+  @@unique([id, company_id])
+  @@index([company_id], map: "idx_biometric_devices_company")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model companies {
+  id                          BigInt                        @id @default(autoincrement())
+  company_name                String                        @db.VarChar(200)
+  created_at                  DateTime                      @default(now()) @db.Timestamptz(6)
+  status                      String                        @default("pending") @db.VarChar(20)
+  onboarding_source           String                        @default("self_registration") @db.VarChar(30)
+  approved_at                 DateTime?                     @db.Timestamptz(6)
+  approved_by                 BigInt?
+  approval_audit_log          approval_audit_log[]
+  approval_delegates          approval_delegates[]
+  attendance_records          attendance_records[]
+  attendance_regularizations  attendance_regularizations[]
+  biometric_devices           biometric_devices[]
+  company_invitations         company_invitations[]
+  company_memberships         company_memberships[]
+  company_policies            company_policies?
+  departments                 departments[]
+  designations                designations[]
+  employee_advances           employee_advances[]
+  employee_salary_assignments employee_salary_assignments[]
+  employees                   employees[]
+  holidays                    holidays[]
+  leave_balances              leave_balances[]
+  leave_requests              leave_requests[]
+  leave_types                 leave_types[]
+  membership_events           membership_events[]
+  payroll_runs                payroll_runs[]
+  payroll_advance_recoveries  payroll_advance_recoveries[]
+  payslips                    payslips[]
+  raw_punches                 raw_punches[]
+  rosters                     rosters[]
+  salary_components           salary_components[]
+  salary_structures           salary_structures[]
+  shifts                      shifts[]
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model company_memberships {
+  id                 BigInt               @id @default(autoincrement())
+  company_id         BigInt
+  user_id            BigInt
+  role               String               @db.VarChar(30)
+  status             String               @default("pending") @db.VarChar(20)
+  created_at         DateTime             @default(now()) @db.Timestamptz(6)
+  companies          companies            @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users              users                @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  employee           employees?
+  approval_delegates approval_delegates[]
+
+  @@unique([company_id, user_id])
+  @@index([user_id], map: "idx_memberships_user")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model departments {
+  id                      BigInt                    @id @default(autoincrement())
+  company_id              BigInt
+  department_name         String                    @db.VarChar(150)
+  description             String?
+  status                  String                    @default("Active") @db.VarChar(20)
+  created_at              DateTime                  @default(now()) @db.Timestamptz(6)
+  updated_at              DateTime                  @default(now()) @db.Timestamptz(6)
+  companies               companies                 @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  designation_departments designation_departments[]
+  salary_structures       salary_structures[]
+
+  @@unique([company_id, department_name])
+  @@unique([id, company_id])
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model designations {
+  id                      BigInt                    @id @default(autoincrement())
+  company_id              BigInt
+  designation_name        String                    @db.VarChar(150)
+  description             String?
+  status                  String                    @default("Active") @db.VarChar(20)
+  created_at              DateTime                  @default(now()) @db.Timestamptz(6)
+  updated_at              DateTime                  @default(now()) @db.Timestamptz(6)
+  companies               companies                 @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  designation_departments designation_departments[]
+  salary_structures       salary_structures[]
+
+  @@unique([company_id, designation_name])
+  @@unique([id, company_id])
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model employee_advances {
+  id                         BigInt                       @id @default(autoincrement())
+  company_id                 BigInt
+  employee_id                BigInt
+  amount                     Decimal?                     @db.Decimal(15, 2)
+  purpose                    String?
+  emi_amount                 Decimal?                     @db.Decimal(15, 2)
+  balance                    Decimal?                     @db.Decimal(15, 2)
+  requested_months           Int?                         @db.SmallInt
+  status                     String                       @default("Pending") @db.VarChar(20)
+  approved_by                BigInt?
+  approved_at                DateTime?                    @db.Timestamptz(6)
+  created_at                 DateTime                     @default(now()) @db.Timestamptz(6)
+  updated_at                 DateTime                     @default(now()) @db.Timestamptz(6)
+  users                      users?                       @relation(fields: [approved_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  companies                  companies                    @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  employees                  employees                    @relation(fields: [employee_id, company_id], references: [id, company_id], onDelete: NoAction, onUpdate: NoAction, map: "employee_advances_employee_company_fkey")
+  payroll_advance_recoveries payroll_advance_recoveries[]
+
+  @@unique([id, company_id])
+  @@index([company_id, employee_id], map: "idx_advances_company_employee")
+}
+
+model employee_salary_assignments {
+  id                BigInt            @id @default(autoincrement())
+  company_id        BigInt
+  employee_id       BigInt
+  structure_id      BigInt
+  ctc_annual        Decimal           @db.Decimal(15, 2)
+  effective_from    DateTime          @db.Date
+  effective_to      DateTime?         @db.Date
+  created_at        DateTime          @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime          @default(now()) @db.Timestamptz(6)
+  companies         companies         @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  employees         employees         @relation(fields: [employee_id, company_id], references: [id, company_id], onDelete: NoAction, onUpdate: NoAction, map: "employee_salary_assignments_employee_company_fkey")
+  salary_structures salary_structures @relation(fields: [structure_id, company_id], references: [id, company_id], onDelete: NoAction, onUpdate: NoAction, map: "employee_salary_assignments_structure_company_fkey")
+
+  @@index([employee_id], map: "idx_emp_salary_assignments_employee")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model employees {
+  id                          BigInt                        @id @default(autoincrement())
+  company_id                  BigInt
+  employee_code               String                        @db.VarChar(30)
+  name                        String                        @db.VarChar(200)
+  department                  String                        @db.VarChar(150)
+  designation                 String                        @db.VarChar(150)
+  email                       String                        @db.VarChar(255)
+  phone                       String?                       @db.VarChar(30)
+  status                      String                        @default("Active") @db.VarChar(20)
+  created_at                  DateTime                      @default(now()) @db.Timestamptz(6)
+  updated_at                  DateTime                      @default(now()) @db.Timestamptz(6)
+  user_id                     BigInt?
+  date_of_joining             DateTime?                     @db.Date
+  date_of_birth               DateTime?                     @db.Date
+  gender                      String?                       @db.VarChar(20)
+  employment_type             String?                       @db.VarChar(30)
+  work_location               String?                       @db.VarChar(200)
+  reporting_manager_id        BigInt?
+  approval_audit_log          approval_audit_log[]
+  attendance_records          attendance_records[]
+  attendance_regularizations  attendance_regularizations[]
+  employee_addresses          employee_addresses[]
+  employee_advances           employee_advances[]
+  employee_bank_accounts      employee_bank_accounts[]
+  employee_document_events    employee_document_events[]
+  employee_documents          employee_documents[]
+  employee_emergency_contacts employee_emergency_contacts[]
+  employee_employment_history employee_employment_history[]
+  employee_salary_assignments employee_salary_assignments[]
+  companies                   companies                     @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  reporting_manager           employees?                    @relation("EmployeeReportingManager", fields: [reporting_manager_id, company_id], references: [id, company_id], onDelete: NoAction, onUpdate: NoAction, map: "employees_reporting_manager_fkey")
+  direct_reports              employees[]                   @relation("EmployeeReportingManager")
+  users                       users?                        @relation(fields: [user_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  membership                  company_memberships?          @relation(fields: [company_id, user_id], references: [company_id, user_id], onDelete: NoAction, onUpdate: NoAction, map: "employees_membership_fkey")
+  company_invitations         company_invitations[]
+  leave_balances              leave_balances[]
+  leave_requests              leave_requests[]
+  payslips                    payslips[]
+  payroll_advance_recoveries  payroll_advance_recoveries[]
+  raw_punches                 raw_punches[]
+  rosters                     rosters[]
+
+  @@unique([company_id, email])
+  @@unique([company_id, employee_code])
+  @@unique([company_id, user_id])
+  @@unique([id, company_id])
+  @@index([reporting_manager_id], map: "idx_employees_reporting_manager")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model holidays {
+  id           BigInt    @id @default(autoincrement())
+  company_id   BigInt
+  name         String    @db.VarChar(200)
+  holiday_date DateTime  @db.Date
+  type         String    @default("National") @db.VarChar(30)
+  location     String?   @default("All Locations") @db.VarChar(200)
+  description  String?
+  created_at   DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at   DateTime  @default(now()) @db.Timestamptz(6)
+  companies    companies @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([company_id, holiday_date, name])
+  @@index([company_id, holiday_date], map: "idx_holidays_company_date")
+}
+
+model leave_balances {
+  id            BigInt      @id @default(autoincrement())
+  company_id    BigInt
+  employee_id   BigInt
+  leave_type_id BigInt
+  year          Int
+  allocated     Decimal     @default(0) @db.Decimal(7, 2)
+  used          Decimal     @default(0) @db.Decimal(7, 2)
+  carry_forward Decimal     @default(0) @db.Decimal(7, 2)
+  created_at    DateTime    @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime    @default(now()) @db.Timestamptz(6)
+  companies     companies   @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  employees     employees   @relation(fields: [employee_id, company_id], references: [id, company_id], onDelete: NoAction, onUpdate: NoAction, map: "leave_balances_employee_company_fkey")
+  leave_types   leave_types @relation(fields: [leave_type_id, company_id], references: [id, company_id], onDelete: NoAction, onUpdate: NoAction, map: "leave_balances_leave_type_company_fkey")
+
+  @@unique([company_id, employee_id, leave_type_id, year])
+  @@index([employee_id], map: "idx_leave_balances_employee")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model leave_requests {
+  id            BigInt      @id @default(autoincrement())
+  company_id    BigInt
+  employee_id   BigInt
+  leave_type_id BigInt
+  from_date     DateTime    @db.Date
+  to_date       DateTime    @db.Date
+  days          Decimal     @db.Decimal(5, 2)
+  reason        String?
+  status        String      @default("Pending") @db.VarChar(20)
+  reviewed_by   BigInt?
+  reviewed_at   DateTime?   @db.Timestamptz(6)
+  review_note   String?
+  created_at    DateTime    @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime    @default(now()) @db.Timestamptz(6)
+  companies     companies   @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  employees     employees   @relation(fields: [employee_id, company_id], references: [id, company_id], onDelete: NoAction, onUpdate: NoAction, map: "leave_requests_employee_company_fkey")
+  leave_types   leave_types @relation(fields: [leave_type_id, company_id], references: [id, company_id], onDelete: NoAction, onUpdate: NoAction, map: "leave_requests_leave_type_company_fkey")
+  users         users?      @relation(fields: [reviewed_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([company_id, employee_id], map: "idx_leave_requests_company_employee")
+  @@index([company_id, status], map: "idx_leave_requests_status")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model leave_types {
+  id                     BigInt           @id @default(autoincrement())
+  company_id             BigInt
+  name                   String           @db.VarChar(100)
+  description            String?
+  days_per_year          Decimal          @default(0) @db.Decimal(5, 2)
+  carry_forward          Boolean          @default(false)
+  max_carry_forward_days Decimal?         @default(0) @db.Decimal(5, 2)
+  applicable_gender      String?          @default("All") @db.VarChar(10)
+  is_paid                Boolean          @default(true)
+  status                 String           @default("Active") @db.VarChar(20)
+  created_at             DateTime         @default(now()) @db.Timestamptz(6)
+  updated_at             DateTime         @default(now()) @db.Timestamptz(6)
+  leave_balances         leave_balances[]
+  leave_requests         leave_requests[]
+  companies              companies        @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([company_id, name])
+  @@unique([id, company_id])
+  @@index([company_id], map: "idx_leave_types_company")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model payroll_runs {
+  id                         BigInt                       @id @default(autoincrement())
+  company_id                 BigInt
+  pay_period_year            Int
+  pay_period_month           Int
+  status                     String                       @default("Draft") @db.VarChar(30)
+  processed_by               BigInt?
+  processed_at               DateTime?                    @db.Timestamptz(6)
+  total_gross                Decimal?                     @db.Decimal(18, 2)
+  total_net                  Decimal?                     @db.Decimal(18, 2)
+  total_deductions           Decimal?                     @db.Decimal(18, 2)
+  notes                      String?
+  created_at                 DateTime                     @default(now()) @db.Timestamptz(6)
+  updated_at                 DateTime                     @default(now()) @db.Timestamptz(6)
+  policy_version             Int?
+  is_provisional             Boolean                      @default(false)
+  companies                  companies                    @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users                      users?                       @relation(fields: [processed_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  payslips                   payslips[]
+  payroll_advance_recoveries payroll_advance_recoveries[]
+
+  /// One non-cancelled run per company and month is enforced by the partial unique
+  /// index payroll_runs_active_period_key (WHERE status <> 'Cancelled'), created in
+  /// migration 20261022000000_identity_payroll_security. Prisma cannot express it here.
+  @@unique([id, company_id])
+  @@index([company_id], map: "idx_payroll_runs_company")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model payroll_advance_recoveries {
+  id                BigInt            @id @default(autoincrement())
+  company_id        BigInt
+  payroll_run_id    BigInt
+  advance_id        BigInt
+  employee_id       BigInt
+  amount            Decimal           @db.Decimal(15, 2)
+  status            String            @default("Reserved") @db.VarChar(20)
+  created_at        DateTime          @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime          @default(now()) @db.Timestamptz(6)
+  companies         companies         @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  payroll_runs      payroll_runs      @relation(fields: [payroll_run_id, company_id], references: [id, company_id], onDelete: NoAction, onUpdate: NoAction, map: "payroll_advance_recoveries_run_company_fkey")
+  employee_advances employee_advances @relation(fields: [advance_id, company_id], references: [id, company_id], onDelete: NoAction, onUpdate: NoAction, map: "payroll_advance_recoveries_advance_company_fkey")
+  employees         employees         @relation(fields: [employee_id, company_id], references: [id, company_id], onDelete: NoAction, onUpdate: NoAction, map: "payroll_advance_recoveries_employee_company_fkey")
+
+  @@unique([payroll_run_id, advance_id])
+  @@index([advance_id, status], map: "idx_advance_recoveries_advance_status")
+}
+
+model login_attempts {
+  id              BigInt   @id @default(autoincrement())
+  identifier_hash String   @db.Char(64)
+  ip_address      String?  @db.VarChar(64)
+  succeeded       Boolean
+  attempted_at    DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([identifier_hash, attempted_at], map: "idx_login_attempts_identifier_time")
+  @@index([ip_address, attempted_at], map: "idx_login_attempts_ip_time")
+  @@index([attempted_at], map: "idx_login_attempts_time")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model payslips {
+  id                 BigInt       @id @default(autoincrement())
+  payroll_run_id     BigInt
+  company_id         BigInt
+  employee_id        BigInt
+  basic_pay          Decimal      @default(0) @db.Decimal(15, 2)
+  hra                Decimal      @default(0) @db.Decimal(15, 2)
+  da                 Decimal      @default(0) @db.Decimal(15, 2)
+  other_earnings     Decimal      @default(0) @db.Decimal(15, 2)
+  gross_pay          Decimal      @default(0) @db.Decimal(15, 2)
+  pf_employee        Decimal      @default(0) @db.Decimal(15, 2)
+  esic_employee      Decimal      @default(0) @db.Decimal(15, 2)
+  professional_tax   Decimal      @default(0) @db.Decimal(15, 2)
+  tds                Decimal      @default(0) @db.Decimal(15, 2)
+  other_deductions   Decimal      @default(0) @db.Decimal(15, 2)
+  total_deductions   Decimal      @default(0) @db.Decimal(15, 2)
+  net_salary         Decimal      @default(0) @db.Decimal(15, 2)
+  pf_employer        Decimal      @default(0) @db.Decimal(15, 2)
+  esic_employer      Decimal      @default(0) @db.Decimal(15, 2)
+  working_days       Int?
+  paid_days          Int?
+  lop_days           Decimal?     @default(0) @db.Decimal(5, 2)
+  status             String       @default("Draft") @db.VarChar(20)
+  calculation_detail Json?
+  created_at         DateTime     @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime     @default(now()) @db.Timestamptz(6)
+  companies          companies    @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  employees          employees    @relation(fields: [employee_id, company_id], references: [id, company_id], onDelete: NoAction, onUpdate: NoAction, map: "payslips_employee_company_fkey")
+  payroll_runs       payroll_runs @relation(fields: [payroll_run_id, company_id], references: [id, company_id], onDelete: Cascade, onUpdate: NoAction, map: "payslips_run_company_fkey")
+
+  @@unique([payroll_run_id, employee_id])
+  @@index([company_id, employee_id], map: "idx_payslips_company_employee")
+  @@index([payroll_run_id], map: "idx_payslips_run")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model raw_punches {
+  id                BigInt             @id @default(autoincrement())
+  company_id        BigInt
+  device_id         BigInt?
+  employee_id       BigInt?
+  punch_time        DateTime           @db.Timestamptz(6)
+  punch_type        String?            @default("Unknown") @db.VarChar(10)
+  device_user_id    String?            @db.VarChar(100)
+  created_at        DateTime           @default(now()) @db.Timestamptz(6)
+  companies         companies          @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  biometric_devices biometric_devices? @relation(fields: [device_id, company_id], references: [id, company_id], onDelete: NoAction, onUpdate: NoAction, map: "raw_punches_device_company_fkey")
+  employees         employees?         @relation(fields: [employee_id, company_id], references: [id, company_id], onDelete: NoAction, onUpdate: NoAction, map: "raw_punches_employee_company_fkey")
+
+  @@index([company_id, punch_time], map: "idx_raw_punches_company_time")
+  @@index([employee_id, punch_time], map: "idx_raw_punches_employee_time")
+}
+
+model rosters {
+  id             BigInt    @id @default(autoincrement())
+  company_id     BigInt
+  employee_id    BigInt
+  shift_id       BigInt
+  effective_from DateTime  @db.Date
+  effective_to   DateTime? @db.Date
+  created_at     DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at     DateTime  @default(now()) @db.Timestamptz(6)
+  companies      companies @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  employees      employees @relation(fields: [employee_id, company_id], references: [id, company_id], onDelete: NoAction, onUpdate: NoAction, map: "rosters_employee_company_fkey")
+  shifts         shifts    @relation(fields: [shift_id, company_id], references: [id, company_id], onDelete: NoAction, onUpdate: NoAction, map: "rosters_shift_company_fkey")
+
+  @@index([company_id, employee_id], map: "idx_rosters_company_employee")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model salary_components {
+  id                          BigInt                        @id @default(autoincrement())
+  company_id                  BigInt
+  name                        String                        @db.VarChar(100)
+  component_type              String                        @default("Earning") @db.VarChar(30)
+  calculation_type            String                        @default("Fixed") @db.VarChar(20)
+  percentage_of               String?                       @db.VarChar(100)
+  is_statutory                Boolean                       @default(false)
+  status                      String                        @default("Active") @db.VarChar(20)
+  created_at                  DateTime                      @default(now()) @db.Timestamptz(6)
+  updated_at                  DateTime                      @default(now()) @db.Timestamptz(6)
+  companies                   companies                     @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  salary_structure_components salary_structure_components[]
+
+  @@unique([company_id, name])
+  @@unique([id, company_id])
+  @@index([company_id], map: "idx_salary_components_company")
+}
+
+model salary_structure_components {
+  id                BigInt            @id @default(autoincrement())
+  structure_id      BigInt
+  component_id      BigInt
+  amount            Decimal?          @db.Decimal(15, 2)
+  percentage        Decimal?          @db.Decimal(7, 4)
+  company_id        BigInt
+  salary_components salary_components @relation(fields: [component_id, company_id], references: [id, company_id], onDelete: NoAction, onUpdate: NoAction, map: "salary_structure_components_component_company_fkey")
+  salary_structures salary_structures @relation(fields: [structure_id, company_id], references: [id, company_id], onDelete: Cascade, onUpdate: NoAction, map: "salary_structure_components_structure_company_fkey")
+
+  @@unique([structure_id, component_id])
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model salary_structures {
+  id                          BigInt                        @id @default(autoincrement())
+  company_id                  BigInt
+  name                        String                        @db.VarChar(200)
+  description                 String?
+  ctc_min                     Decimal?                      @db.Decimal(15, 2)
+  ctc_max                     Decimal?                      @db.Decimal(15, 2)
+  status                      String                        @default("Active") @db.VarChar(20)
+  department_id               BigInt?
+  designation_id              BigInt?
+  created_at                  DateTime                      @default(now()) @db.Timestamptz(6)
+  updated_at                  DateTime                      @default(now()) @db.Timestamptz(6)
+  employee_salary_assignments employee_salary_assignments[]
+  salary_structure_components salary_structure_components[]
+  companies                   companies                     @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  departments                 departments?                  @relation(fields: [department_id, company_id], references: [id, company_id], onDelete: NoAction, onUpdate: NoAction, map: "salary_structures_department_company_fkey")
+  designations                designations?                 @relation(fields: [designation_id, company_id], references: [id, company_id], onDelete: NoAction, onUpdate: NoAction, map: "salary_structures_designation_company_fkey")
+
+  @@unique([company_id, name])
+  @@unique([id, company_id])
+  @@index([company_id], map: "idx_salary_structures_company")
+  @@index([department_id], map: "idx_salary_structures_department")
+  @@index([designation_id], map: "idx_salary_structures_designation")
+}
+
+model sessions {
+  id         BigInt   @id @default(autoincrement())
+  user_id    BigInt
+  token_hash String   @unique
+  expires_at DateTime @db.Timestamptz(6)
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  users      users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([expires_at], map: "idx_sessions_expiry")
+  @@index([user_id], map: "idx_sessions_user")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model shifts {
+  id                 BigInt               @id @default(autoincrement())
+  company_id         BigInt
+  name               String               @db.VarChar(100)
+  start_time         DateTime             @db.Time(6)
+  end_time           DateTime             @db.Time(6)
+  grace_minutes      Int                  @default(15)
+  break_minutes      Int                  @default(60)
+  overtime_threshold Int                  @default(30)
+  weekly_off         String?              @default("Sunday") @db.VarChar(20)
+  location           String?              @default("All Locations") @db.VarChar(200)
+  status             String               @default("Active") @db.VarChar(20)
+  created_at         DateTime             @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime             @default(now()) @db.Timestamptz(6)
+  attendance_records attendance_records[]
+  rosters            rosters[]
+  companies          companies            @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([company_id, name])
+  @@unique([id, company_id])
+  @@index([company_id], map: "idx_shifts_company")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model users {
+  id                         BigInt                       @id @default(autoincrement())
+  email                      String                       @unique @db.VarChar(255)
+  password_hash              String
+  full_name                  String                       @db.VarChar(200)
+  platform_role              String?                      @db.VarChar(30)
+  status                     String                       @default("active") @db.VarChar(20)
+  email_verified_at          DateTime?                    @db.Timestamptz(6)
+  created_at                 DateTime                     @default(now()) @db.Timestamptz(6)
+  attendance_regularizations attendance_regularizations[]
+  overtime_reviews           attendance_records[]         @relation("attendance_overtime_reviewer")
+  company_memberships        company_memberships[]
+  employee_advances          employee_advances[]
+  employees                  employees[]
+  leave_requests             leave_requests[]
+  payroll_runs               payroll_runs[]
+  sessions                   sessions[]
+  approval_audit_log         approval_audit_log[]
+  delegations_received       approval_delegates[]          @relation("approval_delegates_user_idTousers")
+  delegations_granted        approval_delegates[]          @relation("approval_delegates_granted_byTousers")
+  delegations_revoked        approval_delegates[]          @relation("approval_delegates_revoked_byTousers")
+  policies_updated           company_policies[]            @relation("company_policies_updated_byTousers")
+  policies_approved          company_policies[]            @relation("company_policies_approved_byTousers")
+  document_events            employee_document_events[]
+  documents_uploaded         employee_documents[]          @relation("employee_documents_uploaded_byTousers")
+  documents_verified         employee_documents[]          @relation("employee_documents_verified_byTousers")
+  documents_deleted          employee_documents[]          @relation("employee_documents_deleted_byTousers")
+  employment_history         employee_employment_history[]
+  invitations_sent           company_invitations[]         @relation("company_invitations_invited_byTousers")
+  invitations_accepted       company_invitations[]         @relation("company_invitations_accepted_byTousers")
+  invitations_revoked        company_invitations[]         @relation("company_invitations_revoked_byTousers")
+  membership_events          membership_events[]           @relation("membership_events_user_idTousers")
+  membership_events_acted    membership_events[]           @relation("membership_events_actor_user_idTousers")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model approval_audit_log {
+  id            BigInt    @id @default(autoincrement())
+  company_id    BigInt
+  entity_type   String    @db.VarChar(30)
+  entity_id     BigInt
+  employee_id   BigInt
+  action        String    @db.VarChar(20)
+  actor_user_id BigInt
+  authority     String    @db.VarChar(20)
+  note          String?
+  created_at    DateTime  @default(now()) @db.Timestamptz(6)
+  users         users     @relation(fields: [actor_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "approval_audit_log_actor_fkey")
+  companies     companies @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "approval_audit_log_company_fkey")
+  employees     employees @relation(fields: [employee_id, company_id], references: [id, company_id], onDelete: NoAction, onUpdate: NoAction, map: "approval_audit_log_employee_company_fkey")
+
+  @@index([company_id, entity_type, entity_id], map: "idx_approval_audit_entity")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model approval_delegates {
+  id         BigInt    @id @default(autoincrement())
+  company_id BigInt
+  user_id    BigInt
+  granted_by BigInt
+  granted_at DateTime  @default(now()) @db.Timestamptz(6)
+  reason     String?
+  revoked_by BigInt?
+  revoked_at DateTime? @db.Timestamptz(6)
+  companies  companies @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "approval_delegates_company_fkey")
+  granter    users     @relation("approval_delegates_granted_byTousers", fields: [granted_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  revoker    users?    @relation("approval_delegates_revoked_byTousers", fields: [revoked_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  delegate   users     @relation("approval_delegates_user_idTousers", fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "approval_delegates_user_fkey")
+  membership company_memberships @relation(fields: [company_id, user_id], references: [company_id, user_id], onDelete: NoAction, onUpdate: NoAction, map: "approval_delegates_membership_fkey")
+
+  /// One active grant per company and user is enforced by the partial unique
+  /// index approval_delegates_active_key (WHERE revoked_at IS NULL), created in
+  /// migration 20261022160000_profile_documents_policies.
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model company_policies {
+  company_id                 BigInt    @id
+  version                    Int       @default(1)
+  status                     String    @default("Draft") @db.VarChar(20)
+  lop_mode                   String?   @db.VarChar(30)
+  lop_day_basis              String?   @db.VarChar(20)
+  lop_fixed_days             Int?      @db.SmallInt
+  net_pay_rounding           String?   @db.VarChar(20)
+  pf_treatment               String?   @db.VarChar(30)
+  esic_treatment             String?   @db.VarChar(30)
+  professional_tax_treatment String?   @db.VarChar(30)
+  tds_treatment              String?   @db.VarChar(30)
+  overtime_pay_treatment     String?   @db.VarChar(30)
+  leave_day_counting         String?   @db.VarChar(40)
+  night_shift_window_minutes Int?      @db.SmallInt
+  notes                      String?
+  approved_snapshot          Json?
+  updated_by                 BigInt?
+  updated_at                 DateTime  @default(now()) @db.Timestamptz(6)
+  approved_by                BigInt?
+  approved_at                DateTime? @db.Timestamptz(6)
+  created_at                 DateTime  @default(now()) @db.Timestamptz(6)
+  approver                   users?    @relation("company_policies_approved_byTousers", fields: [approved_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  companies                  companies @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "company_policies_company_fkey")
+  editor                     users?    @relation("company_policies_updated_byTousers", fields: [updated_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model designation_departments {
+  company_id     BigInt
+  designation_id BigInt
+  department_id  BigInt
+  created_at     DateTime     @default(now()) @db.Timestamptz(6)
+  departments    departments  @relation(fields: [department_id, company_id], references: [id, company_id], onDelete: Cascade, onUpdate: NoAction, map: "designation_departments_department_fkey")
+  designations   designations @relation(fields: [designation_id, company_id], references: [id, company_id], onDelete: Cascade, onUpdate: NoAction, map: "designation_departments_designation_fkey")
+
+  @@id([designation_id, department_id])
+  @@index([department_id], map: "idx_designation_departments_department")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model employee_addresses {
+  id           BigInt    @id @default(autoincrement())
+  company_id   BigInt
+  employee_id  BigInt
+  address_type String    @db.VarChar(20)
+  line1        String    @db.VarChar(200)
+  line2        String?   @db.VarChar(200)
+  city         String    @db.VarChar(100)
+  state        String?   @db.VarChar(100)
+  postal_code  String?   @db.VarChar(20)
+  country      String?   @db.VarChar(100)
+  created_at   DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at   DateTime  @default(now()) @db.Timestamptz(6)
+  employees    employees @relation(fields: [employee_id, company_id], references: [id, company_id], onDelete: Cascade, onUpdate: NoAction, map: "employee_addresses_employee_fkey")
+
+  @@unique([employee_id, address_type], map: "employee_addresses_employee_type_key")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model employee_bank_accounts {
+  id                  BigInt    @id @default(autoincrement())
+  company_id          BigInt
+  employee_id         BigInt
+  account_holder_name String    @db.VarChar(200)
+  bank_name           String    @db.VarChar(150)
+  branch              String?   @db.VarChar(150)
+  account_number      String    @db.VarChar(34)
+  ifsc_code           String    @db.VarChar(11)
+  account_type        String?   @db.VarChar(20)
+  is_primary          Boolean   @default(false)
+  created_at          DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime  @default(now()) @db.Timestamptz(6)
+  employees           employees @relation(fields: [employee_id, company_id], references: [id, company_id], onDelete: Cascade, onUpdate: NoAction, map: "employee_bank_accounts_employee_fkey")
+
+  /// At most one primary account per employee is enforced by the partial unique
+  /// index employee_bank_accounts_one_primary_key (WHERE is_primary).
+  @@unique([employee_id, account_number], map: "employee_bank_accounts_employee_number_key")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model employee_document_events {
+  id                 BigInt             @id @default(autoincrement())
+  company_id         BigInt
+  document_id        BigInt
+  employee_id        BigInt
+  action             String             @db.VarChar(20)
+  actor_user_id      BigInt
+  ip_address         String?            @db.VarChar(64)
+  created_at         DateTime           @default(now()) @db.Timestamptz(6)
+  users              users              @relation(fields: [actor_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "employee_document_events_actor_fkey")
+  employee_documents employee_documents @relation(fields: [document_id, company_id], references: [id, company_id], onDelete: NoAction, onUpdate: NoAction, map: "employee_document_events_document_company_fkey")
+  employees          employees          @relation(fields: [employee_id, company_id], references: [id, company_id], onDelete: NoAction, onUpdate: NoAction, map: "employee_document_events_employee_company_fkey")
+
+  @@index([document_id, created_at], map: "idx_document_events_document")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model employee_documents {
+  id                       BigInt                     @id @default(autoincrement())
+  company_id               BigInt
+  employee_id              BigInt
+  category                 String                     @db.VarChar(40)
+  title                    String                     @db.VarChar(200)
+  original_filename        String                     @db.VarChar(255)
+  mime_type                String                     @db.VarChar(100)
+  size_bytes               Int
+  sha256                   String                     @db.Char(64)
+  storage_key              String                     @unique @db.VarChar(200)
+  verification_status      String                     @default("Pending") @db.VarChar(20)
+  verification_note        String?
+  verified_by              BigInt?
+  verified_at              DateTime?                  @db.Timestamptz(6)
+  uploaded_by              BigInt
+  deleted_by               BigInt?
+  deleted_at               DateTime?                  @db.Timestamptz(6)
+  created_at               DateTime                   @default(now()) @db.Timestamptz(6)
+  updated_at               DateTime                   @default(now()) @db.Timestamptz(6)
+  employee_document_events employee_document_events[]
+  deleter                  users?                     @relation("employee_documents_deleted_byTousers", fields: [deleted_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  employees                employees                  @relation(fields: [employee_id, company_id], references: [id, company_id], onDelete: NoAction, onUpdate: NoAction, map: "employee_documents_employee_fkey")
+  uploader                 users                      @relation("employee_documents_uploaded_byTousers", fields: [uploaded_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  verifier                 users?                     @relation("employee_documents_verified_byTousers", fields: [verified_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  /// Active documents are indexed by the partial index idx_employee_documents_employee
+  /// (company_id, employee_id WHERE deleted_at IS NULL).
+  @@unique([id, company_id])
+}
+
+model employee_emergency_contacts {
+  id              BigInt    @id @default(autoincrement())
+  company_id      BigInt
+  employee_id     BigInt
+  name            String    @db.VarChar(200)
+  relationship    String    @db.VarChar(50)
+  phone           String    @db.VarChar(30)
+  alternate_phone String?   @db.VarChar(30)
+  email           String?   @db.VarChar(255)
+  is_primary      Boolean   @default(false)
+  created_at      DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime  @default(now()) @db.Timestamptz(6)
+  employees       employees @relation(fields: [employee_id, company_id], references: [id, company_id], onDelete: Cascade, onUpdate: NoAction, map: "employee_emergency_contacts_employee_fkey")
+
+  @@index([employee_id], map: "idx_emergency_contacts_employee")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model employee_employment_history {
+  id                   BigInt    @id @default(autoincrement())
+  company_id           BigInt
+  employee_id          BigInt
+  event_type           String    @db.VarChar(30)
+  effective_date       DateTime  @db.Date
+  department           String?   @db.VarChar(150)
+  designation          String?   @db.VarChar(150)
+  previous_department  String?   @db.VarChar(150)
+  previous_designation String?   @db.VarChar(150)
+  previous_status      String?   @db.VarChar(20)
+  new_status           String?   @db.VarChar(20)
+  organization         String?   @db.VarChar(200)
+  notes                String?
+  source               String    @default("manual") @db.VarChar(10)
+  recorded_by          BigInt?
+  created_at           DateTime  @default(now()) @db.Timestamptz(6)
+  employees            employees @relation(fields: [employee_id, company_id], references: [id, company_id], onDelete: Cascade, onUpdate: NoAction, map: "employee_employment_history_employee_fkey")
+  users                users?    @relation(fields: [recorded_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([employee_id, effective_date], map: "idx_employment_history_employee")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model company_invitations {
+  id                BigInt              @id @default(autoincrement())
+  company_id        BigInt
+  email             String              @db.VarChar(255)
+  role              String              @db.VarChar(30)
+  employee_id       BigInt?
+  token_hash        String              @unique @db.Char(64)
+  invited_by        BigInt
+  created_at        DateTime            @default(now()) @db.Timestamptz(6)
+  expires_at        DateTime            @db.Timestamptz(6)
+  accepted_at       DateTime?           @db.Timestamptz(6)
+  accepted_by       BigInt?
+  revoked_at        DateTime?           @db.Timestamptz(6)
+  revoked_by        BigInt?
+  companies         companies           @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "company_invitations_company_fkey")
+  employees         employees?          @relation(fields: [employee_id, company_id], references: [id, company_id], onDelete: NoAction, onUpdate: NoAction, map: "company_invitations_employee_fkey")
+  inviter           users               @relation("company_invitations_invited_byTousers", fields: [invited_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  acceptor          users?              @relation("company_invitations_accepted_byTousers", fields: [accepted_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  revoker           users?              @relation("company_invitations_revoked_byTousers", fields: [revoked_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  membership_events membership_events[]
+
+  /// One open invitation per company and email, and per employee record, is
+  /// enforced by the partial unique indexes company_invitations_open_email_key
+  /// and company_invitations_open_employee_key (WHERE accepted_at IS NULL AND
+  /// revoked_at IS NULL), created in migration 20261023090000_invitations_access_control.
+  @@unique([id, company_id])
+  @@index([company_id, created_at], map: "idx_company_invitations_company")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model membership_events {
+  id                  BigInt               @id @default(autoincrement())
+  company_id          BigInt
+  user_id             BigInt?
+  invitation_id       BigInt?
+  action              String               @db.VarChar(30)
+  previous_role       String?              @db.VarChar(30)
+  new_role            String?              @db.VarChar(30)
+  actor_user_id       BigInt
+  note                String?
+  created_at          DateTime             @default(now()) @db.Timestamptz(6)
+  companies           companies            @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "membership_events_company_fkey")
+  user                users?               @relation("membership_events_user_idTousers", fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "membership_events_user_fkey")
+  company_invitations company_invitations? @relation(fields: [invitation_id, company_id], references: [id, company_id], onDelete: NoAction, onUpdate: NoAction, map: "membership_events_invitation_fkey")
+  actor               users                @relation("membership_events_actor_user_idTousers", fields: [actor_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "membership_events_actor_fkey")
+
+  @@index([company_id, created_at], map: "idx_membership_events_company")
+}
+
+model registration_attempts {
+  id           BigInt   @id @default(autoincrement())
+  email_hash   String   @db.Char(64)
+  ip_address   String?  @db.VarChar(64)
+  attempted_at DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([email_hash, attempted_at], map: "idx_registration_attempts_email_time")
+  @@index([ip_address, attempted_at], map: "idx_registration_attempts_ip_time")
+  @@index([attempted_at], map: "idx_registration_attempts_time")
+}

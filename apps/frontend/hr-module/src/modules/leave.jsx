@@ -190,7 +190,7 @@ export function LeaveDashboard({ companyId, role, employees, departments, onNavi
         <Panel title="On leave today" padded={false}>
           <DataTable rows={onLeaveToday} loading={requests.loading} empty="Nobody is on approved leave today." columns={requestColumns({}).slice(0, 5)} />
         </Panel>
-        <Panel title="Pending requests" actions={canManage(role) && <button type="button" onClick={() => onNavigate("Leave Approvals")} className={secondaryButton}>Open approvals</button>} padded={false}>
+        <Panel title="Pending requests" actions={canManage(role) && <button type="button" onClick={() => onNavigate("leave-approvals")} className={secondaryButton}>Open approvals</button>} padded={false}>
           <DataTable rows={pending.slice(0, 10)} loading={requests.loading} empty="No pending requests." columns={requestColumns({}).slice(0, 5)} />
         </Panel>
       </div>

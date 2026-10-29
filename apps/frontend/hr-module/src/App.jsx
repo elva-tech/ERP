@@ -151,7 +151,7 @@ function App({
 
     if (!route) return;
 
-    if (route.id === findRoute("Employee Profile")?.id) {
+    if (route.id === findRoute("employee-profile")?.id) {
       setSelectedEmployee(null);
     }
 
@@ -161,7 +161,7 @@ function App({
   }
 
   function openEmployeeProfile(employee) {
-    const route = findRoute("Employee Profile");
+    const route = findRoute("employee-profile");
 
     if (!route) return;
 

@@ -176,9 +176,9 @@ export function AttendanceDashboard({ companyId, employees, departments = [], ro
             )}
           </ul>
           <div className="mt-5 flex flex-wrap gap-2">
-            <button type="button" onClick={() => onNavigate("Attendance Exceptions")} className={secondaryButton}>Review exceptions</button>
-            <button type="button" onClick={() => onNavigate("Attendance Regularization")} className={secondaryButton}>Regularization</button>
-            <button type="button" onClick={() => onNavigate("Daily Attendance")} className={primaryButton}>Daily attendance</button>
+            <button type="button" onClick={() => onNavigate("attendance-exceptions")} className={secondaryButton}>Review exceptions</button>
+            <button type="button" onClick={() => onNavigate("attendance-regularization")} className={secondaryButton}>Regularization</button>
+            <button type="button" onClick={() => onNavigate("daily-attendance")} className={primaryButton}>Daily attendance</button>
           </div>
         </Panel>
       </div>

@@ -936,8 +936,8 @@ const COLUMN_LABELS = {
 };
 
 const REPORT_LIST = [
-  { kind: "PF", name: "PF Monthly Statement", page: "PF" },
-  { kind: "ESIC", name: "ESIC Monthly Statement", page: "ESIC" },
+  { kind: "PF", name: "PF Monthly Statement", page: "pf" },
+  { kind: "ESIC", name: "ESIC Monthly Statement", page: "esic" },
   { kind: "ALL", name: "Statutory Summary (PF, ESIC, PT, TDS)", page: null },
 ];
 

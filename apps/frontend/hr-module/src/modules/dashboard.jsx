@@ -32,7 +32,7 @@ function DepartmentHeadcount({ employees, departments, onNavigate, manager }) {
   const max = Math.max(1, ...rows.map((r) => r.count));
 
   return (
-    <Panel title="Department Headcount" actions={manager && <button type="button" onClick={() => onNavigate("Departments")} className="text-xs font-semibold text-link hover:underline">View all</button>}>
+    <Panel title="Department Headcount" actions={manager && <button type="button" onClick={() => onNavigate("departments")} className="text-xs font-semibold text-link hover:underline">View all</button>}>
       {rows.length === 0 ? (
         <p className="py-8 text-center text-sm text-muted">No departments or active employees yet.</p>
       ) : (
@@ -129,16 +129,16 @@ export function Dashboard({ companyId, role, employees, departments, onNavigate 
   const attendancePct = marked && active.length ? `${Math.round((present / active.length) * 100)}% attendance` : undefined;
   const stats = manager
     ? [
-        { label: "Total Employees", value: active.length, badge: "Active Strength", note: `${employees.length - active.length} inactive`, onClick: () => onNavigate("Employee Directory"), actionLabel: "Open Employee Directory" },
-        { label: "Present Today", value: attendance.loading ? loadingValue : marked ? present : "—", badge: attendancePct, note: marked ? undefined : "No attendance marked today", onClick: () => onNavigate("Daily Attendance"), actionLabel: "Open Daily Attendance" },
-        { label: "On Leave Today", value: leave.loading ? loadingValue : onLeaveToday, badge: "Approved leave", onClick: () => onNavigate("Leave Requests"), actionLabel: "Open Leave Requests" },
-        { label: "Pending Leave Requests", value: pendingLeave.loading ? loadingValue : pending.length, badge: pending.length ? "Requires Approval" : "Nothing waiting", alert: pending.length > 0, tone: pending.length ? "text-danger" : undefined, onClick: () => onNavigate("Leave Approvals"), actionLabel: "Open Leave Approvals" },
+        { label: "Total Employees", value: active.length, badge: "Active Strength", note: `${employees.length - active.length} inactive`, onClick: () => onNavigate("employee-directory"), actionLabel: "Open Employee Directory" },
+        { label: "Present Today", value: attendance.loading ? loadingValue : marked ? present : "—", badge: attendancePct, note: marked ? undefined : "No attendance marked today", onClick: () => onNavigate("daily-attendance"), actionLabel: "Open Daily Attendance" },
+        { label: "On Leave Today", value: leave.loading ? loadingValue : onLeaveToday, badge: "Approved leave", onClick: () => onNavigate("leave-requests"), actionLabel: "Open Leave Requests" },
+        { label: "Pending Leave Requests", value: pendingLeave.loading ? loadingValue : pending.length, badge: pending.length ? "Requires Approval" : "Nothing waiting", alert: pending.length > 0, tone: pending.length ? "text-danger" : undefined, onClick: () => onNavigate("leave-approvals"), actionLabel: "Open Leave Approvals" },
       ]
     : [
-        { label: "Colleagues", value: active.length, badge: "Active", onClick: () => onNavigate("Employee Directory"), actionLabel: "Open Employee Directory" },
-        { label: "My Attendance Today", value: attendance.loading ? loadingValue : Object.keys(summary)[0] || "Not marked", onClick: () => onNavigate("Employee Attendance"), actionLabel: "Open my attendance" },
-        { label: "My Leave Today", value: leave.loading ? loadingValue : onLeaveToday ? "On leave" : "Working", onClick: () => onNavigate("Leave Balance"), actionLabel: "Open Leave Balance" },
-        { label: "My Pending Requests", value: pendingLeave.loading ? loadingValue : pending.length, badge: pending.length ? "Awaiting approval" : undefined, onClick: () => onNavigate("Leave Requests"), actionLabel: "Open Leave Requests" },
+        { label: "Colleagues", value: active.length, badge: "Active", onClick: () => onNavigate("employee-directory"), actionLabel: "Open Employee Directory" },
+        { label: "My Attendance Today", value: attendance.loading ? loadingValue : Object.keys(summary)[0] || "Not marked", onClick: () => onNavigate("employee-attendance"), actionLabel: "Open my attendance" },
+        { label: "My Leave Today", value: leave.loading ? loadingValue : onLeaveToday ? "On leave" : "Working", onClick: () => onNavigate("leave-balance"), actionLabel: "Open Leave Balance" },
+        { label: "My Pending Requests", value: pendingLeave.loading ? loadingValue : pending.length, badge: pending.length ? "Awaiting approval" : undefined, onClick: () => onNavigate("leave-requests"), actionLabel: "Open Leave Requests" },
       ];
   const monthTitle = new Date(`${today}T00:00:00`).toLocaleDateString("en-IN", { month: "long", year: "numeric" });
 
@@ -158,7 +158,7 @@ export function Dashboard({ companyId, role, employees, departments, onNavigate 
       <Panel
         title="Recent Leave Requests"
         actions={
-          <button type="button" onClick={() => onNavigate(manager ? "Leave Approvals" : "Leave Requests")} className="text-xs font-semibold text-link hover:underline">
+          <button type="button" onClick={() => onNavigate(manager ? "leave-approvals" : "leave-requests")} className="text-xs font-semibold text-link hover:underline">
             View all
           </button>
         }

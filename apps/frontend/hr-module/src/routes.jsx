@@ -207,7 +207,7 @@ export const routeSections = [
               employeeId={ctx.selectedEmployee.id}
               ownEmployeeId={ctx.ownEmployeeId}
               employees={ctx.employees}
-              onBack={() => ctx.navigate("Employee Directory")}
+              onBack={() => ctx.navigate("employee-directory")}
               onEmployeeUpdated={ctx.refreshCompanyRecords}
             />
           ) : (
@@ -215,7 +215,7 @@ export const routeSections = [
               employees={ctx.employees}
               ownEmployeeId={ctx.ownEmployeeId}
               onOpenProfile={ctx.openEmployeeProfile}
-              onOpenOwnProfile={() => ctx.navigate("My Profile")}
+              onOpenOwnProfile={() => ctx.navigate("my-profile")}
             />
           ),
       },

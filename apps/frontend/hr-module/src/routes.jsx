@@ -29,7 +29,7 @@ import {
 import { Dashboard } from "./modules/dashboard";
 import { UsersAccess } from "./modules/access";
 import { EmployeeDirectory, EmployeeProfilePicker } from "./modules/directory";
-import { EmployeeProfile } from "./modules/employeeProfile";
+
 import { Departments, Designations } from "./modules/organization";
 import {
   ApprovalDelegation,
@@ -38,38 +38,65 @@ import {
   PayrollPolicy,
 } from "./modules/admin";
 
+const EmployeeProfile = lazy(() =>
+  import("./modules/employee-profile/EmployeeProfile").then((m) => ({
+    default: m.EmployeeProfile,
+  })),
+);
 const AttendanceDashboard = lazy(() =>
-  import("./modules/attendance").then((m) => ({ default: m.AttendanceDashboard })),
+  import("./modules/attendance/AttendanceDashboard").then((m) => ({
+    default: m.AttendanceDashboard,
+  })),
 );
 const AttendanceExceptions = lazy(() =>
-  import("./modules/attendance").then((m) => ({ default: m.AttendanceExceptions })),
+  import("./modules/attendance/AttendanceExceptions").then((m) => ({
+    default: m.AttendanceExceptions,
+  })),
 );
 const AttendanceRegularization = lazy(() =>
-  import("./modules/attendance").then((m) => ({ default: m.AttendanceRegularization })),
+  import("./modules/attendance/AttendanceRegularization").then((m) => ({
+    default: m.AttendanceRegularization,
+  })),
 );
 const BiometricDevices = lazy(() =>
-  import("./modules/attendance").then((m) => ({ default: m.BiometricDevices })),
+  import("./modules/attendance/AttendanceMasters").then((m) => ({
+    default: m.BiometricDevices,
+  })),
 );
 const DailyAttendance = lazy(() =>
-  import("./modules/attendance").then((m) => ({ default: m.DailyAttendance })),
+  import("./modules/attendance/DailyAttendance").then((m) => ({
+    default: m.DailyAttendance,
+  })),
 );
 const EmployeeAttendance = lazy(() =>
-  import("./modules/attendance").then((m) => ({ default: m.EmployeeAttendance })),
+  import("./modules/attendance/EmployeeAttendance").then((m) => ({
+    default: m.EmployeeAttendance,
+  })),
 );
 const MonthlyAttendance = lazy(() =>
-  import("./modules/attendance").then((m) => ({ default: m.MonthlyAttendance })),
+  import("./modules/attendance/MonthlyAttendance").then((module) => ({
+    default: module.MonthlyAttendance,
+  })),
 );
 const Overtime = lazy(() =>
-  import("./modules/attendance").then((m) => ({ default: m.Overtime })),
+  import("./modules/attendance/Overtime").then((m) => ({
+    default: m.Overtime,
+  })),
 );
 const RawPunches = lazy(() =>
-  import("./modules/attendance").then((m) => ({ default: m.RawPunches })),
+  import("./modules/attendance/RawPunches").then((m) => ({
+    default: m.RawPunches,
+  })),
 );
 const RosterManagement = lazy(() =>
-  import("./modules/attendance").then((m) => ({ default: m.RosterManagement })),
+  import("./modules/attendance/AttendanceMasters").then((m) => ({
+    default: m.RosterManagement,
+  })),
 );
 const ShiftManagement = lazy(() =>
-  import("./modules/attendance").then((m) => ({ default: m.ShiftManagement })),
+  import("./modules/attendance/AttendanceMasters").then((m) => ({
+    default: m.ShiftManagement,
+  })),
 );
 
 const HolidayCalendar = lazy(() =>
@@ -92,19 +119,29 @@ const LeaveTypes = lazy(() =>
 );
 
 const EmployeeAdvances = lazy(() =>
-  import("./modules/payroll").then((m) => ({ default: m.EmployeeAdvances })),
+  import("./modules/payroll/EmployeeAdvances").then((m) => ({
+    default: m.EmployeeAdvances,
+  })),
 );
 const PayrollProcessing = lazy(() =>
-  import("./modules/payroll").then((m) => ({ default: m.PayrollProcessing })),
+  import("./modules/payroll/PayrollProcessing").then((m) => ({
+    default: m.PayrollProcessing,
+  })),
 );
 const Payslips = lazy(() =>
-  import("./modules/payroll").then((m) => ({ default: m.Payslips })),
+  import("./modules/payroll/Payslips").then((m) => ({
+    default: m.Payslips,
+  })),
 );
 const SalaryStructure = lazy(() =>
-  import("./modules/payroll").then((m) => ({ default: m.SalaryStructure })),
+  import("./modules/payroll/SalaryStructure").then((m) => ({
+    default: m.SalaryStructure,
+  })),
 );
 const StatutoryReport = lazy(() =>
-  import("./modules/payroll").then((m) => ({ default: m.StatutoryReport })),
+  import("./modules/payroll/StatutoryReport").then((m) => ({
+    default: m.StatutoryReport,
+  })),
 );
 
 const renderModule = (Component) => (context) => (

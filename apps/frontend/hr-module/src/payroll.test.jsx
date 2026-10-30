@@ -27,7 +27,7 @@ vi.mock("./modules/useConfirm", () => ({
   }),
 }));
 
-import { SalaryStructure } from "./modules/payroll";
+import { SalaryStructure } from "./modules/payroll/SalaryStructure";
 
 describe("Salary Structure screen", () => {
   it("renders salary structure navigation and payroll guidance", () => {

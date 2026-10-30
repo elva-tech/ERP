@@ -27,7 +27,7 @@ vi.mock("./modules/useConfirm", () => ({
   }),
 }));
 
-import { AttendanceDashboard } from "./modules/attendance";
+import { AttendanceDashboard } from "./modules/attendance/AttendanceDashboard";
 
 describe("Attendance Dashboard screen", () => {
   it("renders the heading and attendance controls while data loads", () => {

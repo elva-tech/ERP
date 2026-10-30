@@ -228,6 +228,7 @@ function App({
         employees,
         departments,
         designations,
+        members,
         onNavigate: navigate,
         ownEmployeeId,
         currentUserId: session.user?.id,

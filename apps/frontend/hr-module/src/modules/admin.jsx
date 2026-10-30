@@ -182,9 +182,9 @@ function PolicyEditor({ companyId, admin, data, reload, action }) {
   );
 }
 
-export function ApprovalDelegation({ companyId, role }) {
+export function ApprovalDelegation({ companyId, role, members = [] }) {
   const admin = isAdmin(role);
-  const members = useApi(admin ? withQuery("/api/members", { companyId }) : null);
+
   const delegates = useApi(admin ? withQuery("/api/approvals/delegates", { companyId }) : null);
   const [form, setForm] = useState({ userId: "", reason: "" });
   const action = useAction();
@@ -216,8 +216,8 @@ export function ApprovalDelegation({ companyId, role }) {
         <form onSubmit={grant} className="grid grid-cols-1 gap-4 md:grid-cols-[1fr_2fr_auto] md:items-end">
           <Field label="Member" required>
             <select required value={form.userId} onChange={(e) => setForm({ ...form, userId: e.target.value })} className={inputClass}>
-              <option value="">{members.loading ? "Loading…" : "Select member"}</option>
-              {(members.data?.members || []).filter((m) => !activeIds.has(String(m.user_id))).map((m) => (
+              <option value="">Select member</option>
+              {members.filter((m) => !activeIds.has(String(m.user_id))).map((m) => (
                 <option key={m.user_id} value={m.user_id}>{m.full_name} ({m.email}) — {m.role.replace("_", " ")}</option>
               ))}
             </select>
@@ -225,7 +225,6 @@ export function ApprovalDelegation({ companyId, role }) {
           <Field label="Reason" required><input required maxLength={1000} value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} placeholder="e.g. Second approver for the company admin's own requests" className={inputClass} /></Field>
           <button type="submit" disabled={action.busy} className={submitButton}>Add delegate</button>
         </form>
-        {members.error && <p className="mt-3 text-sm text-danger">{members.error}</p>}
       </Panel>
       <Panel title="Delegates" padded={false}>
         <DataTable

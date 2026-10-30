@@ -1,0 +1,1 @@
+export { EmployeeProfile } from "./employee-profile/EmployeeProfile";

@@ -1,5 +1,50 @@
-
 @import "tailwindcss";
+
+/* ELVA TECH design tokens, shared with the ELVA Procurement module. Use these instead of raw colours. */
+@theme {
+  --font-sans: "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+
+  --color-sidebar: #111c3a;
+  --color-sidebar-active: #1b2a4a;
+  --color-sidebar-text: #94a3b8;
+  --color-sidebar-line: #252f4a;
+
+  --color-brand: #334155;
+  --color-brand-strong: #334155;
+  --color-brand-hover: #1E293B;
+  --color-brand-soft:  #E2E8F0;
+
+  --color-workspace: #f4f6f9;
+  --color-surface: #ffffff;
+  --color-surface-muted: #f8fafc;
+  --color-field: #fbfcfe;
+  --color-field-line: #dce3ed;
+  --color-modal-footer: #f7f9fc;
+  --color-ink: #1e293b;
+  --color-ink-soft: #334155;
+  --color-navy: #1b2a4a;
+  --color-muted: #64748b;
+  --color-placeholder: #94a3b8;
+  --color-line: #e2e8f0;
+  --color-line-soft: #f1f5f9;
+
+  --color-accent: #0e9f7e;
+  --color-link: #2563eb;
+  --color-login: #1a5276;
+  --color-login-hover: #154360;
+
+  --color-success: #10b981;
+  --color-success-soft: #d1fae5;
+  --color-success-muted: #e6f4ea;
+  --color-danger: #334155;
+  --color-danger-soft: #E2E8F0;
+  --color-warning: #fbbf24;
+  --color-warning-strong: #f59e0b;
+  --color-warning-soft: #fef3c7;
+  --color-info: #3b82f6;
+  --color-info-soft: #eff6ff;
+  --color-sent-soft: #e0e9f5;
+}
 
 * {
   box-sizing: border-box;
@@ -8,29 +53,62 @@
 body {
   margin: 0;
   min-width: 320px;
-  font-family: Arial, Helvetica, sans-serif;
-  background: #f3f4f6;
-  color: #1f2937;
+  font-family: var(--font-sans);
+  background: var(--color-workspace);
+  color: var(--color-ink);
+  -webkit-font-smoothing: antialiased;
 }
 
-/* Hide sidebar scrollbar while keeping scrolling enabled */
+/* Visible keyboard focus everywhere; mouse clicks keep a clean look. */
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 2px;
+}
+
+/* Scrollable without a visible scrollbar (wheel, touch and keyboard still scroll). */
 .sidebar-scroll {
   scrollbar-width: none;
-  -ms-overflow-style: none;
 }
 
 .sidebar-scroll::-webkit-scrollbar {
   display: none;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}
+
+/* Shown only on the printed page (Raw Punches report). */
+.print-only {
+  display: none;
+}
+
+@media print {
+  .print-only {
+    display: block;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+}
+
 /* Hide the main page scrollbar while keeping scrolling enabled */
 html,
-body {
+body,
+#root {
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
 
+/* Chrome, Edge and Safari */
 html::-webkit-scrollbar,
-body::-webkit-scrollbar {
+body::-webkit-scrollbar,
+#root::-webkit-scrollbar {
   display: none;
 }

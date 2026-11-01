@@ -1,9 +1,11 @@
-# API conventions (initial proposal)
 
-These are defaults to review and ratify; they are not yet a finalized standard.
+# API conventions
+
+These conventions define the current API standards for the project.
 
 - Use HTTPS outside local development.
-- Use a consistent URL/versioning strategy, such as `/api/v1/`.
+- Use `/api/` as the current API URL prefix consistently across frontend and backend routes.
+- Introduce explicit API versioning (for example, `/api/v1/`) only through a coordinated frontend and backend migration.
 - Validate inputs at the boundary and return a consistent error envelope.
 - Enforce authentication, authorization, and tenant scope on the server.
 - Support pagination and filtering for collection endpoints.

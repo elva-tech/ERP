@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import { withQuery } from "../../api";
+import { attendancePath } from "../../services/attendance";
 import {
   canManage,
   compactInputClass,
@@ -35,7 +35,7 @@ export function AttendanceDashboard({
   const manager = canManage(role);
 
   const records = useApi(
-    withQuery("/api/attendance/records", {
+    attendancePath("records", {
       companyId,
       date,
       department: manager ? department : "",
@@ -44,11 +44,11 @@ export function AttendanceDashboard({
   );
 
   const devices = useApi(
-    manager ? withQuery("/api/attendance/devices", { companyId }) : null,
+    manager ? attendancePath("devices", { companyId }) : null,
   );
 
   const pending = useApi(
-    withQuery("/api/attendance/regularizations", {
+    attendancePath("regularizations", {
       companyId,
       status: "Pending",
     }),

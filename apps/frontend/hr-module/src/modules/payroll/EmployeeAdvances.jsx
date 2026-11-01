@@ -1,5 +1,9 @@
 import { useState } from "react";
-import { sendJson, withQuery } from "../../api";
+import {
+  createEmployeeAdvance,
+  employeeAdvancesPath,
+  updateEmployeeAdvance,
+} from "../../services/payroll";
 import {
   canManage,
   compactInputClass,
@@ -40,7 +44,9 @@ export function EmployeeAdvances({ companyId, role, employees, departments, ownE
   const [department, setDepartment] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(emptyAdvanceForm);
-  const advances = useApi(withQuery("/api/payroll/advances", { companyId, status }));
+  const advances = useApi(
+    employeeAdvancesPath({ companyId, status }),
+  );
   const action = useAction();
   const confirm = useConfirm();
   const allRows = advances.data?.advances || [];
@@ -50,7 +56,7 @@ export function EmployeeAdvances({ companyId, role, employees, departments, ownE
   async function submit(event) {
     event.preventDefault();
     const result = await action.run(() =>
-      sendJson("POST", "/api/payroll/advances", { companyId, employeeId: manager ? form.employeeId : undefined, months: Number(form.months), purpose: form.purpose })
+      createEmployeeAdvance({ companyId, employeeId: manager ? form.employeeId : undefined, months: Number(form.months), purpose: form.purpose })
     );
     if (result) { setShowForm(false); setForm(emptyAdvanceForm); advances.reload(); }
   }
@@ -85,7 +91,7 @@ export function EmployeeAdvances({ companyId, role, employees, departments, ownE
       });
       if (!confirmed) return;
     }
-    const result = await action.run(() => sendJson("PATCH", withQuery(`/api/payroll/advances/${row.id}`, { companyId }), body));
+    const result = await action.run(() => updateEmployeeAdvance(row.id, companyId, body));
     if (result) advances.reload();
   }
 

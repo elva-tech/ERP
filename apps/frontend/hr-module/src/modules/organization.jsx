@@ -1,6 +1,11 @@
 import { useState } from "react";
 import { BriefcaseBusiness, Building2, Pencil, Plus, Users } from "lucide-react";
-import { apiRequest } from "../api";
+import {
+  createDepartment,
+  updateDepartment,
+  createDesignation,
+  updateDesignation,
+} from "../services/organization";
 import { iconButton, inputClass, linkButton, primaryButton, submitButton, secondaryButton } from "./helpers";
 import { toDepartmentRecord, toDesignationRecord, upsertById } from "./records";
 import { DataTable, Field, FormError, Modal, PageHeader, Panel, SearchField, StatGrid, StatusBadge } from "./ui";
@@ -8,9 +13,7 @@ import { DataTable, Field, FormError, Modal, PageHeader, Panel, SearchField, Sta
 const emptyDepartmentForm = { name: "", description: "", status: "Active" };
 const emptyDesignationForm = { title: "", departmentIds: [], description: "", status: "Active" };
 
-function companyQuery(companyId) {
-  return `?companyId=${encodeURIComponent(companyId)}`;
-}
+
 
 /** onError shows the page-level banner in App ("" clears it). */
 export function Departments({ companyId, canWrite, departments, setDepartments, refresh, onError }) {
@@ -53,15 +56,17 @@ export function Departments({ companyId, canWrite, departments, setDepartments, 
 
     try {
       const result = editing
-        ? await apiRequest(`/api/departments/${encodeURIComponent(editing.id)}${companyQuery(companyId)}`, {
-            method: "PATCH",
-            body: JSON.stringify({ departmentName: name, description, status }),
-          })
-        : await apiRequest("/api/departments", {
-            method: "POST",
-            body: JSON.stringify({ companyId, departmentName: name, description, status }),
-          });
-
+      ? await updateDepartment(editing.id, companyId, {
+          departmentName: name,
+          description,
+          status,
+        })
+      : await createDepartment({
+          companyId,
+          departmentName: name,
+          description,
+          status,
+        });
       const saved = { ...toDepartmentRecord(result.department), employees: editing?.employees || 0 };
       setDepartments((previous) => upsertById(previous, saved));
       setShowForm(false);
@@ -75,16 +80,23 @@ export function Departments({ companyId, canWrite, departments, setDepartments, 
 
   async function toggleStatus(department) {
     if (!companyId) return;
+
     const status = department.status === "Active" ? "Inactive" : "Active";
     onError("");
 
     try {
-      const result = await apiRequest(`/api/departments/${encodeURIComponent(department.id)}${companyQuery(companyId)}`, {
-        method: "PATCH",
-        body: JSON.stringify({ status }),
-      });
+      const result = await updateDepartment(
+        department.id,
+        companyId,
+        { status }
+      );
+
       setDepartments((previous) =>
-        previous.map((item) => (String(item.id) === String(department.id) ? { ...item, status: result.department.status } : item))
+        previous.map((item) =>
+          String(item.id) === String(department.id)
+            ? { ...item, status: result.department.status }
+            : item
+        )
       );
     } catch (error) {
       onError(error.message || "Unable to update department status.");
@@ -246,12 +258,8 @@ export function Designations({ companyId, canWrite, designations, setDesignation
 
     try {
       const result = editing
-        ? await apiRequest(`/api/designations/${encodeURIComponent(editing.id)}${companyQuery(companyId)}`, {
-            method: "PATCH",
-            body: JSON.stringify(fields),
-          })
-        : await apiRequest("/api/designations", { method: "POST", body: JSON.stringify({ companyId, ...fields }) });
-
+        ? await updateDesignation(editing.id, companyId, fields)
+        : await createDesignation({ companyId, ...fields });
       setDesignations((previous) => upsertById(previous, toDesignationRecord(result.designation)));
       setShowForm(false);
       setEditing(null);
@@ -268,10 +276,11 @@ export function Designations({ companyId, canWrite, designations, setDesignation
     onError("");
 
     try {
-      const result = await apiRequest(`/api/designations/${encodeURIComponent(designation.id)}${companyQuery(companyId)}`, {
-        method: "PATCH",
-        body: JSON.stringify({ status }),
-      });
+      const result = await updateDesignation(
+        designation.id,
+        companyId,
+        { status }
+      );
       setDesignations((previous) =>
         previous.map((record) => (String(record.id) === String(designation.id) ? { ...record, status: result.designation.status } : record))
       );

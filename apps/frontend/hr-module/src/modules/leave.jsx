@@ -1,5 +1,15 @@
 import { useState } from "react";
-import { sendJson, withQuery } from "../api";
+import {
+  LEAVE_HOLIDAYS_ENDPOINT,
+  LEAVE_TYPES_ENDPOINT,
+  leaveBalancesPath,
+  leaveHolidaysPath,
+  leaveRequestsPath,
+  leaveTypesPath,
+  reviewLeaveRequest,
+  saveLeaveBalance,
+  submitLeaveRequest,
+} from "../services/leave";
 import MasterCrud from "./MasterCrud";
 import {
   MONTH_NAMES,
@@ -87,7 +97,7 @@ function useLeaveActions(companyId, reload) {
       if (note === null) return;
     }
     const result = await action.run(() =>
-      sendJson("PATCH", withQuery(`/api/leave/requests/${request.id}`, { companyId }), { action: verb, reviewNote: note.trim() || undefined })
+      reviewLeaveRequest(request.id, companyId, { action: verb, reviewNote: note.trim() || undefined })
     );
     if (result) reload();
   }
@@ -96,7 +106,7 @@ function useLeaveActions(companyId, reload) {
 
 function ApplyLeaveModal({ companyId, role, employees, departments, onClose, onSaved }) {
   const manager = canManage(role);
-  const types = useApi(withQuery("/api/leave/types", { companyId }));
+  const types = useApi(leaveTypesPath({ companyId }));
   const [department, setDepartment] = useState("");
   const [form, setForm] = useState({ employeeId: "", leaveTypeId: "", fromDate: todayLocal(), toDate: todayLocal(), reason: "" });
   const departmentEmployees = employeesInDepartment(employees, department);
@@ -105,15 +115,19 @@ function ApplyLeaveModal({ companyId, role, employees, departments, onClose, onS
   const balanceEmployee = manager ? form.employeeId : "own";
   const balances = useApi(
     balanceEmployee && form.leaveTypeId
-      ? withQuery("/api/leave/balances", { companyId, year: form.fromDate.slice(0, 4), employeeId: manager ? form.employeeId : "" })
-      : null
+      ? leaveBalancesPath({
+      companyId,
+      year: form.fromDate.slice(0, 4),
+      employeeId: manager ? form.employeeId : "",
+    })
+    : null
   );
   const balance = (balances.data?.balances || []).find((b) => String(b.leave_type_id) === String(form.leaveTypeId));
 
   async function submit(event) {
     event.preventDefault();
     const result = await action.run(() =>
-      sendJson("POST", "/api/leave/requests", { companyId, ...form, employeeId: manager ? form.employeeId : undefined })
+      submitLeaveRequest({ companyId, ...form, employeeId: manager ? form.employeeId : undefined })
     );
     if (result) onSaved();
   }
@@ -166,7 +180,7 @@ function ApplyLeaveModal({ companyId, role, employees, departments, onClose, onS
 
 export function LeaveDashboard({ companyId, role, employees, departments, onNavigate }) {
   const today = todayLocal();
-  const requests = useApi(withQuery("/api/leave/requests", { companyId }));
+  const requests = useApi(leaveRequestsPath({ companyId }));
   const [applying, setApplying] = useState(false);
   const rows = requests.data?.requests || [];
   const thisMonth = today.slice(0, 7);
@@ -204,7 +218,7 @@ export function LeaveRequests({ companyId, role, employees, departments, ownEmpl
   const [status, setStatus] = useState("");
   const [department, setDepartment] = useState("");
   const [applying, setApplying] = useState(false);
-  const requests = useApi(withQuery("/api/leave/requests", { companyId, status }));
+  const requests = useApi(leaveRequestsPath({ companyId, status }));
   const actions = useLeaveActions(companyId, requests.reload);
   const allRows = requests.data?.requests || [];
   const rows = department ? allRows.filter((r) => r.department === department) : allRows;
@@ -245,7 +259,7 @@ export function LeaveApprovals({ companyId, role, employees = [], departments = 
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [selectedId, setSelectedId] = useState("");
-  const requests = useApi(canManage(role) ? withQuery("/api/leave/requests", { companyId }) : null);
+  const requests = useApi(canManage(role) ? leaveRequestsPath({ companyId }) : null);
   const actions = useLeaveActions(companyId, requests.reload);
 
   const employeeById = new Map(employees.map((employee) => [String(employee.id), employee]));
@@ -268,7 +282,11 @@ export function LeaveApprovals({ companyId, role, employees = [], departments = 
     : null;
   const balances = useApi(
     selected
-      ? withQuery("/api/leave/balances", { companyId, year: selected.from_date.slice(0, 4), employeeId: selected.employee_id })
+      ? leaveBalancesPath({
+        companyId,
+        year: selected.from_date.slice(0, 4),
+        employeeId: selected.employee_id,
+      })
       : null
   );
   const balance = (balances.data?.balances || []).find((row) => String(row.leave_type_id) === String(selected?.leave_type_id));
@@ -405,14 +423,16 @@ export function LeaveBalance({ companyId, role }) {
   const manager = canManage(role);
   const [year, setYear] = useState(new Date().getFullYear());
   const [editing, setEditing] = useState(null);
-  const balances = useApi(withQuery("/api/leave/balances", { companyId, year }));
+  const balances = useApi(
+    leaveBalancesPath({ companyId, year }),
+  );
   const action = useAction();
   const rows = balances.data?.balances || [];
 
   async function save(event) {
     event.preventDefault();
     const result = await action.run(() =>
-      sendJson("POST", "/api/leave/balances", { companyId, employeeId: editing.employee_id, leaveTypeId: editing.leave_type_id, year, allocated: Number(editing.allocated), carryForward: Number(editing.carry_forward) })
+      saveLeaveBalance({ companyId, employeeId: editing.employee_id, leaveTypeId: editing.leave_type_id, year, allocated: Number(editing.allocated), carryForward: Number(editing.carry_forward) })
     );
     if (result) { setEditing(null); balances.reload(); }
   }
@@ -474,7 +494,7 @@ export function LeaveTypes({ companyId, role }) {
       subtitle="Leave policies: annual entitlement, carry forward and paid/unpaid"
       companyId={companyId}
       role={role}
-      path="/api/leave/types"
+      path={LEAVE_TYPES_ENDPOINT}
       listKey="leaveTypes"
       itemKey="leave type"
       columns={[
@@ -506,7 +526,9 @@ export function LeaveTypes({ companyId, role }) {
 
 export function HolidayCalendar({ companyId, role }) {
   const [year, setYear] = useState(String(new Date().getFullYear()));
-  const holidays = useApi(withQuery("/api/leave/holidays", { companyId, year }));
+  const holidays = useApi(
+    leaveHolidaysPath({ companyId, year }),
+  );
   const rows = holidays.data?.holidays || [];
   const byMonth = MONTH_NAMES.map((name, index) => ({ name, items: rows.filter((h) => Number(h.holiday_date.slice(5, 7)) === index + 1) })).filter((m) => m.items.length);
   const count = (type) => rows.filter((h) => h.type === type).length;
@@ -551,7 +573,7 @@ function HolidayList({ companyId, role, year, onChanged }) {
       subtitle="National, regional and company holidays for the selected year"
       companyId={companyId}
       role={role}
-      path={`/api/leave/holidays`}
+      path={LEAVE_HOLIDAYS_ENDPOINT}
       query={{ year }}
       onChanged={onChanged}
       listKey="holidays"

@@ -1,7 +1,7 @@
 
 import { useState } from "react";
+import { attendancePath } from "../../services/attendance";
 import { Download, Printer, ShieldCheck } from "lucide-react";
-import { withQuery } from "../../api";
 import {
   canManage,
   downloadCsv,
@@ -58,7 +58,7 @@ export function RawPunches({ companyId, role, employees = [] }) {
 
   const punches = useApi(
     manager
-      ? withQuery("/api/attendance/punches", {
+      ? attendancePath("punches", {
           companyId,
           date,
           employeeId,
@@ -68,7 +68,7 @@ export function RawPunches({ companyId, role, employees = [] }) {
   );
 
   const devices = useApi(
-    manager ? withQuery("/api/attendance/devices", { companyId }) : null,
+    manager ? attendancePath("devices", { companyId }) : null,
   );
 
   if (!manager) {

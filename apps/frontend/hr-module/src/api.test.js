@@ -12,7 +12,8 @@ function mockResponse(ok, status, data) {
   return {
     ok,
     status,
-    headers: new Headers(),
+    headers: new Headers({ "content-type": "application/json" }),
+    text: vi.fn().mockResolvedValue(data === null ? "" : JSON.stringify(data)),
     json: vi.fn().mockResolvedValue(data),
   };
 }
@@ -151,6 +152,93 @@ describe("apiRequest", () => {
       name: "ApiError",
       code: "REQUEST_TIMEOUT",
       status: 0,
+    });
+  });
+
+  it("keeps the timeout active while reading the response body", async () => {
+    fetch.mockImplementation((_url, { signal }) => Promise.resolve({
+      ok: true,
+      status: 200,
+      headers: new Headers({ "content-type": "application/json" }),
+      text: () => new Promise((_resolve, reject) => {
+        signal.addEventListener("abort", () => reject(signal.reason), { once: true });
+      }),
+    }));
+
+    await expect(
+      apiRequest("/api/employees", { timeoutMs: 10 }),
+    ).rejects.toMatchObject({ code: "REQUEST_TIMEOUT", status: 0 });
+  });
+
+  it("distinguishes caller cancellation from timeout and network failure", async () => {
+    const cancellation = new AbortController();
+    fetch.mockImplementation((_url, { signal }) => new Promise((_resolve, reject) => {
+      signal.addEventListener("abort", () => reject(signal.reason), { once: true });
+    }));
+
+    const request = apiRequest("/api/employees", { signal: cancellation.signal });
+    cancellation.abort();
+
+    await expect(request).rejects.toMatchObject({
+      name: "ApiError",
+      code: "REQUEST_ABORTED",
+    });
+  });
+
+  it("returns parsed JSON and safely handles malformed JSON", async () => {
+    fetch.mockResolvedValue(mockResponse(true, 200, { employees: [] }));
+    await expect(apiRequest("/api/employees")).resolves.toEqual({ employees: [] });
+
+    fetch.mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: new Headers(),
+      text: vi.fn().mockResolvedValue("true"),
+    });
+    await expect(apiRequest("/api/health")).resolves.toBe(true);
+
+    fetch.mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: new Headers({ "content-type": "application/json" }),
+      text: vi.fn().mockResolvedValue("{invalid json"),
+    });
+    await expect(apiRequest("/api/employees")).resolves.toBeNull();
+  });
+
+  it("returns non-JSON text and handles empty and 204 responses", async () => {
+    fetch.mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: new Headers({ "content-type": "text/plain" }),
+      text: vi.fn().mockResolvedValue("ready"),
+    });
+    await expect(apiRequest("/api/health")).resolves.toBe("ready");
+
+    fetch.mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: new Headers(),
+      text: vi.fn().mockResolvedValue(""),
+    });
+    await expect(apiRequest("/api/empty")).resolves.toBeNull();
+
+    const text = vi.fn();
+    fetch.mockResolvedValue({ ok: true, status: 204, headers: new Headers(), text });
+    await expect(apiRequest("/api/empty")).resolves.toBeNull();
+    expect(text).not.toHaveBeenCalled();
+  });
+
+  it("preserves structured HTTP errors after consuming the response body", async () => {
+    fetch.mockResolvedValue(mockResponse(false, 422, {
+      message: "Validation failed",
+      fieldErrors: { name: ["Required"] },
+    }));
+
+    await expect(apiRequest("/api/employees")).rejects.toMatchObject({
+      status: 422,
+      message: "Validation failed",
+      fieldErrors: { name: ["Required"] },
     });
   });
 });

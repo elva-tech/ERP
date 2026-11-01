@@ -1,7 +1,11 @@
 
 import { useState } from "react";
 import { Eye } from "lucide-react";
-import { sendJson, withQuery } from "../../api";
+import {
+  attendancePath,
+  updateAttendanceRecord,
+} from "../../services/attendance";
+import { policyPath } from "../../services/policy";
 import {
   canManage,
   compactInputClass,
@@ -106,7 +110,7 @@ export function Overtime({
 
   const records = useApi(
     rangeReady
-      ? withQuery("/api/attendance/records", {
+      ? attendancePath("records", {
           companyId,
           from,
           to,
@@ -115,9 +119,8 @@ export function Overtime({
         })
       : null,
   );
-
   const policy = useApi(
-    canManage(role) ? withQuery("/api/policy", { companyId }) : null,
+    canManage(role) ? policyPath({ companyId }) : null,
   );
 
   const action = useAction();
@@ -172,7 +175,7 @@ export function Overtime({
     if (!confirmed) return;
 
     const result = await action.run(() =>
-      sendJson("PATCH", `/api/attendance/records/${row.id}`, {
+      updateAttendanceRecord(row.id, {
         action: verb,
       }),
     );

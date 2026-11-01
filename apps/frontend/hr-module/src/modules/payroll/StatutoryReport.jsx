@@ -1,5 +1,8 @@
 import { useState } from "react";
-import { withQuery } from "../../api";
+import {
+  payrollRunsPath,
+  payrollStatutoryPath,
+} from "../../services/payroll";
 import { Download, Eye, Printer } from "lucide-react";
 import { downloadCsv } from "../helpers";
 import {
@@ -57,12 +60,18 @@ function reportColumns(kind) {
 
 export function StatutoryReport({ companyId, role, employees = [], departments = [], onNavigate, kind = "ALL" }) {
   const view = STATUTORY_VIEWS[kind];
-  const runs = useApi(canManage(role) ? withQuery("/api/payroll/runs", { companyId }) : null);
+  const runs = useApi(
+    canManage(role) ? payrollRunsPath(companyId) : null,
+  );
   const [runId, setRunId] = useState("");
   const [department, setDepartment] = useState("");
   const runList = (runs.data?.runs || []).filter((r) => r.status !== "Cancelled");
   const effectiveRunId = runId || (runList[0] ? String(runList[0].id) : "");
-  const report = useApi(effectiveRunId ? withQuery("/api/payroll/statutory", { companyId, runId: effectiveRunId }) : null);
+  const report = useApi(
+    effectiveRunId
+      ? payrollStatutoryPath({ companyId, runId: effectiveRunId })
+      : null,
+  );
   const allRows = report.data?.rows || [];
   const departmentOf = new Map(employees.map((e) => [String(e.id), e.department]));
   const rows = department ? allRows.filter((r) => departmentOf.get(String(r.employee_id)) === department) : allRows;

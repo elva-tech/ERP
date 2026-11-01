@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { apiBlob, apiRequest } from "../../api";
+import { getEmployeeDocument, uploadEmployeeDocument } from "../../services/employees";
 import { secondaryButton, useAction, useApi } from "../helpers";
 import { Notice, Panel } from "../ui";
 import { TABS } from "./constants";
@@ -25,7 +25,7 @@ export function EmployeeProfile({ companyId, employeeId, ownEmployeeId, employee
     if (!photoId) return undefined;
     let url = "";
     let cancelled = false;
-    apiBlob(profilePath(employeeId, `/documents/${photoId}`, companyId))
+    getEmployeeDocument(employeeId, companyId, photoId)
       .then((blob) => {
         if (cancelled) return;
         url = URL.createObjectURL(blob);
@@ -62,7 +62,7 @@ export function EmployeeProfile({ companyId, employeeId, ownEmployeeId, employee
     body.append("file", file);
     body.append("category", "Photo");
     body.append("title", "Profile photo");
-    const result = await photoAction.run(() => apiRequest(profilePath(employeeId, "/documents", companyId), { method: "POST", body }), "Photo updated.");
+    const result = await photoAction.run(() => uploadEmployeeDocument(employeeId, companyId, body), "Photo updated.");
     if (result) profile.reload();
   }
 

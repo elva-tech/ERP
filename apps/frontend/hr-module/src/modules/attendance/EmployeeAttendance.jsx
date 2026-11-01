@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import { withQuery } from "../../api";
+import { attendancePath } from "../../services/attendance";
 import {
   canManage,
   currentMonth,
@@ -38,14 +38,13 @@ export function EmployeeAttendance({
   const path =
     manager && !employeeId
       ? null
-      : withQuery("/api/attendance/records", {
+      : attendancePath("records", {
           companyId,
           employeeId,
           from: bounds.from,
           to: bounds.to,
           limit: 1000,
         });
-
   const records = useApi(path);
   const summary = summarize(records.data?.summary);
 

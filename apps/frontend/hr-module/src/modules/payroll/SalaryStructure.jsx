@@ -1,5 +1,14 @@
 import { useState } from "react";
-import { apiRequest, sendJson, withQuery } from "../../api";
+import {
+  PAYROLL_COMPONENTS_ENDPOINT,
+  PAYROLL_STRUCTURES_ENDPOINT,
+  PAYROLL_ASSIGNMENTS_ENDPOINT,
+  payrollComponentsPath,
+  payrollStructuresPath,
+  salaryStructureComponentsPath,
+  previewSalaryStructureComponents,
+  saveSalaryStructureComponents,
+} from "../../services/payroll";
 import MasterCrud from "../MasterCrud";
 import {
   canManage,
@@ -25,8 +34,10 @@ import {
 import { ManagerOnly } from "./shared";
 import { PAYROLL_RULES_NOTE } from "./constants";
 function StructureEditor({ companyId, structure, onClose }) {
-  const lines = useApi(withQuery(`/api/payroll/structures/${structure.id}/components`, { companyId }));
-  const components = useApi(withQuery("/api/payroll/components", { companyId }));
+  const lines = useApi(
+    salaryStructureComponentsPath(structure.id, companyId),
+  );
+  const components = useApi(payrollComponentsPath(companyId));
   const [draft, setDraft] = useState(null);
   const [previewCtc, setPreviewCtc] = useState("600000");
   const [preview, setPreview] = useState(null);
@@ -45,7 +56,7 @@ function StructureEditor({ companyId, structure, onClose }) {
 
   async function save() {
     const result = await action.run(() =>
-      sendJson("PUT", withQuery(`/api/payroll/structures/${structure.id}/components`, { companyId }), {
+      saveSalaryStructureComponents(structure.id, companyId, {
         components: current.map((l) => ({ componentId: l.componentId, amount: l.amount === "" ? null : Number(l.amount), percentage: l.percentage === "" ? null : Number(l.percentage) })),
       })
     );
@@ -57,7 +68,7 @@ function StructureEditor({ companyId, structure, onClose }) {
 
   async function runPreview() {
     const result = await action.run(
-      () => apiRequest(withQuery(`/api/payroll/structures/${structure.id}/components`, { companyId, previewCtc })),
+      () => previewSalaryStructureComponents(structure.id, companyId, previewCtc),
       "Preview calculated from the saved structure."
     );
     if (result) setPreview(result.preview);
@@ -142,7 +153,9 @@ function designationsForDepartment(designations, departmentId, currentId) {
 export function SalaryStructure({ companyId, role, employees, departments = [], designations = [] }) {
   const [tab, setTab] = useState("Structures");
   const [configuring, setConfiguring] = useState(null);
-  const structures = useApi(canManage(role) ? withQuery("/api/payroll/structures", { companyId }) : null);
+  const structures = useApi(
+    canManage(role) ? payrollStructuresPath(companyId) : null,
+  );
   const activeStructures = (structures.data?.structures || []).filter((s) => s.status === "Active");
   const activeDepartments = (currentId) => departments.filter((d) => d.status === "Active" || String(d.id) === String(currentId));
 
@@ -161,7 +174,7 @@ export function SalaryStructure({ companyId, role, employees, departments = [], 
             subtitle="Earnings, deductions and employer contributions used in structures"
             companyId={companyId}
             role={role}
-            path="/api/payroll/components"
+            path={PAYROLL_COMPONENTS_ENDPOINT}
             listKey="components"
             itemKey="component"
             columns={[
@@ -197,7 +210,7 @@ export function SalaryStructure({ companyId, role, employees, departments = [], 
             subtitle="Templates combining components; assign them to employees with an annual CTC"
             companyId={companyId}
             role={role}
-            path="/api/payroll/structures"
+            path={PAYROLL_STRUCTURES_ENDPOINT}
             listKey="structures"
             itemKey="structure"
             onChanged={structures.reload}
@@ -251,7 +264,7 @@ export function SalaryStructure({ companyId, role, employees, departments = [], 
             subtitle="Which structure and annual CTC applies to each employee, by effective date"
             companyId={companyId}
             role={role}
-            path="/api/payroll/assignments"
+            path={PAYROLL_ASSIGNMENTS_ENDPOINT}
             listKey="assignments"
             itemKey="assignment"
             deleteRoleCheck={canManage}

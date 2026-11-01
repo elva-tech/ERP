@@ -1,5 +1,12 @@
 import { useState } from "react";
-import { sendJson, withQuery } from "../../api";
+import {
+  createPayrollRun,
+  clearPayrollRunIdempotencyKey,
+  getPayrollRunIdempotencyKey,
+  payrollRunPath,
+  payrollRunsPath,
+  updatePayrollRun,
+} from "../../services/payroll";
 import {
   canManage,
   compactInputClass,
@@ -40,7 +47,7 @@ const payslipColumns = [
 ];
 
 export function PayrollProcessing({ companyId, role, departments = [] }) {
-  const runs = useApi(canManage(role) ? withQuery("/api/payroll/runs", { companyId }) : null);
+  const runs = useApi(canManage(role) ? payrollRunsPath(companyId) : null);
   const [selectedId, setSelectedId] = useState("");
   const [department, setDepartment] = useState("");
   const [period, setPeriod] = useState(currentMonth());
@@ -50,12 +57,26 @@ export function PayrollProcessing({ companyId, role, departments = [] }) {
   const confirm = useConfirm();
   const runList = runs.data?.runs || [];
   const selected = runList.find((r) => String(r.id) === selectedId) || runList[0];
-  const detail = useApi(selected ? withQuery(`/api/payroll/runs/${selected.id}`, { companyId }) : null);
+  const detail = useApi(selected ? payrollRunPath(selected.id, companyId) : null);
 
   async function createRun() {
     const [year, month] = period.split("-").map(Number);
-    const result = await action.run(() => sendJson("POST", "/api/payroll/runs", { companyId, year, month }));
-    if (result) { setSelectedId(String(result.run.id)); runs.reload(); }
+    const idempotencyKey = getPayrollRunIdempotencyKey(companyId, year, month);
+    const result = await action.run(async () => {
+      try {
+        return await createPayrollRun(companyId, year, month, idempotencyKey);
+      } catch (error) {
+        if (error.status >= 400 && error.status < 500) {
+          clearPayrollRunIdempotencyKey(companyId, year, month);
+        }
+        throw error;
+      }
+    });
+    if (result) {
+      clearPayrollRunIdempotencyKey(companyId, year, month);
+      setSelectedId(String(result.run.id));
+      runs.reload();
+    }
   }
 
   async function act(verb) {
@@ -67,7 +88,7 @@ export function PayrollProcessing({ companyId, role, departments = [] }) {
       );
       if (!confirmed) return;
     }
-    const result = await action.run(() => sendJson("PATCH", withQuery(`/api/payroll/runs/${selected.id}`, { companyId }), { action: verb }));
+    const result = await action.run(() => updatePayrollRun(selected.id, companyId, { action: verb }));
     if (result) {
       setSkipped(result.skipped || []);
       setWarnings(result.warnings || []);

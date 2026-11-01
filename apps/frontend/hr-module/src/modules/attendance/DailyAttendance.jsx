@@ -1,6 +1,11 @@
 
 import { useState } from "react";
-import { sendJson, withQuery } from "../../api";
+import {
+  attendancePath,
+  importAttendancePunches,
+  markAttendance,
+  processAttendancePunches,
+} from "../../services/attendance";
 import {
   canManage,
   formatDate,
@@ -62,7 +67,7 @@ function MarkAttendanceModal({
     event.preventDefault();
 
     const saved = await action.run(() =>
-      sendJson("POST", "/api/attendance/records", {
+      markAttendance({
         companyId,
         employeeId: employee.id,
         date,
@@ -213,7 +218,7 @@ function ImportPunchesModal({ companyId, onClose, onImported }) {
   const [deviceId, setDeviceId] = useState("");
 
   const devices = useApi(
-    withQuery("/api/attendance/devices", { companyId }),
+    attendancePath("devices", { companyId }),
   );
 
   const action = useAction();
@@ -234,7 +239,7 @@ function ImportPunchesModal({ companyId, onClose, onImported }) {
     }
 
     const result = await action.run(() =>
-      sendJson("POST", "/api/attendance/punches", {
+      importAttendancePunches({
         companyId,
         punches: parsed.punches,
       }),
@@ -313,7 +318,7 @@ export function DailyAttendance({
   const [importing, setImporting] = useState(false);
 
   const records = useApi(
-    withQuery("/api/attendance/records", {
+    attendancePath("records", {
       companyId,
       date,
       limit: 1000,
@@ -321,18 +326,14 @@ export function DailyAttendance({
   );
 
   const shifts = useApi(
-    withQuery("/api/attendance/shifts", { companyId }),
+    attendancePath("shifts", { companyId }),
   );
-
   const manager = canManage(role);
   const action = useAction();
 
   async function processPunches() {
     const result = await action.run(() =>
-      sendJson("POST", "/api/attendance/punches/process", {
-        companyId,
-        date,
-      }),
+      processAttendancePunches(companyId, date),
     );
 
     if (result) records.reload();

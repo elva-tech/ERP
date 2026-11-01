@@ -1,12 +1,19 @@
 import { useMemo, useState } from "react";
-import { withQuery } from "../../../api";
-import { formatDate, inputClass, useApi } from "../../helpers";
+import {
+  leaveBalancesPath,
+  leaveRequestsPath,
+} from "../../../services/leave";import { formatDate, inputClass, useApi } from "../../helpers";
 import { DataTable, Field, Notice, Panel, StatusBadge } from "../../ui";
 import { ProfileStats } from "../shared";
 export function LeaveTab({ companyId, employeeId }) {
   const [year, setYear] = useState(new Date().getFullYear());
-  const balances = useApi(withQuery("/api/leave/balances", { companyId, employeeId, year }));
-  const requests = useApi(withQuery("/api/leave/requests", { companyId, employeeId }));
+  const balances = useApi(
+  leaveBalancesPath({ companyId, employeeId, year }),
+);
+
+const requests = useApi(
+  leaveRequestsPath({ companyId, employeeId }),
+);
   const rows = balances.data?.balances || [];
   const total = (key) => rows.reduce((sum, r) => sum + Number(r[key] || 0), 0);
   const history = useMemo(

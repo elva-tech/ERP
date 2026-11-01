@@ -1,4 +1,4 @@
-﻿# ELVA TECH HR and Payroll ERP - Frontend
+# ELVA TECH HR and Payroll ERP - Frontend
 
 React-based frontend for the ELVA TECH HR & Payroll ERP application.
 
@@ -52,6 +52,15 @@ npm run dev
 - Protected API authorization and tenant isolation must be enforced by the backend.
 - Protected requests returning HTTP 401 dispatch the `hrms:unauthorized` event, with special handling for login, logout, session lookup, and invitation endpoints.
 - Client-side navigation permissions do not replace backend authorization.
+- The application uses `/#/<route-id>` URLs. Employee profiles use `/#/employee-profile/<employee-id>`. Route IDs are stable identifiers; labels are presentation text.
+
+## API Versioning Status
+
+The HR frontend currently calls the unversioned `/api/...` endpoints. The repository's `contracts/api-conventions.md` explicitly labels `/api/v1/` as an initial proposal rather than a finalized standard. Do not rewrite HR endpoints to `/api/v1/` until the HR backend owner publishes or confirms the supported routes and migration plan.
+
+## Backend Integration Smoke Checks
+
+Unit tests use mocked HTTP responses and do not confirm that a deployed HR backend implements these routes. Backend route source is present in this workspace, but its README is a placeholder and no authenticated live-backend smoke test was run for this review. Before deployment, verify login and session lookup, employee directory, attendance, leave, and read-only payroll requests in an authorized test tenant; confirm server-side tenant isolation and role enforcement. These live checks remain an explicit release prerequisite.
 
 ## Testing
 
@@ -61,7 +70,7 @@ Run:
 npm test
 ```
 
-Current tests cover API request behavior, unauthorized-event handling, query parameters, and navigation access rules.
+Tests cover API request behavior (including 401 handling and session-path exclusions), query parameters, navigation access rules, stable route hashes, attendance rendering, and mocked-fetch smoke paths for payroll and leave. These mocked-fetch tests validate frontend request construction, not the live backend implementation.
 
 ## Production Build
 

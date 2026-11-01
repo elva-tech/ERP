@@ -1,6 +1,10 @@
 import { useState } from "react";
 import { Download, Printer } from "lucide-react";
-import { withQuery } from "../../api";
+import { employeeProfilePath } from "../../services/employees";
+import {
+  payrollRunsPath,
+  payrollPayslipsPath,
+} from "../../services/payroll";
 import { LOGO_SRC } from "../../shell";
 import {
   MONTH_NAMES,
@@ -206,8 +210,12 @@ function PayslipStatement({ companyName, period, employee, bankAccounts, payslip
 
 export function Payslips({ companyId, role, companyName, employees = [] }) {
   const manager = canManage(role);
-  const runs = useApi(manager ? withQuery("/api/payroll/runs", { companyId }) : null);
-  const payslips = useApi(withQuery("/api/payroll/payslips", { companyId }));
+  const payslips = useApi(
+    payrollPayslipsPath({ companyId }),
+  );
+  const runs = useApi(
+    manager ? payrollRunsPath(companyId) : null,
+  );
   const [employeeId, setEmployeeId] = useState("");
   const [period, setPeriod] = useState("");
   const [notice, setNotice] = useState(null);
@@ -243,7 +251,11 @@ export function Payslips({ companyId, role, companyName, employees = [] }) {
     slip.pay_period_month === month
   )) || null;
   const profileEmployeeId = person?.id || (selected ? String(selected.employee_id) : "");
-  const profile = useApi(profileEmployeeId ? withQuery(`/api/employees/${profileEmployeeId}/profile`, { companyId }) : null);
+  const profile = useApi(
+    profileEmployeeId
+      ? employeeProfilePath(profileEmployeeId, companyId)
+      : null,
+  );
   const periodText = monthOptions.find((monthOption) => monthOption.key === chosenPeriod)?.label
     || (year && month ? `${MONTH_NAMES[month - 1]} ${year}` : "");
 

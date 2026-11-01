@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import { withQuery } from "../../api";
+import { attendancePath } from "../../services/attendance";
 import {
   canManage,
   compactInputClass,
@@ -30,7 +30,7 @@ export function AttendanceExceptions({
   const bounds = monthBounds(month);
 
   const records = useApi(
-    withQuery("/api/attendance/records", {
+    attendancePath("records", {
       companyId,
       from: bounds.from,
       to: bounds.to,

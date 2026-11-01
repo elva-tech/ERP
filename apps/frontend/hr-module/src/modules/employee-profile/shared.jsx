@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { Camera } from "lucide-react";
-import { sendJson } from "../../api";
+import { updateEmployeeProfile } from "../../services/employees";
 import {
   formatDate,
   inputClass,
@@ -10,7 +10,7 @@ import {
 } from "../helpers";
 import { Field, Modal, Notice, StatusBadge } from "../ui";
 import { GENDERS, EMPLOYMENT_TYPES } from "./constants";
-import { initials, profilePath } from "./utils";
+import { initials } from "./utils";
 export function ProfileStats({ stats }) {
   return (
     <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
@@ -157,7 +157,7 @@ export function EmploymentEditModal({ companyId, employee, employees, onClose })
   async function submit(event) {
     event.preventDefault();
     const body = Object.fromEntries(Object.entries(values).map(([k, v]) => [k, v === "" ? null : v]));
-    const result = await action.run(() => sendJson("PATCH", profilePath(employee.id, "", companyId), body));
+    const result = await action.run(() => updateEmployeeProfile(employee.id, companyId, body));
     if (result) onClose(true);
   }
 

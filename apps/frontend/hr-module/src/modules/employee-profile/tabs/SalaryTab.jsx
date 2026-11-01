@@ -1,11 +1,13 @@
-import { withQuery } from "../../../api";
 import { formatDate, formatMoney, useApi } from "../../helpers";
 import { DataTable, Notice, Panel, StatusBadge } from "../../ui";
 import { ProfileStats } from "../shared";
-import { profilePath } from "../utils";
+import { employeeSalaryPath } from "../../../services/employees";
+import { payrollPayslipsPath } from "../../../services/payroll";
 export function SalaryTab({ companyId, employeeId }) {
-  const salary = useApi(profilePath(employeeId, "/salary", companyId));
-  const payslips = useApi(withQuery("/api/payroll/payslips", { companyId, employeeId }));
+  const salary = useApi(employeeSalaryPath(employeeId, companyId));
+  const payslips = useApi(
+    payrollPayslipsPath({ companyId, employeeId }),
+  );
   const data = salary.data;
   const b = data?.breakdown;
   const lineColumns = [

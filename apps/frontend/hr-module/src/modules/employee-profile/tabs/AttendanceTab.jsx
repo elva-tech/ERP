@@ -1,6 +1,6 @@
 import { inputClass } from "../../helpers";
 import { useState } from "react";
-import { withQuery } from "../../../api";
+import { attendanceRecordsPath } from "../../../services/attendance";
 import {
   currentMonth,
   formatDate,
@@ -14,7 +14,17 @@ export function AttendanceTab({ companyId, employeeId }) {
   const initial = monthBounds(currentMonth());
   const [range, setRange] = useState({ from: initial.from, to: initial.to });
   const valid = range.from && range.to && range.from <= range.to;
-  const records = useApi(valid ? withQuery("/api/attendance/records", { companyId, employeeId, from: range.from, to: range.to, limit: 1000 }) : null);
+  const records = useApi(
+  valid
+    ? attendanceRecordsPath({
+        companyId,
+        employeeId,
+        from: range.from,
+        to: range.to,
+        limit: 1000,
+      })
+    : null,
+);
   const s = records.data?.summary || {};
 
   return (

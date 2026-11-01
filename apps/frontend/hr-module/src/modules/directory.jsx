@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { ChevronDown, CircleUserRound, Pencil, Plus, UserCheck, UserX } from "lucide-react";
-import { apiRequest } from "../api";
+import { createEmployee, updateEmployee } from "../services/employees";
 import { ROLE_LABELS, inputClass, primaryButton, submitButton, secondaryButton } from "./helpers";
 import { toEmployeeRecord, upsertById } from "./records";
 import { Avatar, DataTable, EmployeeSelect, Field, FormError, Modal, PageHeader, Panel, SearchField, StatusBadge } from "./ui";
@@ -144,11 +144,8 @@ export function EmployeeDirectory({ companyId, canWrite, employees, setEmployees
 
     try {
       const result = editing
-        ? await apiRequest(`/api/employees/${encodeURIComponent(editing.id)}?companyId=${encodeURIComponent(companyId)}`, {
-            method: "PATCH",
-            body: JSON.stringify(payload),
-          })
-        : await apiRequest("/api/employees", { method: "POST", body: JSON.stringify(payload) });
+        ? await updateEmployee(editing.id, companyId, payload)
+        : await createEmployee(payload);
 
       setEmployees((previous) => upsertById(previous, toEmployeeRecord(result.employee)));
       setShowForm(false);
@@ -180,10 +177,7 @@ export function EmployeeDirectory({ companyId, canWrite, employees, setEmployees
     }
 
     try {
-      const result = await apiRequest(`/api/employees/${encodeURIComponent(employee.id)}?companyId=${encodeURIComponent(companyId)}`, {
-        method: "PATCH",
-        body: JSON.stringify({ status }),
-      });
+      const result = await updateEmployee(employee.id, companyId, { status });
       setEmployees((previous) =>
         previous.map((item) => (String(item.id) === String(employee.id) ? { ...item, status: result.employee.status } : item))
       );

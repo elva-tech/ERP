@@ -1,4 +1,4 @@
-import { sendJson } from "../api";
+import { decideCompanyApproval } from "../services/platform";
 import { formatDate, linkButton, secondaryButton, useAction, useApi } from "./helpers";
 import { DataTable, Notice, PageHeader, Panel } from "./ui";
 import { useConfirm } from "./useConfirm";
@@ -18,7 +18,9 @@ export function PlatformAdminConsole() {
       danger: decision !== "approve",
     });
     if (!confirmed) return;
-    const result = await action.run(() => sendJson("PATCH", `/api/companies/${company.company_id}/approval`, { decision }));
+    const result = await action.run(() =>
+      decideCompanyApproval(company.company_id, decision)
+    );
     if (result) pending.reload();
   }
 

@@ -88,7 +88,7 @@ function dispatchUnauthorized(path, status) {
   }
 }
 
-async function fetchWithTimeout(path, options = {}) {
+async function fetchWithTimeout(path, options = {}, consumeResponse = (response) => response) {
   const {
     timeoutMs = DEFAULT_TIMEOUT_MS,
     signal: externalSignal,
@@ -97,11 +97,31 @@ async function fetchWithTimeout(path, options = {}) {
 
   const controller = new AbortController();
   let timedOut = false;
+  let cancelled = false;
+  let rejectAbort;
+  const deadline = Date.now() + timeoutMs;
+  const abortPromise = new Promise((_, reject) => {
+    rejectAbort = reject;
+  });
 
-  const abortFromCaller = () => controller.abort(externalSignal.reason);
+  function abortRequest(reason) {
+    if (!controller.signal.aborted) {
+      controller.abort(reason);
+      rejectAbort(reason || new DOMException("Request aborted", "AbortError"));
+    }
+  }
+
+  const abortFromCaller = () => {
+    cancelled = true;
+    abortRequest(externalSignal.reason);
+  };
 
   if (externalSignal?.aborted) {
     controller.abort(externalSignal.reason);
+    throw new ApiError("Request was cancelled.", {
+      code: "REQUEST_ABORTED",
+      cause: externalSignal.reason,
+    });
   } else {
     externalSignal?.addEventListener("abort", abortFromCaller, {
       once: true,
@@ -110,15 +130,28 @@ async function fetchWithTimeout(path, options = {}) {
 
   const timer = setTimeout(() => {
     timedOut = true;
-    controller.abort();
+    abortRequest(new DOMException("Request timed out", "AbortError"));
   }, timeoutMs);
 
   try {
-    return await fetch(`${API_BASE_URL}${path}`, {
-      ...fetchOptions,
-      signal: controller.signal,
-      credentials: "include",
-    });
+    const request = async () => {
+      const response = await fetch(`${API_BASE_URL}${path}`, {
+        ...fetchOptions,
+        signal: controller.signal,
+        credentials: "include",
+      });
+      const data = await consumeResponse(response);
+
+      if (Date.now() >= deadline) {
+        timedOut = true;
+        abortRequest(new DOMException("Request timed out", "AbortError"));
+        throw new Error("Request timed out");
+      }
+
+      return { response, data };
+    };
+
+    return await Promise.race([request(), abortPromise]);
   } catch (cause) {
     if (timedOut) {
       throw new ApiError(`Request timed out after ${timeoutMs} ms`, {
@@ -127,7 +160,14 @@ async function fetchWithTimeout(path, options = {}) {
       });
     }
 
-    if (externalSignal?.aborted) {
+    if (cancelled || externalSignal?.aborted) {
+      throw new ApiError("Request was cancelled.", {
+        code: "REQUEST_ABORTED",
+        cause,
+      });
+    }
+
+    if (cause instanceof ApiError) {
       throw cause;
     }
 
@@ -140,9 +180,27 @@ async function fetchWithTimeout(path, options = {}) {
     externalSignal?.removeEventListener("abort", abortFromCaller);
   }
 }
-async function readJson(response) {
+async function readResponseBody(response) {
+  if (response.status === 204) return null;
+
+  if (typeof response.text !== "function") {
+    try {
+      return await response.json();
+    } catch {
+      return null;
+    }
+  }
+
   try {
-    return await response.json();
+    const text = await response.text();
+    if (!text.trim()) return null;
+
+    const contentType = response.headers.get("content-type") || "";
+    try {
+      return JSON.parse(text);
+    } catch {
+      return /\bjson\b/i.test(contentType) ? null : text;
+    }
   } catch {
     return null;
   }
@@ -159,12 +217,11 @@ export async function apiRequest(path, options = {}) {
     headers.set("Content-Type", "application/json");
   }
 
-  const response = await fetchWithTimeout(path, {
-    ...options,
-    headers,
-  });
-
-  const data = await readJson(response);
+  const { response, data } = await fetchWithTimeout(
+    path,
+    { ...options, headers },
+    readResponseBody,
+  );
   const requestId = response.headers.get("x-request-id");
 
   if (!response.ok) {
@@ -207,10 +264,13 @@ export function sendJson(method, path, body, options = {}) {
 
 /** Fetches a protected file and returns it as a Blob. */
 export async function apiBlob(path, options = {}) {
-  const response = await fetchWithTimeout(path, options);
+  const { response, data } = await fetchWithTimeout(
+    path,
+    options,
+    (result) => result.ok ? result.blob() : readResponseBody(result),
+  );
 
   if (!response.ok) {
-    const data = await readJson(response);
     dispatchUnauthorized(path, response.status);
 
     throw createApiError(
@@ -220,5 +280,5 @@ export async function apiBlob(path, options = {}) {
     );
   }
 
-  return response.blob();
+  return data;
 }

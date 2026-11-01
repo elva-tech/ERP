@@ -1,5 +1,6 @@
 import { CalendarDays } from "lucide-react";
-import { withQuery } from "../api";
+import { attendancePath } from "../services/attendance";
+import { leaveRequestsPath } from "../services/leave";
 import { canManage, formatDate, todayLocal, useApi } from "./helpers";
 import { DataTable, Notice, PageHeader, Panel, StatGrid, StatusBadge } from "./ui";
 
@@ -112,11 +113,20 @@ function AttendanceRateChart({ summary, manager }) {
 export function Dashboard({ companyId, role, employees, departments, onNavigate }) {
   const manager = canManage(role);
   const today = todayLocal();
-  const attendance = useApi(withQuery("/api/attendance/records", { companyId, date: today, limit: 1 }));
-  const leave = useApi(withQuery("/api/leave/requests", { companyId }));
-  const pendingLeave = useApi(withQuery("/api/leave/requests", { companyId, status: "Pending" }));
-  const monthly = useApi(withQuery("/api/attendance/monthly-summary", { companyId, months: 6 }));
-
+  const attendance = useApi(
+    attendancePath("records", {
+      companyId,
+      date: today,
+      limit: 1,
+    }),
+  );
+  const leave = useApi(leaveRequestsPath({ companyId }));
+  const pendingLeave = useApi(
+    leaveRequestsPath({ companyId, status: "Pending" }),
+  );
+  const monthly = useApi(
+    attendancePath("monthlySummary", { companyId, months: 6 }),
+  );
   const active = employees.filter((e) => e.status === "Active");
   const summary = attendance.data?.summary || {};
   const marked = Object.values(summary).reduce((s, v) => s + v, 0);

@@ -1,6 +1,11 @@
 import { useState } from "react";
 import { Download, Eye, Trash2 } from "lucide-react";
-import { apiBlob, apiRequest, sendJson } from "../../../api";
+import {
+  deleteEmployeeDocument,
+  getEmployeeDocument,
+  updateEmployeeDocument,
+  uploadEmployeeDocument,
+} from "../../../services/employees";
 import {
   formatDate,
   inputClass,
@@ -32,7 +37,7 @@ export function DocumentsTab({ companyId, employeeId, manager, isOwn, onPhotoCha
     body.append("file", form.file);
     body.append("category", form.category);
     body.append("title", form.title.trim());
-    const result = await action.run(() => apiRequest(profilePath(employeeId, "/documents", companyId), { method: "POST", body }), "Document uploaded. It is pending verification.");
+    const result = await action.run(() => uploadEmployeeDocument(employeeId, companyId, body), "Document uploaded. It is pending verification.");
     if (result) {
       setForm({ category: form.category, title: "", file: null });
       setFileKey((k) => k + 1);
@@ -43,7 +48,7 @@ export function DocumentsTab({ companyId, employeeId, manager, isOwn, onPhotoCha
 
   async function open(doc, download) {
     const result = await action.run(async () => {
-      const blob = await apiBlob(profilePath(employeeId, `/documents/${doc.id}`, companyId, download ? { download: 1 } : {}));
+      const blob = await getEmployeeDocument(employeeId, companyId, doc.id, download ? { download: 1 } : {});
       const url = URL.createObjectURL(blob);
       if (download) {
         const link = document.createElement("a");
@@ -66,13 +71,13 @@ export function DocumentsTab({ companyId, employeeId, manager, isOwn, onPhotoCha
       note = note?.trim();
       if (!note) return;
     }
-    const result = await action.run(() => sendJson("PATCH", profilePath(employeeId, `/documents/${doc.id}`, companyId), { action: verb, note }));
+    const result = await action.run(() => updateEmployeeDocument(employeeId, companyId, doc.id, { action: verb, note }));
     if (result) docs.reload();
   }
 
   async function remove(doc) {
     if (!(await confirm.ask({ title: "Remove document", message: `Remove "${doc.title}"? It will be hidden but kept for audit.`, confirmLabel: "Remove", danger: true }))) return;
-    const result = await action.run(() => apiRequest(profilePath(employeeId, `/documents/${doc.id}`, companyId), { method: "DELETE" }));
+    const result = await action.run(() => deleteEmployeeDocument(employeeId, companyId, doc.id));
     if (result) { docs.reload(); if (doc.category === "Photo") onPhotoChanged(); }
   }
 

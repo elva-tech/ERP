@@ -1,5 +1,24 @@
 import { useState } from "react";
-import { apiRequest, sendJson, withQuery } from "../api";
+import {
+  policyPath,
+  savePayrollPolicy,
+  approvePayrollPolicy,
+} from "../services/policy";
+
+import {
+  pendingApprovalsPath,
+  approvalDelegatesPath,
+  createApprovalDelegate,
+  revokeApprovalDelegate,
+} from "../services/approvals";
+
+import {
+  carryForwardLeave,
+  reviewLeaveRequest,
+} from "../services/leave";
+
+import { reviewAttendanceRegularization } from "../services/attendance";
+import { updateEmployeeAdvance } from "../services/payroll";
 import { canManage, formatDate, formatMoney, inputClass, isAdmin, linkButton, primaryButton, submitButton, secondaryButton, useAction, useApi } from "./helpers";
 import { DataTable, Field, Notice, PageHeader, Panel, StatGrid, StatusBadge } from "./ui";
 import { useConfirm } from "./useConfirm";
@@ -76,7 +95,9 @@ function policyToForm(policy) {
 }
 
 export function PayrollPolicy({ companyId, role }) {
-  const policy = useApi(canManage(role) ? withQuery("/api/policy", { companyId }) : null);
+  const policy = useApi(
+    canManage(role) ? policyPath({ companyId }) : null
+  );
   const action = useAction();
   const data = policy.data;
 
@@ -114,13 +135,17 @@ function PolicyEditor({ companyId, admin, data, reload, action }) {
       const value = form[s.key];
       body[s.key] = value === "" ? null : s.number ? Number(value) : value;
     }
-    const result = await action.run(() => sendJson("PUT", "/api/policy", body));
+    const result = await action.run(() =>
+      savePayrollPolicy(body)
+    );
     if (result) reload();
   }
 
   async function approve() {
     if (!(await confirm.ask({ title: `Approve policy version ${p.version}`, message: "Payroll processed after approval will use these settings.", confirmLabel: "Approve policy" }))) return;
-    const result = await action.run(() => sendJson("POST", "/api/policy/approve", { companyId, version: p.version }));
+    const result = await action.run(() =>
+      approvePayrollPolicy(companyId, p.version)
+    );
     if (result) reload();
   }
 
@@ -184,8 +209,9 @@ function PolicyEditor({ companyId, admin, data, reload, action }) {
 
 export function ApprovalDelegation({ companyId, role, members = [] }) {
   const admin = isAdmin(role);
-
-  const delegates = useApi(admin ? withQuery("/api/approvals/delegates", { companyId }) : null);
+  const delegates = useApi(
+    admin ? approvalDelegatesPath(companyId) : null
+  );
   const [form, setForm] = useState({ userId: "", reason: "" });
   const action = useAction();
   const confirm = useConfirm();
@@ -197,13 +223,21 @@ export function ApprovalDelegation({ companyId, role, members = [] }) {
 
   async function grant(event) {
     event.preventDefault();
-    const result = await action.run(() => sendJson("POST", "/api/approvals/delegates", { companyId, userId: form.userId, reason: form.reason }));
+    const result = await action.run(() =>
+      createApprovalDelegate({
+        companyId,
+        userId: form.userId,
+        reason: form.reason,
+      })
+    );
     if (result) { setForm({ userId: "", reason: "" }); delegates.reload(); }
   }
 
   async function revoke(row) {
     if (!(await confirm.ask({ title: "Revoke delegation", message: `Revoke approval delegation for ${row.full_name}? They will no longer be able to approve requests raised by admins and HR managers.`, confirmLabel: "Revoke", danger: true }))) return;
-    const result = await action.run(() => apiRequest(withQuery(`/api/approvals/delegates/${row.id}`, { companyId }), { method: "DELETE" }));
+    const result = await action.run(() =>
+      revokeApprovalDelegate(row.id, companyId)
+    );
     if (result) delegates.reload();
   }
 
@@ -248,13 +282,12 @@ export function ApprovalDelegation({ companyId, role, members = [] }) {
 }
 
 export function MyApprovals({ companyId }) {
-  const pending = useApi(withQuery("/api/approvals/pending", { companyId }));
+  const pending = useApi(pendingApprovalsPath(companyId));
   const action = useAction();
   const confirm = useConfirm();
   const data = pending.data;
 
   async function review(kind, row, verb) {
-    const path = { leave: "/api/leave/requests", regularization: "/api/attendance/regularizations", advance: "/api/payroll/advances" }[kind];
     const noun = { leave: "leave request", regularization: "regularization", advance: "salary advance" }[kind];
     let body = { action: verb };
     if (kind === "advance" && verb === "approve") {
@@ -281,7 +314,15 @@ export function MyApprovals({ companyId }) {
       if (note === null) return;
       body = { action: verb, reviewNote: note.trim() || undefined };
     }
-    const result = await action.run(() => sendJson("PATCH", withQuery(`${path}/${row.id}`, { companyId }), body));
+    const reviewRequest = {
+      leave: reviewLeaveRequest,
+      regularization: reviewAttendanceRegularization,
+      advance: updateEmployeeAdvance,
+    }[kind];
+
+    const result = await action.run(() =>
+      reviewRequest(row.id, companyId, body)
+    );
     if (result) pending.reload();
   }
 
@@ -354,7 +395,7 @@ export function LeaveCarryForward({ companyId, role }) {
 
   async function run(apply) {
     if (apply && !(await confirm.ask({ title: `Apply carry-forward to ${fromYear + 1}`, message: `Write carry-forward balances into ${fromYear + 1}? Re-running overwrites the previous carry-forward values.`, confirmLabel: "Apply" }))) return;
-    const result = await action.run(() => sendJson("POST", "/api/leave/carry-forward", { companyId, fromYear, apply }));
+    const result = await action.run(() => carryForwardLeave({ companyId, fromYear, apply }));
     if (result) setPreview(result);
   }
 

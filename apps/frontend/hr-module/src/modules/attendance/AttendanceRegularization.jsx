@@ -1,6 +1,10 @@
 
 import { useState } from "react";
-import { sendJson, withQuery } from "../../api";
+import {
+  attendancePath,
+  createAttendanceRegularization,
+  reviewAttendanceRegularization,
+} from "../../services/attendance";
 import {
   canManage,
   compactInputClass,
@@ -64,7 +68,7 @@ export function AttendanceRegularization({
   });
 
   const list = useApi(
-    withQuery("/api/attendance/regularizations", { companyId }),
+    attendancePath("regularizations", { companyId }),
   );
   const action = useAction();
   const confirm = useConfirm();
@@ -81,7 +85,7 @@ export function AttendanceRegularization({
 
   const punches = useApi(
     manager && selected
-      ? withQuery("/api/attendance/punches", {
+      ? attendancePath("punches", {
           companyId,
           date: selected.attendance_date,
           employeeId: selected.employee_id,
@@ -93,7 +97,7 @@ export function AttendanceRegularization({
     event.preventDefault();
 
     const result = await action.run(() =>
-      sendJson("POST", "/api/attendance/regularizations", {
+      createAttendanceRegularization({
         companyId,
         ...form,
         employeeId: manager ? form.employeeId : undefined,
@@ -123,14 +127,10 @@ export function AttendanceRegularization({
     }
 
     const result = await action.run(() =>
-      sendJson(
-        "PATCH",
-        withQuery(`/api/attendance/regularizations/${id}`, { companyId }),
-        {
+      reviewAttendanceRegularization(id, companyId, {
           action: verb,
           reviewNote: note.trim() || undefined,
-        },
-      ),
+        }),
     );
 
     if (result) list.reload();

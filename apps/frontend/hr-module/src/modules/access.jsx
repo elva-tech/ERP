@@ -1,6 +1,12 @@
 import { useState } from "react";
 import { Copy, Link2, MailPlus } from "lucide-react";
-import { apiRequest, sendJson, withQuery } from "../api";
+import {
+  membersPath,
+  invitationsPath,
+  createInvitation,
+  revokeInvitation,
+  updateMember,
+} from "../services/access";
 import {
   ROLE_LABELS,
   employeesInDepartment,
@@ -26,8 +32,8 @@ const emptyInvite = { email: "", role: "employee", employeeId: "" };
  */
 export function UsersAccess({ companyId, role, employees = [], departments = [], currentUserId }) {
   const admin = isAdmin(role);
-  const members = useApi(withQuery("/api/members", { companyId, includeSuspended: 1 }));
-  const invitations = useApi(withQuery("/api/invitations", { companyId }));
+  const members = useApi(membersPath(companyId));
+  const invitations = useApi(invitationsPath(companyId));
   const [form, setForm] = useState(emptyInvite);
   const [department, setDepartment] = useState("");
   const [issued, setIssued] = useState(null);
@@ -59,7 +65,7 @@ export function UsersAccess({ companyId, role, employees = [], departments = [],
     setIssued(null);
     setCopied(false);
     const result = await action.run(() =>
-      sendJson("POST", withQuery("/api/invitations", { companyId }), {
+      createInvitation(companyId, {
         email: form.email.trim(),
         role: form.role,
         employeeId: form.employeeId || undefined,
@@ -93,7 +99,7 @@ export function UsersAccess({ companyId, role, employees = [], departments = [],
     });
     if (!ok) return;
     const result = await action.run(() =>
-      apiRequest(withQuery(`/api/invitations/${row.id}`, { companyId }), { method: "DELETE" })
+      revokeInvitation(row.id, companyId)
     );
     if (result) invitations.reload();
   }
@@ -102,7 +108,7 @@ export function UsersAccess({ companyId, role, employees = [], departments = [],
     const ok = await confirm.ask(prompt);
     if (!ok) return;
     const result = await action.run(() =>
-      sendJson("PATCH", withQuery(`/api/members/${member.user_id}`, { companyId }), change)
+      updateMember(member.user_id, companyId, change)
     );
     if (result) members.reload();
   }

@@ -317,8 +317,6 @@ export const routeItems = routeSections.flatMap((section) =>
   section.items.map((item) => ({ ...item, section: section.title })),
 );
 
-export function findRoute(identifier) {
-  return routeItems.find(
-    (item) => item.id === identifier || item.label === identifier,
-  );
+export function findRoute(routeId) {
+  return routeItems.find((item) => item.id === routeId);
 }

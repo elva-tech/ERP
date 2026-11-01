@@ -1,7 +1,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Bell } from "lucide-react";
-import { withQuery } from "../../api";
+import { pendingApprovalsPath } from "../../services/approvals";
 import { formatDate, formatMoney, useApi } from "../helpers";
 
 const popoverClass =
@@ -47,7 +47,7 @@ export default function ApprovalNotificationBell({
 }) {
   const [open, setOpen] = useState(false);
   const ref = useDismiss(open, () => setOpen(false));
-  const pending = useApi(withQuery("/api/approvals/pending", { companyId }));
+  const pending = useApi(pendingApprovalsPath(companyId));
   const data = pending.data || {};
 
   const items = [

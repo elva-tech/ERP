@@ -1,6 +1,7 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { apiRequest } from "./api";
+import { getEmployees } from "./services/employees";
 import { canManage, primaryButton } from "./modules/helpers";
 import {
   toDepartmentRecord,
@@ -10,6 +11,7 @@ import {
 import { Notice } from "./modules/ui";
 import { accessibleSectionsFor, visibleSectionsFor } from "./navigation";
 import { findRoute } from "./routes";
+import { createRouteHash, parseRouteHash } from "./routeLocation";
 import {
   SIDEBAR_COLLAPSED_WIDTH,
   SIDEBAR_WIDTH,
@@ -42,7 +44,8 @@ function App({
   session = {},
 }) {
   // Store a stable route ID internally, not the displayed page label.
-  const [activePage, setActivePage] = useState("dashboard");
+  const initialLocation = parseRouteHash(window.location.hash);
+  const [activePage, setActivePage] = useState(initialLocation.routeId);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(
     () => localStorage.getItem("elvaSidebarCollapsed") === "1",
@@ -55,7 +58,11 @@ function App({
   const [departments, setDepartments] = useState([]);
   const [designations, setDesignations] = useState([]);
   const [members, setMembers] = useState([]);
-  const [selectedEmployee, setSelectedEmployee] = useState(null);
+  const [selectedEmployee, setSelectedEmployee] = useState(() =>
+    initialLocation.routeId === "employee-profile" && initialLocation.employeeId
+      ? { id: initialLocation.employeeId, name: "" }
+      : null,
+  );
 
   const refreshCompanyRecords = () => {
     setDataVersion((version) => version + 1);
@@ -77,7 +84,7 @@ function App({
           designationResult,
           memberResult,
         ] = await Promise.all([
-          apiRequest(`/api/employees${query}`),
+          getEmployees(companyId),
           apiRequest(`/api/departments${query}`),
           apiRequest(`/api/designations${query}`),
           canManage(role)
@@ -114,13 +121,54 @@ function App({
     };
   }, [companyId, dataVersion, role]);
 
+  useEffect(() => {
+    function syncFromHash() {
+      const location = parseRouteHash(window.location.hash);
+      const route = findRoute(location.routeId) || findRoute("dashboard");
+
+      setActivePage(route.id);
+
+      if (route.id === "employee-profile" && location.employeeId) {
+        const employee = employees.find(
+          (item) => String(item.id) === String(location.employeeId),
+        );
+        setSelectedEmployee(employee || { id: location.employeeId, name: "" });
+      } else {
+        setSelectedEmployee(null);
+      }
+    }
+
+    if (!window.location.hash) {
+      window.history.replaceState(
+        null,
+        "",
+        createRouteHash("dashboard"),
+      );
+    }
+
+    syncFromHash();
+    window.addEventListener("hashchange", syncFromHash);
+    return () => window.removeEventListener("hashchange", syncFromHash);
+  }, [employees]);
+
+  // Keep the address bar in sync with route state after React commits navigation.
+  useEffect(() => {
+    const nextHash = createRouteHash(activePage, {
+      employeeId:
+        activePage === "employee-profile" ? selectedEmployee?.id : null,
+    });
+
+    if (window.location.hash !== nextHash) {
+      window.location.hash = nextHash;
+    }
+  }, [activePage, selectedEmployee]);
   const canWrite = canManage(role);
   const accessContext = { role, ownEmployeeId, isApprovalDelegate };
 
   const visibleSections = visibleSectionsFor(accessContext);
   const accessibleSections = accessibleSectionsFor(accessContext);
 
-  // Resolve the ID or legacy label to the shared route definition.
+  // Resolve the stable route ID to the shared route definition.
   const activeRoute = findRoute(activePage);
 
   // A route must exist and be present in the user's accessible sections.
@@ -145,7 +193,7 @@ function App({
 
   const showApprovals = canManage(role) || isApprovalDelegate;
 
-  // Accept route IDs and existing labels while callers are migrated.
+  // Navigation accepts stable route IDs only; labels remain presentation text.
   function navigate(identifier) {
     const route = findRoute(identifier);
 

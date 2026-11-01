@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { Building2, CheckCircle2, MailCheck } from "lucide-react";
-import { sendJson } from "../api";
+import {
+  registerCompany,
+  lookupInvitation,
+  acceptInvitation,
+} from "../services/onboarding";
 import { ROLE_LABELS, formatDate, inputClass, primaryButton, submitButton, secondaryButton } from "./helpers";
 
 const cardClass = "space-y-5 rounded-xl border border-line bg-surface p-6 sm:p-8";
@@ -49,12 +53,12 @@ export function RegisterCompanyForm({ onBack }) {
     setError("");
     setBusy(true);
     try {
-      await sendJson("POST", "/api/companies/register", {
-        companyName: form.companyName.trim(),
-        fullName: form.fullName.trim(),
-        email: form.email.trim(),
-        password: form.password,
-      });
+      await registerCompany({
+      companyName: form.companyName.trim(),
+      fullName: form.fullName.trim(),
+      email: form.email.trim(),
+      password: form.password,
+    });
       setDone(true);
     } catch (requestError) {
       setError(requestError.message || "Registration failed. Please try again.");
@@ -123,7 +127,7 @@ export function InvitationAccept({ token, user, onAccepted, onDismiss, onSignOut
 
   useEffect(() => {
     let active = true;
-    sendJson("POST", "/api/invitations/lookup", { token })
+    lookupInvitation(token)
       .then((data) => {
         if (!active) return;
         setInvitation(data.invitation);
@@ -145,7 +149,7 @@ export function InvitationAccept({ token, user, onAccepted, onDismiss, onSignOut
     setError("");
     setBusy(true);
     try {
-      const result = await sendJson("POST", "/api/invitations/accept", { token, ...body });
+      const result = await acceptInvitation(token, body);
       onAccepted(result);
     } catch (requestError) {
       setError(requestError.message || "The invitation could not be accepted.");

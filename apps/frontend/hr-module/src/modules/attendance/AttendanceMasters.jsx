@@ -1,5 +1,4 @@
-
-import { withQuery } from "../../api";
+import { attendancePath } from "../../services/attendance";
 import {
   canManage,
   employeesInDepartment,
@@ -26,7 +25,7 @@ export function ShiftManagement({ companyId, role }) {
       subtitle="Shift timings, grace period and overtime threshold used for attendance calculation"
       companyId={companyId}
       role={role}
-      path="/api/attendance/shifts"
+      path={attendancePath("shifts")}
       listKey="shifts"
       itemKey="shift"
       columns={[
@@ -219,7 +218,7 @@ export function BiometricDevices({ companyId, role }) {
       subtitle="Registered attendance devices. Punch data is imported from the Raw Punches page."
       companyId={companyId}
       role={role}
-      path="/api/attendance/devices"
+      path={attendancePath("devices")}
       listKey="devices"
       itemKey="device"
       columns={[
@@ -370,7 +369,7 @@ export function RosterManagement({
   departments,
 }) {
   const shifts = useApi(
-    withQuery("/api/attendance/shifts", { companyId }),
+    attendancePath("shifts", { companyId }),
   );
 
   const shiftList = (shifts.data?.shifts || []).filter(
@@ -383,7 +382,7 @@ export function RosterManagement({
       subtitle="Assign employees to shifts for a date range. The effective roster drives late/overtime calculation."
       companyId={companyId}
       role={role}
-      path="/api/attendance/rosters"
+      path={attendancePath("rosters")}
       listKey="rosters"
       itemKey="roster"
       deleteRoleCheck={canManage}

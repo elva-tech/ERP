@@ -30,3 +30,22 @@ export function signIn({ username, password, rememberMe }) {
 export function signOut() {
   return apiRequest("/procurement/session", { method: "DELETE" });
 }
+
+const CLIENT_STORAGE_PREFIX = "procurement.";
+
+/**
+ * Removes everything this module keeps in the browser for the signed-in user (e.g. notification state).
+ * Authentication itself is a backend cookie, so there is no token to clear on the client.
+ */
+export function clearClientSession(storages = [globalThis.localStorage, globalThis.sessionStorage]) {
+  for (const storage of storages) {
+    try {
+      if (!storage) continue;
+      const keys = [];
+      for (let i = 0; i < storage.length; i += 1) keys.push(storage.key(i));
+      keys.filter((key) => key?.startsWith(CLIENT_STORAGE_PREFIX)).forEach((key) => storage.removeItem(key));
+    } catch {
+      // Storage can be blocked by the browser; there is nothing further to clear then.
+    }
+  }
+}

@@ -45,9 +45,13 @@ const DEFAULT_MESSAGES = {
   server: "The inventory server encountered an internal error.",
 };
 
-function buildUrl(path, query) {
-  const baseUrl = getApiBaseUrl();
-  const url = new URL(`${baseUrl}${path.startsWith("/") ? "" : "/"}${path}`, window.location.origin);
+export function buildUrl(path, query) {
+  let baseUrl = getApiBaseUrl();
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  if (normalizedPath.startsWith("/procurement/") && /\/inventory\/?$/.test(baseUrl)) {
+    baseUrl = baseUrl.replace(/\/inventory\/?$/, "");
+  }
+  const url = new URL(`${baseUrl}${normalizedPath}`, window.location.origin);
   if (query) {
     Object.entries(query).forEach(([key, value]) => {
       if (value === undefined || value === null || value === "") return;
@@ -141,8 +145,10 @@ export async function apiRequest(path, options = {}) {
 
   // Link signal if provided
   let activeSignal = timeoutController.signal;
+  let abortHandler;
   if (signal) {
-    signal.addEventListener("abort", () => timeoutController.abort(signal.reason));
+    abortHandler = () => timeoutController.abort(signal.reason);
+    signal.addEventListener("abort", abortHandler);
   }
 
   let response;
@@ -169,6 +175,9 @@ export async function apiRequest(path, options = {}) {
     );
   } finally {
     clearTimeout(timeoutId);
+    if (signal && abortHandler) {
+      signal.removeEventListener("abort", abortHandler);
+    }
   }
 
   if (!response.ok) {

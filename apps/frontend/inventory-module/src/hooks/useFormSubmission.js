@@ -18,7 +18,7 @@ export function useFormSubmission({ initialValues, validate, submit, onSuccess }
   const [fieldErrors, setFieldErrors] = useState({});
   const [formError, setFormError] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [idempotencyKey] = useState(createIdempotencyKey);
+  const [idempotencyKey, setIdempotencyKey] = useState(createIdempotencyKey);
 
   function clearFieldError(name) {
     setFieldErrors((current) => {
@@ -64,5 +64,13 @@ export function useFormSubmission({ initialValues, validate, submit, onSuccess }
     }
   }
 
-  return { values, setValue, handleChange, handleSubmit, fieldErrors, formError, isSubmitting };
+  function reset(newValues = initialValues) {
+    setValues(newValues);
+    setFieldErrors({});
+    setFormError(null);
+    setIsSubmitting(false);
+    setIdempotencyKey(createIdempotencyKey());
+  }
+
+  return { values, setValue, handleChange, handleSubmit, fieldErrors, formError, isSubmitting, reset };
 }

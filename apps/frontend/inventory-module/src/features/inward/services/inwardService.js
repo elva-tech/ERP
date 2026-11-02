@@ -18,5 +18,18 @@ export const inwardService = {
       signal,
     });
   },
-};
 
+  /**
+   * Update an existing inward entry while preserving its authoritative GRN number.
+   * Route: PUT /inward/:id
+   */
+  async updateInward(id, inwardData, options = {}, signal) {
+    const { idempotencyKey = createIdempotencyKey() } = options;
+    return apiRequest(`/inward/${id}`, {
+      method: "PUT",
+      body: inwardData,
+      idempotencyKey,
+      signal,
+    });
+  },
+};

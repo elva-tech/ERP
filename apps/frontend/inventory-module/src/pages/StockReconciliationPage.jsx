@@ -4,7 +4,9 @@ import { reconciliationService } from "../features/reconciliation/services/recon
 import { warehouseService } from "../features/warehouses/services/warehouseService.js";
 import { itemService } from "../features/items/services/itemService.js";
 import StartReconciliationModal from "../features/reconciliation/components/StartReconciliationModal.jsx";
+import DateRangeFilter from "../components/ui/DateRangeFilter.jsx";
 import Badge from "../components/ui/Badge.jsx";
+import { isWithinDateRange } from "../lib/dateUtils.js";
 
 export default function StockReconciliationPage({ onShowToast }) {
   const [records, setRecords] = useState([]);
@@ -15,8 +17,11 @@ export default function StockReconciliationPage({ onShowToast }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedWarehouse, setSelectedWarehouse] = useState("all");
   const [selectedStatus, setSelectedStatus] = useState("all");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submittingAdjustId, setSubmittingAdjustId] = useState(null);
 
   const fetchData = useCallback(async () => {
     try {
@@ -25,6 +30,8 @@ export default function StockReconciliationPage({ onShowToast }) {
       const [recRes, whRes, itmRes] = await Promise.all([
         reconciliationService.getReconciliations({
           warehouseId: selectedWarehouse !== "all" ? selectedWarehouse : undefined,
+          startDate: startDate || undefined,
+          endDate: endDate || undefined,
         }),
         warehouseService.getWarehouses(),
         itemService.getItems(),
@@ -37,7 +44,7 @@ export default function StockReconciliationPage({ onShowToast }) {
     } finally {
       setLoading(false);
     }
-  }, [selectedWarehouse]);
+  }, [selectedWarehouse, startDate, endDate]);
 
   useEffect(() => {
     fetchData();
@@ -48,25 +55,45 @@ export default function StockReconciliationPage({ onShowToast }) {
       setIsSubmitting(true);
       await reconciliationService.startReconciliation(recData);
       setIsModalOpen(false);
-      onShowToast && onShowToast("Physical stock reconciliation initiated!", "success");
-      fetchData();
+      onShowToast && onShowToast("Physical stock reconciliation recorded successfully!", "success");
+      window.dispatchEvent(new CustomEvent("inventory:stock-updated"));
+      await fetchData();
     } catch (err) {
       onShowToast && onShowToast(err.message || "Failed to start reconciliation", "error");
+      throw err;
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleAdjustStock = (record) => {
-    setRecords((prev) =>
-      prev.map((r) =>
-        r.id === record.id
-          ? { ...r, systemQty: r.physicalQty, variance: 0, variancePercent: 0, status: "Adjusted" }
-          : r
-      )
-    );
-    onShowToast &&
-      onShowToast(`Stock variance for ${record.itemCode} posted to ledger as inventory adjustment!`, "success");
+  const handleAdjustStock = async (record) => {
+    if (submittingAdjustId) return;
+    try {
+      setSubmittingAdjustId(record.id);
+      const res = await reconciliationService.adjustStock(record.id, {
+        itemCode: record.itemCode,
+        physicalQty: record.physicalQty,
+        systemQty: record.systemQty,
+        variance: record.variance,
+      });
+
+      const updated = res?.data ?? res;
+      setRecords((prev) =>
+        prev.map((r) =>
+          r.id === record.id
+            ? { ...r, ...updated, status: "Adjusted", systemQty: r.physicalQty, variance: 0, variancePercent: 0 }
+            : r
+        )
+      );
+      window.dispatchEvent(new CustomEvent("inventory:stock-updated"));
+      onShowToast &&
+        onShowToast(`Stock variance for ${record.itemCode} posted to ledger as inventory adjustment!`, "success");
+    } catch (err) {
+      onShowToast &&
+        onShowToast(err.message || "Failed to adjust stock. Please retry.", "error");
+    } finally {
+      setSubmittingAdjustId(null);
+    }
   };
 
   const filteredRecords = useMemo(() => {
@@ -77,9 +104,10 @@ export default function StockReconciliationPage({ onShowToast }) {
         (r.itemCode || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
         (r.itemName || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
         (r.warehouseName || "").toLowerCase().includes(searchQuery.toLowerCase());
-      return matchStatus && matchSearch;
+      const matchDate = isWithinDateRange(r.reconciliationDate || r.date, startDate, endDate);
+      return matchStatus && matchSearch && matchDate;
     });
-  }, [records, selectedStatus, searchQuery]);
+  }, [records, selectedStatus, searchQuery, startDate, endDate]);
 
   const kpis = useMemo(() => {
     const total = records.length;
@@ -88,6 +116,11 @@ export default function StockReconciliationPage({ onShowToast }) {
     const netVarianceQty = records.reduce((acc, r) => acc + (r.variance || 0), 0);
     return { total, matched, discrepancies, netVarianceQty };
   }, [records]);
+
+  function handleClearDateRange() {
+    setStartDate("");
+    setEndDate("");
+  }
 
   return (
     <div className="flex flex-1 flex-col gap-4">
@@ -118,9 +151,9 @@ export default function StockReconciliationPage({ onShowToast }) {
             </div>
           </div>
           <div className="mt-2 text-2xl font-bold text-ink">
-            {kpis.total} <span className="text-xs font-normal text-slate-500">items</span>
+            {kpis.total} <span className="text-xs font-normal text-slate-500">records</span>
           </div>
-          <p className="text-xs text-ink-muted mt-1">Under physical cycle count</p>
+          <p className="text-xs text-ink-muted mt-1">Audit cycle scope</p>
         </div>
 
         <div className="bg-white border border-slate-200 rounded-xl p-4.5 shadow-xs">
@@ -133,7 +166,7 @@ export default function StockReconciliationPage({ onShowToast }) {
           <div className="mt-2 text-2xl font-bold text-emerald-600">
             {kpis.matched} <span className="text-xs font-normal text-slate-500">items</span>
           </div>
-          <p className="text-xs text-ink-muted mt-1">Physical count matches system</p>
+          <p className="text-xs text-ink-muted mt-1">Accurate physical count</p>
         </div>
 
         <div className="bg-white border border-slate-200 rounded-xl p-4.5 shadow-xs">
@@ -144,15 +177,15 @@ export default function StockReconciliationPage({ onShowToast }) {
             </div>
           </div>
           <div className="mt-2 text-2xl font-bold text-rose-600">
-            {kpis.discrepancies} <span className="text-xs font-normal text-slate-500">items</span>
+            {kpis.discrepancies} <span className="text-xs font-normal text-slate-500">items flagged</span>
           </div>
-          <p className="text-xs text-ink-muted mt-1">Requires audit investigation</p>
+          <p className="text-xs text-ink-muted mt-1">Variance requiring adjustment</p>
         </div>
 
         <div className="bg-white border border-slate-200 rounded-xl p-4.5 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-brand-primary uppercase tracking-wider">Net Variance</span>
-            <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center text-brand-primary">
+            <span className="text-xs font-semibold text-action-navy uppercase tracking-wider">Net Variance</span>
+            <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center text-action-navy">
               <RotateCcw className="w-4 h-4" />
             </div>
           </div>
@@ -166,24 +199,32 @@ export default function StockReconciliationPage({ onShowToast }) {
 
       {/* Filter and Search Bar */}
       <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs flex flex-col md:flex-row items-center justify-between gap-3">
-        <div className="relative w-full md:w-80">
+        <div className="relative w-full md:w-72">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <input
             type="text"
             placeholder="Search items, code, or warehouse..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary"
+            className="w-full pl-9 pr-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-brand/20 focus:border-brand"
           />
         </div>
 
         <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+          <DateRangeFilter
+            startDate={startDate}
+            endDate={endDate}
+            onStartDateChange={setStartDate}
+            onEndDateChange={setEndDate}
+            onClear={handleClearDateRange}
+          />
+
           <div className="flex items-center gap-2">
             <label className="text-xs font-semibold text-ink-muted uppercase">Warehouse:</label>
             <select
               value={selectedWarehouse}
               onChange={(e) => setSelectedWarehouse(e.target.value)}
-              className="px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-brand-primary/20"
+              className="px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-brand/20"
             >
               <option value="all">All Warehouses</option>
               {warehouses.map((w) => (
@@ -199,7 +240,7 @@ export default function StockReconciliationPage({ onShowToast }) {
             <select
               value={selectedStatus}
               onChange={(e) => setSelectedStatus(e.target.value)}
-              className="px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-brand-primary/20"
+              className="px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-brand/20"
             >
               <option value="all">All Statuses</option>
               <option value="Matched">Matched</option>
@@ -235,8 +276,8 @@ export default function StockReconciliationPage({ onShowToast }) {
                   <th className="py-3 px-4">Item Details</th>
                   <th className="py-3 px-4">Warehouse</th>
                   <th className="py-3 px-4 text-right">System Qty</th>
-                  <th className="py-3 px-4 text-right">Physical Qty</th>
-                  <th className="py-3 px-4 text-right">Variance</th>
+                  <th className="py-3 px-4 text-right">Actual Present Qty</th>
+                  <th className="py-3 px-4 text-right">Difference</th>
                   <th className="py-3 px-4">Status</th>
                   <th className="py-3 px-4 text-right">Action</th>
                 </tr>
@@ -256,7 +297,7 @@ export default function StockReconciliationPage({ onShowToast }) {
                       <td className="py-3 px-4 text-right font-medium text-xs text-ink">
                         {r.systemQty.toLocaleString()}
                       </td>
-                      <td className="py-3 px-4 text-right font-bold text-xs text-brand-primary">
+                      <td className="py-3 px-4 text-right font-bold text-xs text-action-navy">
                         {r.physicalQty.toLocaleString()}
                       </td>
                       <td className="py-3 px-4 text-right">
@@ -288,10 +329,11 @@ export default function StockReconciliationPage({ onShowToast }) {
                       <td className="py-3 px-4 text-right">
                         {hasDiscrepancy && r.status !== "Adjusted" ? (
                           <button
+                            disabled={submittingAdjustId === r.id}
                             onClick={() => handleAdjustStock(r)}
-                            className="px-2.5 py-1 text-xs font-medium bg-brand text-white hover:bg-brand-hover rounded-md transition shadow-2xs"
+                            className="px-2.5 py-1 text-xs font-medium bg-brand text-white hover:bg-brand-hover rounded-md transition shadow-2xs disabled:opacity-50"
                           >
-                            Adjust Stock
+                            {submittingAdjustId === r.id ? "Adjusting..." : "Adjust Stock"}
                           </button>
                         ) : (
                           <span className="text-xs text-slate-400 font-medium">Reconciled</span>
@@ -314,8 +356,8 @@ export default function StockReconciliationPage({ onShowToast }) {
         isSubmitting={isSubmitting}
         warehouses={warehouses}
         items={items}
+        existingRecords={records}
       />
     </div>
   );
 }
-

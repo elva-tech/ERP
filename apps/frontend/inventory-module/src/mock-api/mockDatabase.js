@@ -13,11 +13,11 @@ export function createInitialDatabase() {
       category: "Cables & Wires",
       unit: "Mtr",
       hsnCode: "85446090",
-      currentStock: 150,
+      currentStock: 3180,
       reorderLevel: 500,
       description: "Heavy duty copper armoured cable for industrial electrical distribution",
       taxRate: 18,
-      status: "Low Stock",
+      status: "In Stock",
       createdAt: "2026-08-01T09:00:00Z",
     },
     {
@@ -27,11 +27,11 @@ export function createInitialDatabase() {
       category: "Switchgear",
       unit: "Nos",
       hsnCode: "85362030",
-      currentStock: 12,
+      currentStock: 187,
       reorderLevel: 50,
       description: "Modular miniature circuit breaker C-curve 10kA breaking capacity",
       taxRate: 18,
-      status: "Low Stock",
+      status: "In Stock",
       createdAt: "2026-08-01T09:00:00Z",
     },
     {
@@ -41,11 +41,11 @@ export function createInitialDatabase() {
       category: "Accessories",
       unit: "Nos",
       hsnCode: "85369090",
-      currentStock: 45,
+      currentStock: 710,
       reorderLevel: 100,
       description: "Compression type heavy duty aluminum cable lugs",
       taxRate: 18,
-      status: "Low Stock",
+      status: "In Stock",
       createdAt: "2026-08-02T10:00:00Z",
     },
     {
@@ -234,13 +234,19 @@ export function createInitialDatabase() {
   // Warehouse-Item stock balance breakdown
   const warehouseBalances = [
     { warehouseId: "wh-1", itemId: "item-1", quantity: 1850 },
-    { warehouseId: "wh-1", itemId: "item-2", quantity: 142 },
-    { warehouseId: "wh-1", itemId: "item-3", quantity: 465 },
-    { warehouseId: "wh-1", itemId: "item-5", quantity: 64 },
     { warehouseId: "wh-2", itemId: "item-1", quantity: 920 },
     { warehouseId: "wh-3", itemId: "item-1", quantity: 410 },
+    { warehouseId: "wh-1", itemId: "item-2", quantity: 142 },
     { warehouseId: "wh-3", itemId: "item-2", quantity: 45 },
-    { warehouseId: "wh-3", itemId: "item-8", quantity: 22 },
+    { warehouseId: "wh-1", itemId: "item-3", quantity: 465 },
+    { warehouseId: "wh-2", itemId: "item-3", quantity: 245 },
+    { warehouseId: "wh-1", itemId: "item-4", quantity: 8 },
+    { warehouseId: "wh-1", itemId: "item-5", quantity: 64 },
+    { warehouseId: "wh-1", itemId: "item-6", quantity: 800 },
+    { warehouseId: "wh-2", itemId: "item-6", quantity: 440 },
+    { warehouseId: "wh-1", itemId: "item-7", quantity: 86 },
+    { warehouseId: "wh-1", itemId: "item-8", quantity: 12 },
+    { warehouseId: "wh-3", itemId: "item-8", quantity: 10 },
   ];
 
   const inwardEntries = [
@@ -958,6 +964,22 @@ export function createInitialDatabase() {
     },
   ];
 
+  
+  const suppliers = [
+    { id: "sup-001", code: "SUP-001", name: "Velora Steel Traders", categoryName: "Steel & Metals", city: "Pune", state: "Maharashtra", contactPerson: "Meera Joshi", status: "active" },
+    { id: "sup-002", code: "SUP-002", name: "Granitex Cement Supplies", categoryName: "Cement & Aggregates", city: "Nashik", state: "Maharashtra", contactPerson: "Anil Pawar", status: "active" },
+    { id: "sup-003", code: "SUP-003", name: "Brightwire Electricals", categoryName: "Electrical", city: "Bengaluru", state: "Karnataka", contactPerson: "Farah Khan", status: "active" },
+    { id: "sup-004", code: "SUP-004", name: "Aquaflow Sanitary Systems", categoryName: "Plumbing & Sanitary", city: "Ahmedabad", state: "Gujarat", contactPerson: "Jignesh Patel", status: "active" },
+    { id: "sup-005", code: "SUP-005", name: "Shieldline Safety Gear", categoryName: "Safety & PPE", city: "Chennai", state: "Tamil Nadu", contactPerson: "Lakshmi Narayan", status: "active" },
+    { id: "sup-006", code: "SUP-006", name: "Swiftroute Logistics", categoryName: "Logistics", city: "Mumbai", state: "Maharashtra", contactPerson: "Deepak Shetty", status: "active" },
+    { id: "sup-007", code: "SUP-007", name: "Ironcrest Fabricators", categoryName: "Steel & Metals", city: "Nagpur", state: "Maharashtra", contactPerson: "Sameer Kale", status: "active" },
+    { id: "sup-008", code: "SUP-008", name: "Terrabuild Aggregates", categoryName: "Cement & Aggregates", city: "Hyderabad", state: "Telangana", contactPerson: "Ravi Teja", status: "active" },
+    { id: "sup-009", code: "SUP-009", name: "Voltgrid Cables", categoryName: "Electrical", city: "Coimbatore", state: "Tamil Nadu", contactPerson: "Priya Raman", status: "active" },
+    { id: "sup-010", code: "SUP-010", name: "Finolex Cables Ltd", categoryName: "Electrical", city: "Pune", state: "Maharashtra", contactPerson: "Mahesh Jadhav", status: "active" },
+    { id: "sup-011", code: "SUP-011", name: "Polycab India Ltd", categoryName: "Electrical", city: "Mumbai", state: "Maharashtra", contactPerson: "Kavita Shah", status: "active" },
+    { id: "sup-012", code: "SUP-012", name: "Schneider Electric India", categoryName: "Electrical", city: "Bengaluru", state: "Karnataka", contactPerson: "Vivek Nair", status: "active" },
+  ];
+
   return {
     items,
     warehouses,
@@ -969,6 +991,7 @@ export function createInitialDatabase() {
     reconciliationRecords,
     deliveryNotes,
     salesInvoices,
+    suppliers,
     processedIdempotencyKeys: new Set(),
   };
 }

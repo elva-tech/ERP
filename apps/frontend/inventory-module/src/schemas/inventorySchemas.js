@@ -56,6 +56,7 @@ export const ReconciliationStatusEnum = z.enum([
   "Matched",
   "Discrepancy",
   "Pending",
+  "Adjusted",
 ]);
 
 export const DeliveryNoteStatusEnum = z.enum([
@@ -150,6 +151,8 @@ export const InwardTransactionSchema = z.object({
   id: z.string(),
   grnNo: z.string(),
   supplier: z.string().min(2, "Supplier name is required"),
+  supplierId: z.string().optional(),
+  supplierCode: z.string().optional(),
   warehouseId: z.string().min(1, "Warehouse is required"),
   warehouseName: z.string(),
   date: z.string(),
@@ -158,11 +161,15 @@ export const InwardTransactionSchema = z.object({
   totalItems: z.number().int().nonnegative(),
   totalAmount: z.number().nonnegative(),
   remarks: z.string().optional().default(""),
+  isManualGrn: z.boolean().optional(),
   createdAt: z.string().optional(),
 });
 
 export const CreateInwardInputSchema = z.object({
   supplier: z.string().min(2, "Supplier is required"),
+  supplierId: z.string().optional(),
+  grnNo: z.string().optional(),
+  isManualGrn: z.boolean().optional(),
   warehouseId: z.string().min(1, "Warehouse is required"),
   date: z.string().min(1, "Date is required"),
   remarks: z.string().optional().default(""),
@@ -196,7 +203,7 @@ export const OutwardTransactionSchema = z.object({
   warehouseId: z.string().min(1, "Source warehouse is required"),
   warehouseName: z.string(),
   date: z.string(),
-  status: OutwardStatusEnum.default("Dispatched"),
+  status: OutwardStatusEnum.optional().default("Dispatched"),
   lineItems: z.array(OutwardLineItemSchema).min(1, "At least one line item is required"),
   totalItems: z.number().int().nonnegative(),
   totalAmount: z.number().nonnegative(),
@@ -313,7 +320,11 @@ export const ReconciliationLineItemSchema = z.object({
 export const StartReconciliationInputSchema = z.object({
   warehouseId: z.string().min(1, "Warehouse is required"),
   reconciliationDate: z.string().min(1, "Reconciliation date is required"),
-  scope: z.enum(["Full Inventory", "Selected Items"]),
+  itemId: z.string().optional(),
+  systemQuantity: z.number().optional(),
+  actualPresentQuantity: z.number().min(0, "Actual Present Quantity must be a non-negative number").optional(),
+  difference: z.number().optional(),
+  scope: z.enum(["Full Inventory", "Selected Items"]).optional().default("Selected Items"),
   selectedItemIds: z.array(z.string()).optional().default([]),
   remarks: z.string().optional().default(""),
   assignedTo: z.string().min(2, "Assigned team/person is required"),

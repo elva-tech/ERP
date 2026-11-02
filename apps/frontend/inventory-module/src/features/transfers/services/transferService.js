@@ -5,13 +5,14 @@ export const transferService = {
     return apiRequest("/transfers", { query: params, signal });
   },
 
-  async createTransfer(transferData, signal) {
+  async createTransfer(transferData, options = {}, signal) {
+    const idempotencyKey = typeof options === "string" ? options : options?.idempotencyKey || createIdempotencyKey();
+    const actualSignal = signal || (typeof options === "object" && options?.signal ? options.signal : undefined);
     return apiRequest("/transfers", {
       method: "POST",
       body: transferData,
-      idempotencyKey: createIdempotencyKey(),
-      signal,
+      idempotencyKey,
+      signal: actualSignal,
     });
   },
 };
-

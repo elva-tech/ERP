@@ -8,7 +8,6 @@ import {
   Repeat,
   TrendingDown,
   CheckSquare,
-  FileText,
   Truck,
 } from "lucide-react";
 
@@ -24,7 +23,6 @@ export const ROUTES = {
   stockTransfer: "/stock-transfer",
   stockAging: "/stock-aging",
   stockReconciliation: "/stock-reconciliation",
-  salesInvoice: "/sales-invoice",
   deliveryNote: "/delivery-note",
 };
 
@@ -62,9 +60,8 @@ export const NAV_SECTIONS = [
     ],
   },
   {
-    title: "Sales",
+    title: "Dispatches",
     items: [
-      { key: "salesInvoice", label: "Sales Invoice", icon: FileText, path: ROUTES.salesInvoice },
       { key: "deliveryNote", label: "Delivery Note", icon: Truck, path: ROUTES.deliveryNote },
     ],
   },

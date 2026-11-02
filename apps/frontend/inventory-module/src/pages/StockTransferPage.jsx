@@ -4,7 +4,9 @@ import { transferService } from "../features/transfers/services/transferService.
 import { warehouseService } from "../features/warehouses/services/warehouseService.js";
 import { itemService } from "../features/items/services/itemService.js";
 import CreateTransferModal from "../features/transfers/components/CreateTransferModal.jsx";
+import DateRangeFilter from "../components/ui/DateRangeFilter.jsx";
 import Badge from "../components/ui/Badge.jsx";
+import { isWithinDateRange } from "../lib/dateUtils.js";
 
 export default function StockTransferPage({ onShowToast }) {
   const [transfers, setTransfers] = useState([]);
@@ -14,6 +16,8 @@ export default function StockTransferPage({ onShowToast }) {
   const [error, setError] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("all");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -22,7 +26,10 @@ export default function StockTransferPage({ onShowToast }) {
       setLoading(true);
       setError(null);
       const [trfRes, whRes, itmRes] = await Promise.all([
-        transferService.getTransfers(),
+        transferService.getTransfers({
+          startDate: startDate || undefined,
+          endDate: endDate || undefined,
+        }),
         warehouseService.getWarehouses(),
         itemService.getItems(),
       ]);
@@ -34,10 +41,21 @@ export default function StockTransferPage({ onShowToast }) {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [startDate, endDate]);
 
   useEffect(() => {
     fetchData();
+  }, [fetchData]);
+
+  // Real-time stock refresh on inventory movement operations across modules
+  useEffect(() => {
+    const handleStockUpdate = () => {
+      fetchData();
+    };
+    window.addEventListener("inventory:stock-updated", handleStockUpdate);
+    return () => {
+      window.removeEventListener("inventory:stock-updated", handleStockUpdate);
+    };
   }, [fetchData]);
 
   const handleCreateTransfer = async (transferData) => {
@@ -46,9 +64,11 @@ export default function StockTransferPage({ onShowToast }) {
       await transferService.createTransfer(transferData);
       setIsModalOpen(false);
       onShowToast && onShowToast("Stock transfer initiated successfully!", "success");
+      window.dispatchEvent(new CustomEvent("inventory:stock-updated"));
       fetchData();
     } catch (err) {
       onShowToast && onShowToast(err.message || "Failed to create transfer", "error");
+      throw err;
     } finally {
       setIsSubmitting(false);
     }
@@ -62,9 +82,10 @@ export default function StockTransferPage({ onShowToast }) {
         (t.fromWarehouseName || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
         (t.toWarehouseName || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
         (t.reason || "").toLowerCase().includes(searchQuery.toLowerCase());
-      return matchStatus && matchSearch;
+      const matchDate = isWithinDateRange(t.date, startDate, endDate);
+      return matchStatus && matchSearch && matchDate;
     });
-  }, [transfers, selectedStatus, searchQuery]);
+  }, [transfers, selectedStatus, searchQuery, startDate, endDate]);
 
   const kpis = useMemo(() => {
     const inTransit = transfers.filter((t) => t.status === "In Transit").length;
@@ -72,6 +93,11 @@ export default function StockTransferPage({ onShowToast }) {
     const draft = transfers.filter((t) => t.status === "Draft" || t.status === "Pending").length;
     return { inTransit, received, draft };
   }, [transfers]);
+
+  function handleClearDateRange() {
+    setStartDate("");
+    setEndDate("");
+  }
 
   return (
     <div className="flex flex-1 flex-col gap-4">
@@ -147,18 +173,29 @@ export default function StockTransferPage({ onShowToast }) {
           />
         </div>
 
-        <div className="flex items-center gap-2 w-full sm:w-auto">
-          <label className="text-xs font-semibold text-ink-muted uppercase">Status:</label>
-          <select
-            value={selectedStatus}
-            onChange={(e) => setSelectedStatus(e.target.value)}
-            className="px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary"
-          >
-            <option value="all">All Transfers</option>
-            <option value="In Transit">In Transit</option>
-            <option value="Received">Received</option>
-            <option value="Draft">Draft</option>
-          </select>
+        <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+          <DateRangeFilter
+            startDate={startDate}
+            endDate={endDate}
+            onStartDateChange={setStartDate}
+            onEndDateChange={setEndDate}
+            onClear={handleClearDateRange}
+            label="Transfer Date"
+          />
+
+          <div className="flex items-center gap-2">
+            <label className="text-xs font-semibold text-ink-muted uppercase">Status:</label>
+            <select
+              value={selectedStatus}
+              onChange={(e) => setSelectedStatus(e.target.value)}
+              className="px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary"
+            >
+              <option value="all">All Transfers</option>
+              <option value="In Transit">In Transit</option>
+              <option value="Received">Received</option>
+              <option value="Draft">Draft</option>
+            </select>
+          </div>
         </div>
       </div>
 
@@ -244,6 +281,7 @@ export default function StockTransferPage({ onShowToast }) {
                             setTransfers((prev) =>
                               prev.map((item) => (item.id === t.id ? { ...item, status: "Received" } : item))
                             );
+                            window.dispatchEvent(new CustomEvent("inventory:stock-updated"));
                           }}
                           className="px-2.5 py-1 text-xs font-medium bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded-md border border-emerald-200 transition"
                         >
@@ -273,4 +311,3 @@ export default function StockTransferPage({ onShowToast }) {
     </div>
   );
 }
-

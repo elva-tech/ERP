@@ -4,6 +4,8 @@ import { deliveryNoteService } from "../features/delivery-notes/services/deliver
 import { invoiceService } from "../features/invoices/services/invoiceService.js";
 import { warehouseService } from "../features/warehouses/services/warehouseService.js";
 import CreateDeliveryNoteModal from "../features/delivery-notes/components/CreateDeliveryNoteModal.jsx";
+import DateRangeFilter from "../components/ui/DateRangeFilter.jsx";
+import { isWithinDateRange } from "../lib/dateUtils.js";
 import Badge from "../components/ui/Badge.jsx";
 
 export default function DeliveryNotesPage({ onShowToast }) {
@@ -15,6 +17,8 @@ export default function DeliveryNotesPage({ onShowToast }) {
   const [error, setError] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -59,14 +63,20 @@ export default function DeliveryNotesPage({ onShowToast }) {
     }
   };
 
-  const handleMarkDispatched = (dn) => {
-    setDeliveryNotes((prev) =>
-      prev.map((item) => (item.id === dn.id ? { ...item, status: "Dispatched" } : item))
-    );
-    if (selectedNote?.id === dn.id) {
-      setSelectedNote((prev) => ({ ...prev, status: "Dispatched" }));
+  const handleMarkDispatched = async (dn) => {
+    try {
+      await deliveryNoteService.updateDeliveryNoteStatus(dn.id, "Dispatched");
+      setDeliveryNotes((prev) =>
+        prev.map((item) => (item.id === dn.id ? { ...item, status: "Dispatched" } : item))
+      );
+      if (selectedNote?.id === dn.id) {
+        setSelectedNote((prev) => ({ ...prev, status: "Dispatched" }));
+      }
+      window.dispatchEvent(new CustomEvent("inventory:stock-updated"));
+      onShowToast && onShowToast(`Delivery Note ${dn.dnNo} marked as dispatched and stock decremented!`, "success");
+    } catch (err) {
+      onShowToast && onShowToast(err.message || "Failed to mark as dispatched", "error");
     }
-    onShowToast && onShowToast(`Delivery Note ${dn.dnNo} marked as dispatched!`, "success");
   };
 
   const filteredNotes = useMemo(() => {
@@ -78,9 +88,10 @@ export default function DeliveryNotesPage({ onShowToast }) {
         (dn.customer || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
         (dn.salesInvoiceRef || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
         (dn.vehicleNo || "").toLowerCase().includes(searchQuery.toLowerCase());
-      return matchStatus && matchSearch;
+      const matchDate = isWithinDateRange(dn.deliveryDate || dn.date, startDate, endDate);
+      return matchStatus && matchSearch && matchDate;
     });
-  }, [deliveryNotes, statusFilter, searchQuery]);
+  }, [deliveryNotes, statusFilter, searchQuery, startDate, endDate]);
 
   return (
     <div className="flex flex-1 flex-col gap-4">
@@ -126,20 +137,43 @@ export default function DeliveryNotesPage({ onShowToast }) {
           />
         </div>
 
-        <div className="flex items-center gap-2 w-full sm:w-auto">
-          <label className="text-xs font-semibold text-ink-muted uppercase">Status:</label>
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-brand-primary/20"
-          >
-            <option value="all">All Statuses</option>
-            <option value="Pending">Pending</option>
-            <option value="Dispatched">Dispatched</option>
-            <option value="Delivered">Delivered</option>
-          </select>
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+          <DateRangeFilter
+            startDate={startDate}
+            endDate={endDate}
+            onStartDateChange={setStartDate}
+            onEndDateChange={setEndDate}
+            onClear={() => {
+              setStartDate("");
+              setEndDate("");
+            }}
+            label="Delivery Date"
+          />
+
+          <div className="flex items-center gap-2">
+            <label
+              htmlFor="delivery-note-status-filter"
+              className="text-xs font-semibold text-ink-muted uppercase"
+            >
+              Status:
+            </label>
+
+            <select
+              id="delivery-note-status-filter"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-brand-primary/20"
+            >
+              <option value="all">All Statuses</option>
+              <option value="Pending">Pending</option>
+              <option value="Dispatched">Dispatched</option>
+              <option value="Delivered">Delivered</option>
+            </select>
+          </div>
         </div>
       </div>
+
+      {/* Master Table and Detail Inspector Layout */}
 
       {/* Master Table and Detail Inspector Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -178,9 +212,8 @@ export default function DeliveryNotesPage({ onShowToast }) {
                       <tr
                         key={dn.id}
                         onClick={() => setSelectedNote(dn)}
-                        className={`cursor-pointer transition ${
-                          isSelected ? "bg-blue-50/40" : "hover:bg-slate-50/50"
-                        }`}
+                        className={`cursor-pointer transition ${isSelected ? "bg-blue-50/40" : "hover:bg-slate-50/50"
+                          }`}
                       >
                         <td className="py-3 px-4 font-mono font-medium text-xs text-brand-primary">
                           {dn.dnNo}
@@ -201,8 +234,8 @@ export default function DeliveryNotesPage({ onShowToast }) {
                               dn.status === "Delivered"
                                 ? "success"
                                 : dn.status === "Dispatched"
-                                ? "info"
-                                : "warning"
+                                  ? "info"
+                                  : "warning"
                             }
                           >
                             {dn.status}
@@ -243,8 +276,8 @@ export default function DeliveryNotesPage({ onShowToast }) {
                       selectedNote.status === "Delivered"
                         ? "success"
                         : selectedNote.status === "Dispatched"
-                        ? "info"
-                        : "warning"
+                          ? "info"
+                          : "warning"
                     }
                   >
                     {selectedNote.status}

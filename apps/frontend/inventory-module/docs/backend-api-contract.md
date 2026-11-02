@@ -380,3 +380,100 @@
 - **Status**: `PROPOSED — BACKEND/PRODUCT CONFIRMATION REQUIRED` (Finance module domain boundary)
 - **Description**: Read-only reference register. Actual general ledger posting, GST returns, and payment reconciliation are strictly owned by the Finance Module to avoid duplicate stock reduction or tax double-entry.
 
+
+
+---
+
+### 2.12 Stock Reconciliation Variance Adjustment
+#### `POST /reconciliations/{id}/adjust`
+- **Status**: `CONFIRMED — INTEGRATION CONTRACT`
+- **Headers**: `Idempotency-Key` (UUID)
+- **Description**: Atomically posts physical stock count variance to the inventory ledger and updates authoritative stock balances for the item and warehouse.
+- **Request Body**:
+```json
+{
+  "itemCode": "CBL-1.5-3C",
+  "physicalQty": 1820,
+  "systemQty": 1850,
+  "variance": -30,
+  "remarks": "Approved variance post cycle count"
+}
+```
+- **Response (200 OK)**:
+```json
+{
+  "success": true,
+  "data": {
+    "id": "rec-1",
+    "itemCode": "CBL-1.5-3C",
+    "systemQty": 1820,
+    "physicalQty": 1820,
+    "variance": 0,
+    "variancePercent": 0,
+    "status": "Adjusted",
+    "adjustedAt": "2026-10-31T14:30:00.000Z"
+  }
+}
+```
+- **Backend Requirements**:
+  1. Acquire row-level lock on item and warehouse balance.
+  2. Reject if record is already in `"Adjusted"` status (HTTP 409 Conflict).
+  3. Atomically write an `"Adjustment"` voucher into `stock_ledger`.
+  4. Emit domain event `inventory:stock-updated` or websocket push to notify clients.
+
+---
+
+### 2.13 Procurement Supplier Master Cross-Module Integration
+#### `GET /procurement/suppliers`
+- **Status**: `CONFIRMED — PROCUREMENT CONTRACT §4`
+- **Used by**: `AddInwardModal.jsx` (Supplier Dropdown)
+- **Base URL Routing**: Routed directly to the root API gateway (`/api/procurement/suppliers`), not nested under `/api/inventory`.
+- **Query Parameters**:
+  - `status` (string, default: `"active"`)
+  - `search` (optional, string): Name or supplier code
+  - `page` (optional, integer)
+  - `pageSize` (optional, integer)
+- **Authoritative Response Envelope**:
+```json
+{
+  "items": [
+    {
+      "id": "sup-001",
+      "code": "SUP-001",
+      "name": "Tata Steel Ltd",
+      "categoryName": "Raw Materials",
+      "gstin": "27AABCT1234A1Z5",
+      "status": "active"
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "pageSize": 10,
+    "totalItems": 1,
+    "totalPages": 1
+  }
+}
+```
+- **Client Defensive Contract**: Client handles `res.items` (primary) while maintaining backward compatibility with `res.data`.
+
+---
+
+### 2.14 Goods Inward Editing & GRN Preservation
+#### `PUT /inward/{id}`
+- **Status**: `CONFIRMED — INTEGRATION CONTRACT`
+- **Headers**: `Idempotency-Key`
+- **Description**: Updates warehouse, supplier, date, line items, or remarks of an existing goods inward record while **strictly preserving the originally assigned GRN number**.
+- **Rule**: GRN numbers are immutable once issued and cannot be regenerated upon record edit.
+
+#### Sequential GRN Numbering Contract (Backend Requirement)
+- For `POST /inward` with auto-mode (`isManualGrn: false`):
+  The database must use a centralized sequence or transactional counter (`GRN-YYMM-####`) to guarantee uniqueness and eliminate concurrency collisions. Client does not invent or assume auto-generated GRN values.
+
+---
+
+### 2.15 Goods Outward Status Contract
+#### `POST /outward`
+- **Status**: `CONFIRMED — INTEGRATION CONTRACT`
+- **Headers**: `Idempotency-Key`
+- **Description**: Records goods issuance from a warehouse.
+- **Contract Rule**: The client does not hardcode outward status. If `status` is omitted in the request payload, the backend assigns the initial lifecycle status (`"Dispatched"` for direct issue, or `"Draft"` / `"Pending Approval"` when warehouse dispatch workflows are active).

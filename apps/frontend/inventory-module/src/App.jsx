@@ -9,7 +9,6 @@ import InwardPage from "./pages/InwardPage.jsx";
 import ItemMasterPage from "./pages/ItemMasterPage.jsx";
 import LoginPage from "./pages/LoginPage.jsx";
 import OutwardPage from "./pages/OutwardPage.jsx";
-import SalesInvoicesPage from "./pages/SalesInvoicesPage.jsx";
 import StockAgingPage from "./pages/StockAgingPage.jsx";
 import StockLedgerPage from "./pages/StockLedgerPage.jsx";
 import StockReconciliationPage from "./pages/StockReconciliationPage.jsx";
@@ -41,7 +40,6 @@ const PAGES = {
     navKey: "stockReconciliation",
     component: StockReconciliationPage,
   },
-  [ROUTES.salesInvoice]: { title: "Sales Invoices", navKey: "salesInvoice", component: SalesInvoicesPage },
   [ROUTES.deliveryNote]: { title: "Delivery Notes", navKey: "deliveryNote", component: DeliveryNotesPage },
 };
 
@@ -51,7 +49,7 @@ function InventoryApp({ route }) {
   const [toast, setToast] = useState(null);
   const page = route.path ? PAGES[route.path] : PAGES[DEFAULT_ROUTE];
   const title = page?.title ?? "Inventory";
-  const PageComponent = page.component;
+  const PageComponent = page?.component || DashboardPage;
 
   useEffect(() => {
     document.title = `${title} · ELVA Inventory`;
@@ -83,13 +81,13 @@ function InventoryApp({ route }) {
   return (
     <>
       <AppShell
-        activeNavKey={page.navKey}
+        activeNavKey={page?.navKey || "dashboard"}
         navSections={NAV_SECTIONS}
         page={{
           title,
-          searchPlaceholder: page.searchPlaceholder ?? DEFAULT_SEARCH_PLACEHOLDER,
-          headerVariant: page.headerVariant,
-          mainClassName: page.mainClassName,
+          searchPlaceholder: page?.searchPlaceholder ?? DEFAULT_SEARCH_PLACEHOLDER,
+          headerVariant: page?.headerVariant,
+          mainClassName: page?.mainClassName,
         }}
       >
         <PageComponent key={route.path ?? DEFAULT_ROUTE} {...pageProps} />

@@ -5,13 +5,22 @@ export const deliveryNoteService = {
     return apiRequest("/delivery-notes", { query: params, signal });
   },
 
-  async createDeliveryNote(deliveryNoteData, signal) {
+  async createDeliveryNote(deliveryNoteData, options = {}, signal) {
+    const idempotencyKey = typeof options === "string" ? options : options?.idempotencyKey || createIdempotencyKey();
+    const actualSignal = signal || (typeof options === "object" && options?.signal ? options.signal : undefined);
     return apiRequest("/delivery-notes", {
       method: "POST",
       body: deliveryNoteData,
-      idempotencyKey: createIdempotencyKey(),
+      idempotencyKey,
+      signal: actualSignal,
+    });
+  },
+
+  async updateDeliveryNoteStatus(id, status, signal) {
+    return apiRequest(`/delivery-notes/${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      body: { status },
       signal,
     });
   },
 };
-

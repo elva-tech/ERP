@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { RefreshCw } from "lucide-react";
 import { StatusBadge } from "../components/ui/Badge.jsx";
 import DataTable from "../components/ui/DataTable.jsx";
 import FilterSelect from "../components/ui/FilterSelect.jsx";
@@ -8,6 +9,7 @@ import PrimaryActionButton from "../components/ui/PrimaryActionButton.jsx";
 import SearchInput from "../components/ui/SearchInput.jsx";
 import AddItemModal from "../features/items/components/AddItemModal.jsx";
 import { itemService } from "../features/items/services/itemService.js";
+import { warehouseService } from "../features/warehouses/services/warehouseService.js";
 
 const CATEGORY_OPTIONS = [
   { value: "", label: "All" },
@@ -54,7 +56,7 @@ const ITEM_COLUMNS = [
     width: "110px",
     align: "right",
     cellClass: "font-semibold text-ink",
-    render: (item) => item.currentStock.toLocaleString(),
+    render: (item) => (item.currentStock ?? 0).toLocaleString(),
   },
   {
     key: "reorderLevel",
@@ -78,23 +80,59 @@ export default function ItemMasterPage({ onShowToast }) {
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("");
   const [status, setStatus] = useState("");
+  const [warehouses, setWarehouses] = useState([]);
+  const [selectedWarehouse, setSelectedWarehouse] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const fetchItems = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      const res = await itemService.getItems({ search, category, status });
+      const res = await itemService.getItems({
+        search,
+        category,
+        status,
+        warehouseId: selectedWarehouse || undefined,
+      });
       setItems(res.data || []);
     } catch (err) {
       setError(err.message || "Failed to load inventory items");
     } finally {
       setLoading(false);
     }
-  }, [search, category, status]);
+  }, [search, category, status, selectedWarehouse]);
+
+  useEffect(() => {
+    let isCancelled = false;
+    warehouseService
+      .getWarehouses()
+      .then((res) => {
+        if (!isCancelled) setWarehouses(res?.data || []);
+      })
+      .catch(() => {});
+    return () => {
+      isCancelled = true;
+    };
+  }, []);
+
+  const warehouseOptions = useMemo(
+    () => [{ value: "", label: "All Warehouses" }, ...warehouses.map((w) => ({ value: w.id, label: w.name }))],
+    [warehouses]
+  );
 
   useEffect(() => {
     fetchItems();
+  }, [fetchItems]);
+
+  // Real-time stock refresh on inventory movement operations across modules
+  useEffect(() => {
+    const handleStockUpdate = () => {
+      fetchItems();
+    };
+    window.addEventListener("inventory:stock-updated", handleStockUpdate);
+    return () => {
+      window.removeEventListener("inventory:stock-updated", handleStockUpdate);
+    };
   }, [fetchItems]);
 
   const listResource = useMemo(
@@ -110,6 +148,7 @@ export default function ItemMasterPage({ onShowToast }) {
     setIsModalOpen(false);
     const code = created?.itemCode ?? created?.data?.itemCode;
     onShowToast?.(code ? `Item ${code} created successfully!` : "Item created successfully!", "success");
+    window.dispatchEvent(new CustomEvent("inventory:stock-updated"));
     fetchItems();
   }
 
@@ -127,9 +166,23 @@ export default function ItemMasterPage({ onShowToast }) {
             className="min-w-[220px] flex-1 sm:max-w-[320px]"
           />
           <FilterSelect label="Category" value={category} options={CATEGORY_OPTIONS} onChange={setCategory} />
+          <FilterSelect label="Warehouse" value={selectedWarehouse} options={warehouseOptions} onChange={setSelectedWarehouse} />
           <FilterSelect label="Status" value={status} options={STATUS_OPTIONS} onChange={setStatus} />
         </div>
-        <PrimaryActionButton onClick={() => setIsModalOpen(true)}>+ Add Item</PrimaryActionButton>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={fetchItems}
+            disabled={loading}
+            title="Refresh current stock from authoritative server"
+            aria-label="Refresh stock"
+            className="inline-flex h-[31px] shrink-0 items-center gap-1.5 rounded-md border border-line bg-surface px-3 text-[12px] font-semibold text-ink-soft transition-colors hover:bg-workspace hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <RefreshCw size={13} className={loading ? "animate-spin" : ""} aria-hidden="true" />
+            Refresh
+          </button>
+          <PrimaryActionButton onClick={() => setIsModalOpen(true)}>+ Add Item</PrimaryActionButton>
+        </div>
       </div>
 
       <Panel className="flex-1 px-[15px] pb-4 pt-4">

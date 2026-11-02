@@ -49,8 +49,6 @@ function AddOutwardModal({ isOpen, onClose, onCreated, warehouses = [], items = 
   const defaultWarehouse = warehouses[0]?.id ?? "";
   const defaultItem = items[0]?.id ?? "";
 
-  const unitForLine = (line) => items.find((item) => item.id === line.itemId)?.unit ?? "—";
-
   const form = useFormSubmission({
     initialValues: {
       purpose: "Project Issue",
@@ -70,7 +68,7 @@ function AddOutwardModal({ isOpen, onClose, onCreated, warehouses = [], items = 
         date: values.date,
         authorization: values.authorization,
         remarks: values.remarks,
-        status: "Dispatched",
+        // Server assigns authoritative initial status (e.g. Draft or Dispatched)
         lineItems: values.lineItems.map((line) => ({
           itemId: line.itemId,
           quantity: Number(line.quantity),
@@ -79,7 +77,10 @@ function AddOutwardModal({ isOpen, onClose, onCreated, warehouses = [], items = 
       };
       return outwardService.createOutward(payload, context);
     },
-    onSuccess: (result) => onCreated?.(result?.data ?? result),
+    onSuccess: (result) => {
+      window.dispatchEvent(new CustomEvent("inventory:stock-updated"));
+      onCreated?.(result?.data ?? result);
+    },
   });
 
   const field = { form, idPrefix: ID_PREFIX };
@@ -110,9 +111,17 @@ function AddOutwardModal({ isOpen, onClose, onCreated, warehouses = [], items = 
           <TextField
             {...field}
             name="destination"
-            label="Destination / Recipient"
-            placeholder="Enter customer, site or department"
+            label="Customer / Destination"
+            placeholder="Site location or department"
             required
+          />
+          <SelectField
+            {...field}
+            name="authorization"
+            label="Authorized By"
+            options={AUTHORITY_OPTIONS}
+            required
+            className="sm:col-span-2"
           />
 
           <div className="sm:col-span-2">
@@ -127,30 +136,22 @@ function AddOutwardModal({ isOpen, onClose, onCreated, warehouses = [], items = 
                 {
                   key: "itemId",
                   label: "Item",
-                  width: "minmax(0,1fr)",
+                  width: "minmax(0,1.2fr)",
                   kind: "select",
                   placeholder: "Select item",
                   lookup: itemLookup,
                 },
-                { key: "quantity", label: "Qty", width: "96px", kind: "quantity", placeholder: "0" },
-                { key: "unit", label: "Unit", width: "80px", kind: "computed", compute: unitForLine },
-                { key: "remarks", label: "Remarks", width: "minmax(0,1fr)", placeholder: "Add item note" },
+                { key: "quantity", label: "Qty", width: "110px", kind: "quantity", placeholder: "0" },
+                { key: "remarks", label: "Remarks / Purpose", width: "minmax(0,1fr)", placeholder: "e.g. Tower C" },
               ]}
             />
           </div>
 
-          <SelectField
-            {...field}
-            name="authorization"
-            label="Authorization"
-            options={AUTHORITY_OPTIONS}
-            className="sm:col-span-2"
-          />
           <TextAreaField
             {...field}
             name="remarks"
             label="Remarks"
-            placeholder="Add dispatch notes"
+            placeholder="Add gate pass or vehicle reference"
             className="sm:col-span-2"
           />
         </div>

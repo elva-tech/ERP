@@ -5,6 +5,7 @@ import {
   getActiveCompanyMembership,
 } from "@/lib/session";
 import { isSafeRequestOrigin } from "@/lib/security";
+import { authorizeCompanyAccess } from "@/lib/company-access-policy";
 
 export const MANAGER_ROLES = ["company_admin", "hr_manager"];
 export const ADMIN_ROLES = ["company_admin"];
@@ -66,27 +67,17 @@ export async function requireCompanyAccess(request, options = {}) {
   }
 
   const user = await getAuthenticatedUser();
-  if (!user) {
-    return { error: fail(401, "Authentication required.") };
-  }
-
   const companyId = parseId(
     explicitCompanyId ?? new URL(request.url).searchParams.get("companyId")
   );
-  if (!companyId) {
-    return { error: fail(400, "A valid companyId is required.") };
-  }
+  const membership = user && companyId
+    ? await getActiveCompanyMembership(user.id, companyId)
+    : null;
+  const access = authorizeCompanyAccess({ user, membership, companyId, roles });
 
-  const membership = await getActiveCompanyMembership(user.id, companyId);
-  if (!membership) {
-    return { error: fail(403, "Active company membership required.") };
-  }
-
-  if (roles.length && !roles.includes(membership.role)) {
-    return { error: fail(403, "You do not have permission to perform this action.") };
-  }
-
-  return { user, membership, companyId };
+  return access.error
+    ? { error: fail(access.error.status, access.error.message) }
+    : access;
 }
 
 /**

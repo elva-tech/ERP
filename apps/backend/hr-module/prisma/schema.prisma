@@ -110,6 +110,7 @@ model companies {
   leave_types                 leave_types[]
   membership_events           membership_events[]
   payroll_runs                payroll_runs[]
+  payroll_run_idempotency     payroll_run_idempotency[]
   payroll_advance_recoveries  payroll_advance_recoveries[]
   payslips                    payslips[]
   raw_punches                 raw_punches[]
@@ -375,6 +376,21 @@ model payroll_runs {
   @@index([company_id], map: "idx_payroll_runs_company")
 }
 
+model payroll_run_idempotency {
+  company_id      BigInt
+  user_id         BigInt
+  key_hash        String    @db.Char(64)
+  request_hash    String    @db.Char(64)
+  response_status Int?      @db.SmallInt
+  response_body   Json?
+  created_at      DateTime  @default(now()) @db.Timestamptz(6)
+  companies       companies @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  users           users     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@id([company_id, user_id, key_hash])
+  @@index([created_at], map: "payroll_run_idempotency_created_at_idx")
+}
+
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model payroll_advance_recoveries {
   id                BigInt            @id @default(autoincrement())
@@ -589,6 +605,7 @@ model users {
   employees                  employees[]
   leave_requests             leave_requests[]
   payroll_runs               payroll_runs[]
+  payroll_run_idempotency    payroll_run_idempotency[]
   sessions                   sessions[]
   approval_audit_log         approval_audit_log[]
   delegations_received       approval_delegates[]          @relation("approval_delegates_user_idTousers")

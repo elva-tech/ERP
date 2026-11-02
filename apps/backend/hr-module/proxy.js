@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { ALLOWED_ORIGINS } from "@/lib/security";
 
+
 const CORS_METHODS = "GET,POST,PUT,PATCH,DELETE,OPTIONS";
-const CORS_HEADERS = "Content-Type,Authorization";
+const CORS_HEADERS = "Content-Type,Authorization,Idempotency-Key";
 
 function applyCors(response, origin) {
   response.headers.set("Access-Control-Allow-Origin", origin);

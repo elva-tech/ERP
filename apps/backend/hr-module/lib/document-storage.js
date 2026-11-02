@@ -15,8 +15,10 @@ const configuredLimit = Number(process.env.DOCUMENT_MAX_BYTES);
 export const MAX_DOCUMENT_BYTES =
   Number.isInteger(configuredLimit) && configuredLimit > 0 ? Math.min(configuredLimit, HARD_LIMIT) : 5 * 1024 * 1024;
 
-const ROOT = path.resolve(process.env.DOCUMENT_STORAGE_DIR || path.join(process.cwd(), "storage", "documents"));
-
+const ROOT = path.resolve(
+  /* turbopackIgnore: true */ process.env.DOCUMENT_STORAGE_DIR ||
+    path.join(process.cwd(), "storage", "documents"),
+);
 const SIGNATURES = [
   { mime: "application/pdf", ext: "pdf", bytes: [0x25, 0x50, 0x44, 0x46, 0x2d] },
   { mime: "image/png", ext: "png", bytes: [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a] },
@@ -44,7 +46,7 @@ export async function storeDocument(companyId, buffer, type) {
 }
 
 export async function readDocument(key) {
-  return readFile(resolveKey(key));
+  return readFile(/* turbopackIgnore: true */ resolveKey(key));
 }
 
 /** Removes a file whose database row could not be written. */

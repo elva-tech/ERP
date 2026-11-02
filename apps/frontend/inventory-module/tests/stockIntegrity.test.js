@@ -22,15 +22,23 @@ describe("Inventory Stock Integrity & Business Rules", () => {
         lineItems: [
           {
             itemId: "item-1",
+            challanQuantity: 300,
             quantity: 300,
+            rejectedQuantity: 0,
             rate: 245,
+            remarks: "Received in good condition",
           },
         ],
       };
-
       const response = await mockApiAdapter.createInward(inwardPayload);
       expect(response.grnNo).toMatch(/^GRN-/);
       expect(response.status).toBe("Received");
+      expect(response.lineItems[0]).toMatchObject({
+        challanQuantity: 300,
+        quantity: 300,
+        rejectedQuantity: 0,
+        remarks: "Received in good condition",
+      });
 
       // Verify stock in mock database
       const dbAfter = getMockDatabase();

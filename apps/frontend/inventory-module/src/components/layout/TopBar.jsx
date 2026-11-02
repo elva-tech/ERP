@@ -1,4 +1,6 @@
 import { Bell, Menu, Search } from "lucide-react";
+import { useDebouncedDraft } from "../../hooks/useDebouncedDraft.js";
+import { usePageSearch } from "../../hooks/usePageSearch.jsx";
 import UserMenu from "./UserMenu.jsx";
 
 function MenuButton({ isMenuOpen, onOpenMenu }) {
@@ -16,14 +18,19 @@ function MenuButton({ isMenuOpen, onOpenMenu }) {
   );
 }
 
-// The header search is presentational until its behaviour is confirmed (PRD §5.1).
+// The header search drives the current page's main search through usePageSearch.
 function SearchField({ placeholder, className }) {
+  const { search, setSearch } = usePageSearch();
+  const [draft, setDraft] = useDebouncedDraft(search, setSearch);
+
   return (
     <label className={className}>
       <Search size={16} strokeWidth={2.25} className="shrink-0" aria-hidden="true" />
       <span className="sr-only">Search</span>
       <input
         type="search"
+        value={draft}
+        onChange={(event) => setDraft(event.target.value)}
         placeholder={placeholder}
         className="w-full min-w-0 bg-transparent text-[12px] text-ink outline-none placeholder:text-muted"
       />

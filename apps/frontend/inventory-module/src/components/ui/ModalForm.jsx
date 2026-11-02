@@ -6,7 +6,7 @@ import { describeError } from "./errorMessages.js";
  * The primary action shows a pending state and is disabled while the server request runs.
  */
 const SUBMIT_TONES = {
-  brand: "bg-brand-strong hover:bg-brand-hover focus-visible:outline-brand",
+  brand: "bg-navy hover:bg-sidebar focus-visible:outline-navy",
   success: "bg-success hover:bg-[#059669] focus-visible:outline-success",
   danger: "bg-danger hover:bg-[#dc2626] focus-visible:outline-danger",
 };

@@ -141,9 +141,12 @@ export const InwardLineItemSchema = z.object({
   itemCode: z.string(),
   itemName: z.string(),
   unit: z.string().default("Nos"),
-  quantity: z.number().positive("Quantity must be greater than 0"),
+  quantity: z.number().nonnegative("Quantity cannot be negative"),
+  challanQuantity: z.number().nonnegative().optional(),
+  rejectedQuantity: z.number().nonnegative().optional(),
   rate: z.number().nonnegative("Rate cannot be negative"),
   amount: z.number().nonnegative(),
+  remarks: z.string().optional().default(""),
 });
 
 export const InwardTransactionSchema = z.object({
@@ -169,8 +172,11 @@ export const CreateInwardInputSchema = z.object({
   status: InwardStatusEnum.default("Received"),
   lineItems: z.array(z.object({
     itemId: z.string().min(1, "Item is required"),
-    quantity: z.number().positive("Quantity must be > 0"),
+    challanQuantity: z.number().nonnegative("Challan quantity cannot be negative"),
+    quantity: z.number().nonnegative("Actual received quantity cannot be negative"),
+    rejectedQuantity: z.number().nonnegative("Rejected quantity cannot be negative"),
     rate: z.number().nonnegative().default(0),
+    remarks: z.string().optional().default(""),
   })).min(1, "Please add at least one line item"),
 });
 
@@ -458,4 +464,3 @@ export const InventoryDashboardMetricsSchema = z.object({
     warehouse: z.string(),
   })),
 });
-

@@ -8,6 +8,11 @@ import PrimaryActionButton from "../components/ui/PrimaryActionButton.jsx";
 import SearchInput from "../components/ui/SearchInput.jsx";
 import AddItemModal from "../features/items/components/AddItemModal.jsx";
 import { itemService } from "../features/items/services/itemService.js";
+import { useListQuery } from "../hooks/useListQuery.js";
+import { usePageSearch } from "../hooks/usePageSearch.jsx";
+
+const PAGE_SIZE = 20;
+const fetchItems = (params) => itemService.getItems(params);
 
 const CATEGORY_OPTIONS = [
   { value: "", label: "All" },
@@ -72,45 +77,53 @@ const ITEM_COLUMNS = [
 ];
 
 export default function ItemMasterPage({ onShowToast }) {
-  const [items, setItems] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [search, setSearch] = useState("");
+  const { search, setSearch } = usePageSearch();
   const [category, setCategory] = useState("");
   const [status, setStatus] = useState("");
+  const [page, setPage] = useState(1);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  const fetchItems = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const res = await itemService.getItems({ search, category, status });
-      setItems(res.data || []);
-    } catch (err) {
-      setError(err.message || "Failed to load inventory items");
-    } finally {
-      setLoading(false);
-    }
-  }, [search, category, status]);
+  const query = useListQuery(fetchItems, { search, category, status, page, limit: PAGE_SIZE });
+  const items = query.data;
+  const { response, reload } = query;
 
+  const pagination = useMemo(() => {
+    const pageSize = response?.pagination?.limit ?? response?.pagination?.pageSize ?? PAGE_SIZE;
+    const totalItems = response?.pagination?.total ?? response?.pagination?.totalItems ?? response?.total;
+    if (!Number.isFinite(totalItems)) return null;
+    return {
+      page: response?.pagination?.page ?? page,
+      pageSize,
+      totalItems,
+      totalPages: response?.pagination?.totalPages ?? Math.max(1, Math.ceil(totalItems / pageSize)),
+    };
+  }, [response, page]);
+
+  // The header search changes `search` too, so reset paging on any change.
   useEffect(() => {
-    fetchItems();
-  }, [fetchItems]);
+    setPage(1);
+  }, [search]);
+
+  const handleCategory = useCallback((value) => {
+    setCategory(value);
+    setPage(1);
+  }, []);
+
+  const handleStatus = useCallback((value) => {
+    setStatus(value);
+    setPage(1);
+  }, []);
 
   const listResource = useMemo(
-    () => ({
-      status: loading ? "loading" : error ? "error" : "success",
-      error,
-      reload: fetchItems,
-    }),
-    [loading, error, fetchItems],
+    () => ({ status: query.status, error: query.error, reload }),
+    [query.status, query.error, reload],
   );
 
   function handleItemCreated(created) {
     setIsModalOpen(false);
     const code = created?.itemCode ?? created?.data?.itemCode;
     onShowToast?.(code ? `Item ${code} created successfully!` : "Item created successfully!", "success");
-    fetchItems();
+    reload();
   }
 
   return (
@@ -126,8 +139,8 @@ export default function ItemMasterPage({ onShowToast }) {
             label="Search items"
             className="min-w-[220px] flex-1 sm:max-w-[320px]"
           />
-          <FilterSelect label="Category" value={category} options={CATEGORY_OPTIONS} onChange={setCategory} />
-          <FilterSelect label="Status" value={status} options={STATUS_OPTIONS} onChange={setStatus} />
+          <FilterSelect label="Category" value={category} options={CATEGORY_OPTIONS} onChange={handleCategory} />
+          <FilterSelect label="Status" value={status} options={STATUS_OPTIONS} onChange={handleStatus} />
         </div>
         <PrimaryActionButton onClick={() => setIsModalOpen(true)}>+ Add Item</PrimaryActionButton>
       </div>
@@ -143,7 +156,7 @@ export default function ItemMasterPage({ onShowToast }) {
           emptyTitle="No items found"
           emptyMessage="Try adjusting your search or filters."
         />
-        <ListFooter itemCount={items.length} noun="items" />
+        <ListFooter pagination={pagination} itemCount={items.length} noun="items" onPageChange={setPage} />
       </Panel>
 
       <AddItemModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onCreated={handleItemCreated} />

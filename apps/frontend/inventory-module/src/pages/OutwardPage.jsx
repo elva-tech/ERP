@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { StatusBadge } from "../components/ui/Badge.jsx";
 import DataTable from "../components/ui/DataTable.jsx";
 import FilterSelect from "../components/ui/FilterSelect.jsx";
@@ -9,12 +9,10 @@ import AddOutwardModal from "../features/outward/components/AddOutwardModal.jsx"
 import { itemService } from "../features/items/services/itemService.js";
 import { outwardService } from "../features/outward/services/outwardService.js";
 import { warehouseService } from "../features/warehouses/services/warehouseService.js";
+import { useListQuery } from "../hooks/useListQuery.js";
+import { usePageSearch } from "../hooks/usePageSearch.jsx";
 
-const OUTWARD_STATUS_BADGES = {
-  Dispatched: { label: "Dispatched", tone: "success" },
-  Delivered: { label: "Delivered", tone: "info" },
-  Draft: { label: "Draft", tone: "warning" },
-};
+const fetchOutward = (params) => outwardService.getOutwardEntries(params);
 
 const STATUS_FILTER_OPTIONS = [
   { value: "", label: "All" },
@@ -28,6 +26,12 @@ const DATE_RANGE_OPTIONS = [
   { value: "30d", label: "Last 30 days" },
   { value: "60d", label: "Last 60 days" },
 ];
+
+const OUTWARD_STATUS_BADGES = {
+  Dispatched: { label: "Dispatched", tone: "success" },
+  Delivered: { label: "Delivered", tone: "info" },
+  Draft: { label: "Draft", tone: "warning" },
+};
 
 const COLUMNS = [
   { key: "date", header: "Date", width: "100px", render: (row) => row.date },
@@ -56,60 +60,52 @@ const COLUMNS = [
 ];
 
 export default function OutwardPage({ onShowToast }) {
-  const [entries, setEntries] = useState([]);
   const [warehouses, setWarehouses] = useState([]);
   const [items, setItems] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
   const [selectedWarehouse, setSelectedWarehouse] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("");
   const [dateRange, setDateRange] = useState("all");
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const { search } = usePageSearch();
 
   const warehouseOptions = useMemo(
     () => [{ value: "", label: "All" }, ...warehouses.map((w) => ({ value: w.id, label: w.name }))],
     [warehouses],
   );
 
-  const fetchData = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const [outRes, whRes, itmRes] = await Promise.all([
-        outwardService.getOutwardEntries({
-          warehouseId: selectedWarehouse || undefined,
-          status: selectedStatus || undefined,
-        }),
-        warehouseService.getWarehouses(),
-        itemService.getItems(),
-      ]);
-      setEntries(outRes.data || []);
-      setWarehouses(whRes.data || []);
-      setItems(itmRes.data || []);
-    } catch (err) {
-      setError(err.message || "Failed to load outward entries");
-    } finally {
-      setLoading(false);
-    }
-  }, [selectedWarehouse, selectedStatus]);
+  const query = useListQuery(fetchOutward, {
+    search,
+    warehouseId: selectedWarehouse || undefined,
+    status: selectedStatus || undefined,
+    dateRange,
+  });
+  const entries = query.data;
+  const { reload } = query;
 
+  // The modal's reference data does not depend on the search term, so load it once.
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    let active = true;
+    Promise.all([warehouseService.getWarehouses(), itemService.getItems()])
+      .then(([whRes, itmRes]) => {
+        if (!active) return;
+        setWarehouses(whRes.data || []);
+        setItems(itmRes.data || []);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const listResource = useMemo(
-    () => ({
-      status: loading ? "loading" : error ? "error" : "success",
-      error,
-      reload: fetchData,
-    }),
-    [loading, error, fetchData],
+    () => ({ status: query.status, error: query.error, reload }),
+    [query.status, query.error, reload],
   );
 
   function handleCreated() {
     setIsModalOpen(false);
     onShowToast?.("Stock dispatched and balances updated!", "success");
-    fetchData();
+    reload();
   }
 
   return (
@@ -134,7 +130,7 @@ export default function OutwardPage({ onShowToast }) {
           resource={listResource}
           minWidth={920}
           emptyTitle="No outward entries"
-          emptyMessage="Record a dispatch with Add New Outward."
+          emptyMessage={search ? "No entries match your search." : "Record a dispatch with Add New Outward."}
         />
         <ListFooter itemCount={entries.length} noun="entries" />
       </Panel>

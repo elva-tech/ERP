@@ -7,6 +7,11 @@ export function isPositiveDecimal(value) {
   return DECIMAL.test(text) && /[1-9]/.test(text);
 }
 
+/** True for a non-negative decimal string ("0", "0.5", "12"). */
+export function isNonNegativeDecimal(value) {
+  return DECIMAL.test(String(value ?? "").trim());
+}
+
 /** True for a non-negative amount with at most two decimal places. */
 export function isMoneyAmount(value) {
   return MONEY.test(String(value ?? "").trim());

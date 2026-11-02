@@ -3,6 +3,7 @@ import AppShell from "./components/layout/AppShell.jsx";
 import Toast from "./components/ui/Toast.jsx";
 import { DEFAULT_ROUTE, NAV_SECTIONS, ROUTES } from "./config/navigation.js";
 import { useHashRoute } from "./hooks/useHashRoute.js";
+import { PageSearchProvider } from "./hooks/usePageSearch.jsx";
 import DashboardPage from "./pages/DashboardPage.jsx";
 import DeliveryNotesPage from "./pages/DeliveryNotesPage.jsx";
 import InwardPage from "./pages/InwardPage.jsx";
@@ -81,7 +82,7 @@ function InventoryApp({ route }) {
   }
 
   return (
-    <>
+    <PageSearchProvider key={route.path ?? DEFAULT_ROUTE}>
       <AppShell
         activeNavKey={page.navKey}
         navSections={NAV_SECTIONS}
@@ -95,7 +96,7 @@ function InventoryApp({ route }) {
         <PageComponent key={route.path ?? DEFAULT_ROUTE} {...pageProps} />
       </AppShell>
       <Toast toast={toast} />
-    </>
+    </PageSearchProvider>
   );
 }
 

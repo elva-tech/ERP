@@ -1,18 +1,23 @@
-import React, { useEffect, useState, useMemo, useCallback } from "react";
-import { Download, Printer, Filter, Calendar } from "lucide-react";
+import React, { useEffect, useMemo, useState } from "react";
+import { Download, Printer } from "lucide-react";
 import { ledgerService } from "../features/ledger/services/ledgerService.js";
 import { itemService } from "../features/items/services/itemService.js";
 import { warehouseService } from "../features/warehouses/services/warehouseService.js";
 import Badge from "../components/ui/Badge.jsx";
 import Panel from "../components/ui/Panel.jsx";
 import StatCard from "../components/ui/StatCard.jsx";
+import { useListQuery } from "../hooks/useListQuery.js";
+import { usePageSearch } from "../hooks/usePageSearch.jsx";
+
+const fetchLedger = (params) => ledgerService.getLedger(params);
+const SELECT_CLASS =
+  "w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary";
+const LABEL_CLASS = "block text-xs font-semibold text-ink-muted uppercase tracking-wider mb-1.5";
 
 export default function StockLedgerPage({ onShowToast }) {
-  const [entries, setEntries] = useState([]);
+  const { search } = usePageSearch();
   const [items, setItems] = useState([]);
   const [warehouses, setWarehouses] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
 
   // Filters
   const [selectedItem, setSelectedItem] = useState("all");
@@ -20,39 +25,33 @@ export default function StockLedgerPage({ onShowToast }) {
   const [selectedType, setSelectedType] = useState("all");
   const [dateRange, setDateRange] = useState("all");
 
-  const fetchData = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const [ledRes, itmRes, whRes] = await Promise.all([
-        ledgerService.getLedger({
-          itemId: selectedItem !== "all" ? selectedItem : undefined,
-          warehouseId: selectedWarehouse !== "all" ? selectedWarehouse : undefined,
-        }),
-        itemService.getItems(),
-        warehouseService.getWarehouses(),
-      ]);
-      setEntries(ledRes.data || []);
-      setItems(itmRes.data || []);
-      setWarehouses(whRes.data || []);
-    } catch (err) {
-      setError(err.message || "Failed to load stock ledger");
-    } finally {
-      setLoading(false);
-    }
-  }, [selectedItem, selectedWarehouse]);
+  const { data: entries, status, error } = useListQuery(fetchLedger, {
+    search,
+    itemId: selectedItem !== "all" ? selectedItem : undefined,
+    warehouseId: selectedWarehouse !== "all" ? selectedWarehouse : undefined,
+    dateRange,
+  });
+  const loading = status === "loading";
 
+  // The filter dropdowns' options do not depend on the search, so load them once.
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    let active = true;
+    Promise.all([itemService.getItems(), warehouseService.getWarehouses()])
+      .then(([itmRes, whRes]) => {
+        if (!active) return;
+        setItems(itmRes.data || []);
+        setWarehouses(whRes.data || []);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
 
-  // Filter entries
-  const filteredEntries = useMemo(() => {
-    return entries.filter((e) => {
-      const matchType = selectedType === "all" || e.type.toLowerCase() === selectedType.toLowerCase();
-      return matchType;
-    });
-  }, [entries, selectedType]);
+  const filteredEntries = useMemo(
+    () => entries.filter((e) => selectedType === "all" || e.type.toLowerCase() === selectedType.toLowerCase()),
+    [entries, selectedType],
+  );
 
   // Compute KPI summary
   const summary = useMemo(() => {
@@ -130,7 +129,7 @@ export default function StockLedgerPage({ onShowToast }) {
           </button>
           <button
             onClick={handleExportCSV}
-            className="inline-flex items-center gap-2 px-3.5 py-2 bg-brand text-white rounded-lg text-sm font-semibold hover:bg-brand-hover transition shadow-xs"
+            className="inline-flex items-center gap-2 px-3.5 py-2 bg-navy text-white rounded-lg text-sm font-semibold hover:bg-sidebar focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy transition shadow-xs"
           >
             <Download className="w-4 h-4" />
             Export CSV
@@ -142,14 +141,8 @@ export default function StockLedgerPage({ onShowToast }) {
       <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <div>
-            <label className="block text-xs font-semibold text-ink-muted uppercase tracking-wider mb-1.5">
-              Select Item
-            </label>
-            <select
-              value={selectedItem}
-              onChange={(e) => setSelectedItem(e.target.value)}
-              className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary"
-            >
+            <label className={LABEL_CLASS}>Select Item</label>
+            <select value={selectedItem} onChange={(e) => setSelectedItem(e.target.value)} className={SELECT_CLASS}>
               <option value="all">All Items</option>
               {items.map((i) => (
                 <option key={i.id} value={i.id}>
@@ -160,13 +153,11 @@ export default function StockLedgerPage({ onShowToast }) {
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-ink-muted uppercase tracking-wider mb-1.5">
-              Warehouse Location
-            </label>
+            <label className={LABEL_CLASS}>Warehouse Location</label>
             <select
               value={selectedWarehouse}
               onChange={(e) => setSelectedWarehouse(e.target.value)}
-              className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary"
+              className={SELECT_CLASS}
             >
               <option value="all">All Warehouses</option>
               {warehouses.map((w) => (
@@ -178,14 +169,8 @@ export default function StockLedgerPage({ onShowToast }) {
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-ink-muted uppercase tracking-wider mb-1.5">
-              Transaction Type
-            </label>
-            <select
-              value={selectedType}
-              onChange={(e) => setSelectedType(e.target.value)}
-              className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary"
-            >
+            <label className={LABEL_CLASS}>Transaction Type</label>
+            <select value={selectedType} onChange={(e) => setSelectedType(e.target.value)} className={SELECT_CLASS}>
               <option value="all">All Transaction Types</option>
               <option value="inward">Inward (+)</option>
               <option value="outward">Outward (-)</option>
@@ -195,18 +180,12 @@ export default function StockLedgerPage({ onShowToast }) {
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-ink-muted uppercase tracking-wider mb-1.5">
-              Date Period
-            </label>
-            <select
-              value={dateRange}
-              onChange={(e) => setDateRange(e.target.value)}
-              className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary"
-            >
+            <label className={LABEL_CLASS}>Date Period</label>
+            <select value={dateRange} onChange={(e) => setDateRange(e.target.value)} className={SELECT_CLASS}>
               <option value="all">Current Financial Period</option>
               <option value="30d">Last 30 Days</option>
               <option value="60d">Last 60 Days</option>
-              <option value="90d">Last Quarter</option>
+              <option value="quarter">Last Quarter</option>
             </select>
           </div>
         </div>
@@ -253,7 +232,7 @@ export default function StockLedgerPage({ onShowToast }) {
         ) : error ? (
           <div className="p-8 text-center text-rose-600 bg-rose-50/50 m-4 rounded-lg">{error}</div>
         ) : filteredEntries.length === 0 ? (
-          <div className="p-12 text-center text-ink-muted">No stock ledger transactions found for this filter.</div>
+          <div className="p-12 text-center text-ink-muted">No stock ledger transactions match your search.</div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
@@ -313,4 +292,3 @@ export default function StockLedgerPage({ onShowToast }) {
     </div>
   );
 }
-

@@ -6,11 +6,11 @@ import FormField from "../../../components/ui/FormField.jsx";
 import { SelectField, TextAreaField, TextField } from "../../../components/ui/FormFields.jsx";
 import { INPUT_CLASS } from "../../../components/ui/formStyles.js";
 import { useFormSubmission } from "../../../hooks/useFormSubmission.js";
-import { isBlank, isPositiveDecimal } from "../../../lib/validation.js";
+import { isBlank, isNonNegativeDecimal, isPositiveDecimal } from "../../../lib/validation.js";
 import { inwardService } from "../services/inwardService.js";
 
 const ID_PREFIX = "inward";
-const EMPTY_LINE = { itemId: "", quantity: "", rate: "" };
+const EMPTY_LINE = { itemId: "", challanQuantity: "", quantity: "", rejectedQuantity: "", rate: "", remarks: "" };
 
 function formatAmount(item) {
   const quantity = Number(item.quantity) || 0;
@@ -27,8 +27,12 @@ function validate(values) {
 
   values.lineItems.forEach((line, index) => {
     if (isBlank(line.itemId)) errors[`lineItems.${index}.itemId`] = "Select an item.";
-    if (isBlank(line.quantity)) errors[`lineItems.${index}.quantity`] = "Enter quantity.";
-    else if (!isPositiveDecimal(line.quantity)) errors[`lineItems.${index}.quantity`] = "Quantity must be greater than zero.";
+    if (isBlank(line.challanQuantity)) errors[`lineItems.${index}.challanQuantity`] = "Enter challan quantity.";
+    else if (!isNonNegativeDecimal(line.challanQuantity)) errors[`lineItems.${index}.challanQuantity`] = "Enter a non-negative number.";
+    if (isBlank(line.quantity)) errors[`lineItems.${index}.quantity`] = "Enter actual received quantity.";
+    else if (!isNonNegativeDecimal(line.quantity)) errors[`lineItems.${index}.quantity`] = "Enter a non-negative number.";
+    if (isBlank(line.rejectedQuantity)) errors[`lineItems.${index}.rejectedQuantity`] = "Enter rejected quantity.";
+    else if (!isNonNegativeDecimal(line.rejectedQuantity)) errors[`lineItems.${index}.rejectedQuantity`] = "Enter a non-negative number.";
     if (isBlank(line.rate)) errors[`lineItems.${index}.rate`] = "Enter rate.";
     else if (!isPositiveDecimal(line.rate)) errors[`lineItems.${index}.rate`] = "Rate must be greater than zero.";
   });
@@ -55,7 +59,7 @@ function AddInwardModal({ isOpen, onClose, onCreated, warehouses = [], items = [
       warehouseId: defaultWarehouse,
       date: new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }),
       remarks: "",
-      lineItems: [{ ...EMPTY_LINE, itemId: defaultItem, quantity: "100", rate: "250" }],
+      lineItems: [{ ...EMPTY_LINE, itemId: defaultItem, challanQuantity: "100", quantity: "100", rejectedQuantity: "0", rate: "250" }],
     },
     validate,
     submit: async (values, context) => {
@@ -64,11 +68,13 @@ function AddInwardModal({ isOpen, onClose, onCreated, warehouses = [], items = [
         warehouseId: values.warehouseId,
         date: values.date,
         remarks: values.remarks,
-        status: "Received",
         lineItems: values.lineItems.map((line) => ({
           itemId: line.itemId,
+          challanQuantity: Number(line.challanQuantity),
           quantity: Number(line.quantity),
+          rejectedQuantity: Number(line.rejectedQuantity),
           rate: Number(line.rate),
+          remarks: line.remarks,
         })),
       };
       return inwardService.createInward(payload, context);
@@ -140,14 +146,17 @@ function AddInwardModal({ isOpen, onClose, onCreated, warehouses = [], items = [
                 {
                   key: "itemId",
                   label: "Item",
-                  width: "minmax(0,1fr)",
+                  width: "minmax(160px,1fr)",
                   kind: "select",
                   placeholder: "Select item",
                   lookup: itemLookup,
                 },
-                { key: "quantity", label: "Qty", width: "96px", kind: "quantity", placeholder: "0" },
-                { key: "rate", label: "Rate", width: "110px", kind: "decimal", placeholder: "0" },
-                { key: "amount", label: "Amount", width: "120px", kind: "computed", compute: formatAmount },
+                { key: "challanQuantity", label: "As per Challan", width: "110px", kind: "quantity", placeholder: "0" },
+                { key: "quantity", label: "Actual Received", width: "110px", kind: "quantity", placeholder: "0" },
+                { key: "rejectedQuantity", label: "Rejected", width: "96px", kind: "quantity", placeholder: "0" },
+                { key: "rate", label: "Rate", width: "90px", kind: "decimal", placeholder: "0" },
+                { key: "amount", label: "Amount", width: "110px", kind: "computed", compute: formatAmount },
+                { key: "remarks", label: "Remarks", width: "140px", kind: "text", placeholder: "Optional" },
               ]}
             />
           </div>

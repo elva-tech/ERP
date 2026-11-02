@@ -1,17 +1,10 @@
-import { useEffect, useState } from "react";
 import { Search } from "lucide-react";
 
-const DEBOUNCE_MS = 350;
+import { useDebouncedDraft } from "../../hooks/useDebouncedDraft.js";
 
 /** Toolbar search box; the debounced term is sent to the server, nothing is filtered locally. */
 function SearchInput({ value, onSearch, placeholder, label, className = "" }) {
-  const [draft, setDraft] = useState(value);
-
-  useEffect(() => {
-    if (draft.trim() === value) return undefined;
-    const timeoutId = window.setTimeout(() => onSearch(draft.trim()), DEBOUNCE_MS);
-    return () => window.clearTimeout(timeoutId);
-  }, [draft, value, onSearch]);
+  const [draft, setDraft] = useDebouncedDraft(value, onSearch);
 
   return (
     <label

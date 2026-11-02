@@ -1,5 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { StatusBadge } from "../components/ui/Badge.jsx";
+import React, { useEffect, useMemo, useState } from "react";
 import DataTable from "../components/ui/DataTable.jsx";
 import FilterSelect from "../components/ui/FilterSelect.jsx";
 import ListFooter from "../components/ui/ListFooter.jsx";
@@ -9,18 +8,16 @@ import AddInwardModal from "../features/inward/components/AddInwardModal.jsx";
 import { inwardService } from "../features/inward/services/inwardService.js";
 import { itemService } from "../features/items/services/itemService.js";
 import { warehouseService } from "../features/warehouses/services/warehouseService.js";
+import { useListQuery } from "../hooks/useListQuery.js";
+import { usePageSearch } from "../hooks/usePageSearch.jsx";
 
-const INWARD_STATUS_BADGES = {
-  Received: { label: "Received", tone: "success" },
-  Draft: { label: "Draft", tone: "warning" },
-  Pending: { label: "Pending", tone: "info" },
-};
+const fetchInward = (params) => inwardService.getInwardEntries(params);
 
 const DATE_RANGE_OPTIONS = [
   { value: "all", label: "Current period" },
   { value: "30d", label: "Last 30 days" },
   { value: "60d", label: "Last 60 days" },
-  { value: "90d", label: "Last quarter" },
+  { value: "quarter", label: "Last quarter" },
 ];
 
 const COLUMNS = [
@@ -35,67 +32,49 @@ const COLUMNS = [
     render: (row) => `${row.totalItems} items`,
   },
   { key: "warehouseName", header: "Warehouse", width: "140px", render: (row) => row.warehouseName },
-  {
-    key: "status",
-    header: "Status",
-    width: "110px",
-    render: (row) => <StatusBadge status={row.status} statusMap={INWARD_STATUS_BADGES} className="w-full" />,
-  },
 ];
 
 export default function InwardPage({ onShowToast }) {
-  const [entries, setEntries] = useState([]);
   const [warehouses, setWarehouses] = useState([]);
   const [items, setItems] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
   const [selectedWarehouse, setSelectedWarehouse] = useState("");
   const [dateRange, setDateRange] = useState("all");
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const { search } = usePageSearch();
 
   const warehouseOptions = useMemo(
     () => [{ value: "", label: "All" }, ...warehouses.map((w) => ({ value: w.id, label: w.name }))],
     [warehouses],
   );
 
-  const fetchData = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const [inwRes, whRes, itmRes] = await Promise.all([
-        inwardService.getInwardEntries({
-          warehouseId: selectedWarehouse || undefined,
-        }),
-        warehouseService.getWarehouses(),
-        itemService.getItems(),
-      ]);
-      setEntries(inwRes.data || []);
-      setWarehouses(whRes.data || []);
-      setItems(itmRes.data || []);
-    } catch (err) {
-      setError(err.message || "Failed to load inward entries");
-    } finally {
-      setLoading(false);
-    }
-  }, [selectedWarehouse]);
+  const query = useListQuery(fetchInward, { search, warehouseId: selectedWarehouse || undefined, dateRange });
+  const entries = query.data;
+  const { reload } = query;
 
+  // The modal's reference data does not depend on the search term, so load it once.
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    let active = true;
+    Promise.all([warehouseService.getWarehouses(), itemService.getItems()])
+      .then(([whRes, itmRes]) => {
+        if (!active) return;
+        setWarehouses(whRes.data || []);
+        setItems(itmRes.data || []);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const listResource = useMemo(
-    () => ({
-      status: loading ? "loading" : error ? "error" : "success",
-      error,
-      reload: fetchData,
-    }),
-    [loading, error, fetchData],
+    () => ({ status: query.status, error: query.error, reload }),
+    [query.status, query.error, reload],
   );
 
   function handleCreated() {
     setIsModalOpen(false);
     onShowToast?.("Goods inward recorded and stock updated!", "success");
-    fetchData();
+    reload();
   }
 
   return (
@@ -117,9 +96,9 @@ export default function InwardPage({ onShowToast }) {
           rows={entries}
           getRowKey={(row) => row.id}
           resource={listResource}
-          minWidth={880}
+          minWidth={770}
           emptyTitle="No inward entries"
-          emptyMessage="Record a goods receipt with Add New Inward."
+          emptyMessage={search ? "No entries match your search." : "Record a goods receipt with Add New Inward."}
         />
         <ListFooter itemCount={entries.length} noun="entries" />
       </Panel>

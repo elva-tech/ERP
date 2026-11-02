@@ -38,6 +38,18 @@
 
 ---
 
+### Date periods
+
+List endpoints that accept `dateRange` (`/inward`, `/outward`, `/ledger`) filter on each record's transaction `date`, calendar day only (no timezone conversion). Both boundary days are included.
+
+| Value | Window |
+| --- | --- |
+| `all` (default; "Current period") | The financial year (1 Apr – 31 Mar) containing today |
+| `30d`, `60d` | The last 30 / 60 days, ending today, inclusive of today |
+| `quarter` ("Last Quarter") | The previous completed calendar quarter (Jan–Mar, Apr–Jun, Jul–Sep or Oct–Dec) |
+
+"Today" is the real current date, in both the mock adapter and the backend. Omitting `dateRange` applies no filter.
+
 ## 2. API Endpoints Specification
 
 ### 2.1 Dashboard & Analytics
@@ -83,7 +95,7 @@
   - `category` (optional, string): "Cables", "Switchgear", "Pipes", etc.
   - `warehouseId` (optional, string)
   - `status` (optional, string): "In Stock", "Low Stock", "Out of Stock"
-  - `search` (optional, string): Filter by code, name, or HSN
+  - `search` (optional, string): Case-insensitive partial match on code, name, category, HSN, unit, status, or description
   - `page` (optional, integer): Default 1
   - `limit` (optional, integer): Default 20
 - **Success Response (200 OK)**:
@@ -137,6 +149,7 @@
 ### 2.3 Warehouses
 #### `GET /warehouses`
 - **Status**: `CONFIRMED` (Matches Figma `warehouse-dashboard.png`)
+- **Query Parameters**: `search` (optional; matches warehouse name, code, location, or contact person)
 - **Success Response (200 OK)**: Array of warehouse locations with zone counts, occupancy %, and stock valuation.
 
 #### `GET /warehouses/:id`
@@ -168,7 +181,7 @@
 ### 2.4 Goods Inward (GRN)
 #### `GET /inward`
 - **Status**: `CONFIRMED` (Matches Figma `inward.png`)
-- **Query Parameters**: `warehouseId`, `status`, `page`, `limit`
+- **Query Parameters**: `warehouseId`, `status`, `dateRange` (see Date periods below), `search` (optional; matches GRN number, supplier, warehouse, or item), `page`, `limit`
 - **Success Response (200 OK)**: Array of Goods Receipt Notes with line items.
 
 #### `POST /inward`
@@ -182,27 +195,32 @@
   "date": "11 Sep 2026",
   "purchaseOrderRef": "PO-2608-441",
   "remarks": "Received in good condition",
-  "status": "Received",
   "lineItems": [
     {
       "itemId": "item-1",
-      "quantity": 500,
-      "rate": 248
+      "challanQuantity": 500,
+      "quantity": 495,
+      "rejectedQuantity": 5,
+      "rate": 248,
+      "remarks": "Five units damaged"
     }
   ]
 }
 ```
+- `quantity` is the actual received quantity and must be non-negative; stock posting uses this value.
+- `challanQuantity` and `rejectedQuantity` must also be non-negative. Line `remarks` is optional.
+- The inward status defaults to `Received`; it is not selected in the Add Inward form.
 - **Stock Posting Action**:
   - Increments item quantity in `warehouse_balances`.
   - Increments item `currentStock`.
-  - Generates immutable `stock_ledger` entry with `quantityIn: 500`.
+  - Generates immutable `stock_ledger` entry with `quantityIn: 495`.
 
 ---
 
 ### 2.5 Goods Outward (Issue / Dispatch)
 #### `GET /outward`
 - **Status**: `CONFIRMED` (Matches Figma `outward.png`)
-- **Query Parameters**: `warehouseId`, `status`, `purpose`, `page`, `limit`
+- **Query Parameters**: `warehouseId`, `status`, `purpose`, `dateRange` (see Date periods below), `search` (optional; matches delivery note, destination, warehouse, or item), `page`, `limit`
 
 #### `POST /outward`
 - **Status**: `CONFIRMED` (Matches modal `Add New Outward modal.png`)
@@ -238,6 +256,8 @@
 - **Query Parameters**:
   - `itemId` (optional, string)
   - `warehouseId` (optional, string)
+  - `dateRange` (optional, string): Date period, see Date periods below
+  - `search` (optional, string): Filter by voucher, type, item, warehouse, or reference
   - `startDate`, `endDate` (optional, ISO date)
   - `type` (optional): "Inward", "Outward", "Transfer", "Adjustment"
 - **Success Response (200 OK)**:
@@ -379,4 +399,3 @@
 #### `GET /invoices`
 - **Status**: `PROPOSED — BACKEND/PRODUCT CONFIRMATION REQUIRED` (Finance module domain boundary)
 - **Description**: Read-only reference register. Actual general ledger posting, GST returns, and payment reconciliation are strictly owned by the Finance Module to avoid duplicate stock reduction or tax double-entry.
-

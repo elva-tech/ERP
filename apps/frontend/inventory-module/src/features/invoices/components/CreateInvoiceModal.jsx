@@ -1,5 +1,9 @@
 import React, { useState } from "react";
 import Modal from "../../../components/ui/Modal.jsx";
+import ModalForm from "../../../components/ui/ModalForm.jsx";
+import FormField from "../../../components/ui/FormField.jsx";
+import SelectInput from "../../../components/ui/SelectInput.jsx";
+import { INPUT_CLASS } from "../../../components/ui/formStyles.js";
 import { Plus, Trash2 } from "lucide-react";
 
 const CUSTOMERS = [
@@ -84,196 +88,155 @@ export default function CreateInvoiceModal({
       description="Create a sales invoice for a customer"
       width="xl"
     >
-      <form onSubmit={handleSubmit} className="space-y-4">
-        {/* Row 1: Customer Name & Customer GSTIN */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-xs font-semibold text-ink mb-1.5">
-              Customer Name <span className="text-brand">*</span>
-            </label>
-            <select
+      <ModalForm onSubmit={handleSubmit} onCancel={onClose} submitLabel="Create Invoice" isSubmitting={isSubmitting}>
+        <div className="grid grid-cols-1 gap-x-3 gap-y-[11px] sm:grid-cols-2">
+          <FormField label="Customer Name" htmlFor="invoice-customer" required>
+            <SelectInput
+              id="invoice-customer"
+              name="customer"
               value={formData.customer}
+              required
+              options={CUSTOMERS.map((customer) => ({ value: customer.name, label: customer.name }))}
               onChange={(e) => handleCustomerChange(e.target.value)}
-              className="w-full px-3.5 py-2 text-sm bg-field border border-field-line rounded-lg focus:outline-none focus:ring-1 focus:border-navy"
-            >
-              {CUSTOMERS.map((c) => (
-                <option key={c.name} value={c.name}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-          </div>
+            />
+          </FormField>
 
-          <div>
-            <label className="block text-xs font-semibold text-ink mb-1.5">
-              Customer GSTIN
-            </label>
+          <FormField label="Customer GSTIN" htmlFor="invoice-customer-gstin">
             <input
+              id="invoice-customer-gstin"
+              name="customerGstin"
               type="text"
               readOnly
               value={formData.customerGstin}
-              className="w-full px-3.5 py-2 text-sm bg-slate-100 border border-field-line rounded-lg text-ink cursor-not-allowed"
+              className={`${INPUT_CLASS} cursor-not-allowed bg-workspace text-muted`}
             />
-          </div>
-        </div>
+          </FormField>
 
-        {/* Row 2: Invoice Date & Due Date */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-xs font-semibold text-ink mb-1.5">
-              Invoice Date <span className="text-brand">*</span>
-            </label>
+          <FormField label="Invoice Date" htmlFor="invoice-date" required>
             <input
+              id="invoice-date"
+              name="invoiceDate"
               type="text"
               value={formData.invoiceDate}
               onChange={(e) => setFormData((p) => ({ ...p, invoiceDate: e.target.value }))}
-              className="w-full px-3.5 py-2 text-sm bg-field border border-field-line rounded-lg focus:outline-none focus:ring-1 focus:border-navy"
+              className={INPUT_CLASS}
             />
-          </div>
+          </FormField>
 
-          <div>
-            <label className="block text-xs font-semibold text-ink mb-1.5">
-              Due Date <span className="text-brand">*</span>
-            </label>
+          <FormField label="Due Date" htmlFor="invoice-due-date" required>
             <input
+              id="invoice-due-date"
+              name="dueDate"
               type="text"
               value={formData.dueDate}
               onChange={(e) => setFormData((p) => ({ ...p, dueDate: e.target.value }))}
-              className="w-full px-3.5 py-2 text-sm bg-field border border-field-line rounded-lg focus:outline-none focus:ring-1 focus:border-navy"
+              className={INPUT_CLASS}
             />
-          </div>
-        </div>
+          </FormField>
 
-        {/* Line Items Table */}
-        <div className="space-y-2">
-          <label className="block text-xs font-semibold text-ink">Line Items</label>
-          <div className="border border-line rounded-lg overflow-hidden">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-workspace border-b border-line text-muted">
-                <tr>
-                  <th className="py-2.5 px-3 font-semibold">Item</th>
-                  <th className="py-2.5 px-3 font-semibold w-20">Qty</th>
-                  <th className="py-2.5 px-3 font-semibold w-24">Rate</th>
-                  <th className="py-2.5 px-3 font-semibold w-16">Tax</th>
-                  <th className="py-2.5 px-3 font-semibold w-24">Amount</th>
-                  <th className="py-2.5 px-2 w-10"></th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-line bg-white">
-                {formData.lineItems.map((line, idx) => {
-                  const lineTotal = (Number(line.qty) || 0) * (Number(line.rate) || 0);
-                  return (
-                    <tr key={idx}>
-                      <td className="p-2">
-                        <select
-                          value={line.itemId}
-                          onChange={(e) => handleLineChange(idx, "itemId", e.target.value)}
-                          className="w-full p-1.5 text-xs bg-field border border-field-line rounded focus:outline-none focus:border-navy"
-                        >
-                          {items.map((it) => (
-                            <option key={it.id} value={it.id}>
-                              {it.itemCode} • {it.itemName}
-                            </option>
-                          ))}
-                        </select>
-                      </td>
-                      <td className="p-2">
-                        <input
-                          type="number"
-                          min="1"
-                          value={line.qty}
-                          onChange={(e) => handleLineChange(idx, "qty", e.target.value)}
-                          className="w-full p-1.5 text-xs bg-field border border-field-line rounded focus:outline-none focus:border-navy"
-                        />
-                      </td>
-                      <td className="p-2">
-                        <input
-                          type="number"
-                          min="1"
-                          value={line.rate}
-                          onChange={(e) => handleLineChange(idx, "rate", e.target.value)}
-                          className="w-full p-1.5 text-xs bg-field border border-field-line rounded focus:outline-none focus:border-navy"
-                        />
-                      </td>
-                      <td className="p-2 text-muted">18%</td>
-                      <td className="p-2 text-ink font-semibold">
-                        ₹{lineTotal.toLocaleString("en-IN")}
-                      </td>
-                      <td className="p-2 text-center">
-                        <button
-                          type="button"
-                          onClick={() => removeLine(idx)}
-                          disabled={formData.lineItems.length <= 1}
-                          className="text-muted hover:text-danger disabled:opacity-30"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          <div className="min-w-0 space-y-2 sm:col-span-2">
+            <p className="text-[13px] font-semibold leading-4 text-ink">Line Items</p>
+            <div className="overflow-x-auto rounded-md border border-line">
+              <table className="w-full min-w-[760px] text-left text-[12px]">
+                <thead className="border-b border-line bg-workspace text-muted">
+                  <tr>
+                    <th className="w-[45%] px-3 py-2.5 font-semibold">Item</th>
+                    <th className="w-20 px-3 py-2.5 font-semibold">Qty</th>
+                    <th className="w-24 px-3 py-2.5 font-semibold">Rate</th>
+                    <th className="w-16 px-3 py-2.5 font-semibold">Tax</th>
+                    <th className="w-24 px-3 py-2.5 font-semibold">Amount</th>
+                    <th className="w-12 px-2 py-2.5"></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-line bg-white">
+                  {formData.lineItems.map((line, idx) => {
+                    const lineTotal = (Number(line.qty) || 0) * (Number(line.rate) || 0);
+                    return (
+                      <tr key={idx}>
+                        <td className="p-2">
+                          <SelectInput
+                            id={`invoice-item-${idx}`}
+                            name={`lineItems.${idx}.itemId`}
+                            value={line.itemId}
+                            options={items.map((it) => ({ value: it.id, label: `${it.itemCode} • ${it.itemName}` }))}
+                            onChange={(e) => handleLineChange(idx, "itemId", e.target.value)}
+                          />
+                        </td>
+                        <td className="p-2">
+                          <input
+                            aria-label={`Quantity, line ${idx + 1}`}
+                            type="number"
+                            min="1"
+                            value={line.qty}
+                            onChange={(e) => handleLineChange(idx, "qty", e.target.value)}
+                            className={`${INPUT_CLASS} min-w-0`}
+                          />
+                        </td>
+                        <td className="p-2">
+                          <input
+                            aria-label={`Rate, line ${idx + 1}`}
+                            type="number"
+                            min="1"
+                            value={line.rate}
+                            onChange={(e) => handleLineChange(idx, "rate", e.target.value)}
+                            className={`${INPUT_CLASS} min-w-0`}
+                          />
+                        </td>
+                        <td className="p-2 text-muted">18%</td>
+                        <td className="p-2 font-semibold text-ink">
+                          ₹{lineTotal.toLocaleString("en-IN")}
+                        </td>
+                        <td className="p-2 text-center">
+                          <button
+                            type="button"
+                            onClick={() => removeLine(idx)}
+                            disabled={formData.lineItems.length <= 1}
+                            aria-label={`Remove line ${idx + 1}`}
+                            className="text-muted hover:text-danger disabled:opacity-30"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
 
-          <button
-            type="button"
-            onClick={addLine}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-action-navy hover:text-blue-700 hover:bg-slate-50 border border-slate-300 rounded-lg transition-colors"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>Add row</span>
-          </button>
-        </div>
-
-        {/* Row 4: Payment Terms & Remarks */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-xs font-semibold text-ink mb-1.5">Payment Terms</label>
-            <select
-              value={formData.paymentTerms}
-              onChange={(e) => setFormData((p) => ({ ...p, paymentTerms: e.target.value }))}
-              className="w-full px-3.5 py-2 text-sm bg-field border border-field-line rounded-lg focus:outline-none focus:ring-1 focus:border-navy"
+            <button
+              type="button"
+              onClick={addLine}
+              className="inline-flex items-center gap-1 rounded-md border border-field-line bg-surface px-3 py-1.5 text-[12px] font-semibold text-navy hover:bg-workspace"
             >
-              {PAYMENT_TERMS.map((term) => (
-                <option key={term} value={term}>
-                  {term}
-                </option>
-              ))}
-            </select>
+              <Plus size={14} aria-hidden="true" />
+              Add row
+            </button>
           </div>
 
-          <div>
-            <label className="block text-xs font-semibold text-ink mb-1.5">Remarks</label>
+          <FormField label="Payment Terms" htmlFor="invoice-payment-terms">
+            <SelectInput
+              id="invoice-payment-terms"
+              name="paymentTerms"
+              value={formData.paymentTerms}
+              options={PAYMENT_TERMS.map((term) => ({ value: term, label: term }))}
+              onChange={(e) => setFormData((p) => ({ ...p, paymentTerms: e.target.value }))}
+            />
+          </FormField>
+
+          <FormField label="Remarks" htmlFor="invoice-remarks">
             <input
+              id="invoice-remarks"
+              name="remarks"
               type="text"
               placeholder="Add notes for the customer"
               value={formData.remarks}
               onChange={(e) => setFormData((p) => ({ ...p, remarks: e.target.value }))}
-              className="w-full px-3.5 py-2 text-sm bg-field border border-field-line rounded-lg focus:outline-none focus:ring-1 focus:border-navy"
+              className={INPUT_CLASS}
             />
-          </div>
+          </FormField>
         </div>
-
-        {/* Footer */}
-        <div className="flex items-center justify-end gap-3 pt-4 border-t border-field-line">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-5 py-2 text-sm font-medium text-ink bg-surface border border-line rounded-lg hover:bg-workspace transition-colors"
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="px-6 py-2 text-sm font-semibold text-white bg-[#1b3858] hover:bg-[#142c46] rounded-lg transition-colors shadow-xs disabled:opacity-50"
-          >
-            {isSubmitting ? "Creating..." : "Create Invoice"}
-          </button>
-        </div>
-      </form>
+      </ModalForm>
     </Modal>
   );
 }
-

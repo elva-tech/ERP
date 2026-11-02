@@ -1,5 +1,9 @@
 import React, { useState } from "react";
 import Modal from "../../../components/ui/Modal.jsx";
+import ModalForm from "../../../components/ui/ModalForm.jsx";
+import FormField from "../../../components/ui/FormField.jsx";
+import SelectInput from "../../../components/ui/SelectInput.jsx";
+import { INPUT_CLASS } from "../../../components/ui/formStyles.js";
 import { Plus, Trash2 } from "lucide-react";
 
 export default function CreateTransferModal({
@@ -68,162 +72,121 @@ export default function CreateTransferModal({
       onClose={onClose}
       title="Create Stock Transfer"
       description="Transfer items between warehouses with complete movement traceability"
-      width="md"
+      width="xl"
     >
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <ModalForm onSubmit={handleSubmit} onCancel={onClose} submitLabel="Create Transfer" isSubmitting={isSubmitting}>
         {error && (
-          <div className="p-3 bg-red-50 border border-red-200 text-xs text-danger rounded-lg">
+          <div role="alert" className="mb-3 rounded-md border border-danger/30 bg-danger-soft px-3 py-2.5 text-[12px] leading-[17px] text-danger">
             {error}
           </div>
         )}
 
-        {/* Row 1: From WH & To WH */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-xs font-semibold text-ink mb-1.5">
-              From Warehouse <span className="text-brand">*</span>
-            </label>
-            <select
+        <div className="grid grid-cols-1 gap-x-3 gap-y-[11px] sm:grid-cols-2">
+          <FormField label="From Warehouse" htmlFor="transfer-from-warehouse" required>
+            <SelectInput
+              id="transfer-from-warehouse"
+              name="fromWarehouseId"
               value={formData.fromWarehouseId}
+              required
+              options={warehouses.map((w) => ({ value: w.id, label: w.name }))}
               onChange={(e) => setFormData((p) => ({ ...p, fromWarehouseId: e.target.value }))}
-              className="w-full px-3.5 py-2 text-sm bg-field border border-field-line rounded-lg focus:outline-none focus:ring-1 focus:border-navy"
-            >
-              {warehouses.map((w) => (
-                <option key={w.id} value={w.id}>
-                  {w.name}
-                </option>
-              ))}
-            </select>
-          </div>
+            />
+          </FormField>
 
-          <div>
-            <label className="block text-xs font-semibold text-ink mb-1.5">
-              To Warehouse <span className="text-brand">*</span>
-            </label>
-            <select
+          <FormField label="To Warehouse" htmlFor="transfer-to-warehouse" required>
+            <SelectInput
+              id="transfer-to-warehouse"
+              name="toWarehouseId"
               value={formData.toWarehouseId}
+              required
+              options={warehouses.map((w) => ({ value: w.id, label: w.name }))}
               onChange={(e) => setFormData((p) => ({ ...p, toWarehouseId: e.target.value }))}
-              className="w-full px-3.5 py-2 text-sm bg-field border border-field-line rounded-lg focus:outline-none focus:ring-1 focus:border-navy"
-            >
-              {warehouses.map((w) => (
-                <option key={w.id} value={w.id}>
-                  {w.name}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
+            />
+          </FormField>
 
-        {/* Row 2: Date & Reason */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-xs font-semibold text-ink mb-1.5">
-              Date <span className="text-brand">*</span>
-            </label>
+          <FormField label="Date" htmlFor="transfer-date" required>
             <input
+              id="transfer-date"
+              name="date"
               type="text"
               value={formData.date}
               onChange={(e) => setFormData((p) => ({ ...p, date: e.target.value }))}
-              className="w-full px-3.5 py-2 text-sm bg-field border border-field-line rounded-lg focus:outline-none focus:ring-1 focus:border-navy"
+              className={INPUT_CLASS}
             />
-          </div>
+          </FormField>
 
-          <div>
-            <label className="block text-xs font-semibold text-ink mb-1.5">
-              Reason <span className="text-brand">*</span>
-            </label>
+          <FormField label="Reason" htmlFor="transfer-reason" required>
             <input
+              id="transfer-reason"
+              name="reason"
               type="text"
               value={formData.reason}
               onChange={(e) => setFormData((p) => ({ ...p, reason: e.target.value }))}
-              className="w-full px-3.5 py-2 text-sm bg-field border border-field-line rounded-lg focus:outline-none focus:ring-1 focus:border-navy"
+              className={INPUT_CLASS}
             />
-          </div>
-        </div>
+          </FormField>
 
-        {/* Line Items */}
-        <div className="space-y-2">
-          <label className="block text-xs font-semibold text-ink">Line Items</label>
-          <div className="border border-line rounded-lg overflow-hidden">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-workspace border-b border-line text-muted">
-                <tr>
-                  <th className="py-2.5 px-3 font-semibold">Item</th>
-                  <th className="py-2.5 px-3 font-semibold w-28">Quantity</th>
-                  <th className="py-2.5 px-2 w-10"></th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-line bg-white">
-                {formData.lineItems.map((line, idx) => (
-                  <tr key={idx}>
-                    <td className="p-2">
-                      <select
-                        value={line.itemId}
-                        onChange={(e) => handleLineChange(idx, "itemId", e.target.value)}
-                        className="w-full p-1.5 text-xs bg-field border border-field-line rounded focus:outline-none focus:border-navy"
-                      >
-                        {items.map((it) => (
-                          <option key={it.id} value={it.id}>
-                            {it.itemCode} • {it.itemName}
-                          </option>
-                        ))}
-                      </select>
-                    </td>
-                    <td className="p-2">
-                      <input
-                        type="number"
-                        min="1"
-                        value={line.quantity}
-                        onChange={(e) => handleLineChange(idx, "quantity", e.target.value)}
-                        className="w-full p-1.5 text-xs bg-field border border-field-line rounded focus:outline-none focus:border-navy"
-                      >
-                      </input>
-                    </td>
-                    <td className="p-2 text-center">
-                      <button
-                        type="button"
-                        onClick={() => removeLine(idx)}
-                        disabled={formData.lineItems.length <= 1}
-                        className="text-muted hover:text-danger disabled:opacity-30"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </td>
+          <div className="min-w-0 space-y-2 sm:col-span-2">
+            <p className="text-[13px] font-semibold leading-4 text-ink">Line Items</p>
+            <div className="overflow-x-auto rounded-md border border-line">
+              <table className="w-full min-w-[560px] text-left text-[12px]">
+                <thead className="border-b border-line bg-workspace text-muted">
+                  <tr>
+                    <th className="w-[65%] px-3 py-2.5 font-semibold">Item</th>
+                    <th className="w-[25%] px-3 py-2.5 font-semibold">Quantity</th>
+                    <th className="w-12 px-2 py-2.5"></th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-line bg-white">
+                  {formData.lineItems.map((line, idx) => (
+                    <tr key={idx}>
+                      <td className="p-2">
+                        <SelectInput
+                          id={`transfer-item-${idx}`}
+                          name={`lineItems.${idx}.itemId`}
+                          value={line.itemId}
+                          options={items.map((it) => ({ value: it.id, label: `${it.itemCode} • ${it.itemName}` }))}
+                          onChange={(e) => handleLineChange(idx, "itemId", e.target.value)}
+                        />
+                      </td>
+                      <td className="p-2">
+                        <input
+                          aria-label={`Quantity, line ${idx + 1}`}
+                          type="number"
+                          min="1"
+                          value={line.quantity}
+                          onChange={(e) => handleLineChange(idx, "quantity", e.target.value)}
+                          className={`${INPUT_CLASS} min-w-0`}
+                        />
+                      </td>
+                      <td className="p-2 text-center">
+                        <button
+                          type="button"
+                          onClick={() => removeLine(idx)}
+                          disabled={formData.lineItems.length <= 1}
+                          aria-label={`Remove line ${idx + 1}`}
+                          className="text-muted hover:text-danger disabled:opacity-30"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <button
+              type="button"
+              onClick={addLine}
+              className="inline-flex items-center gap-1 rounded-md border border-field-line bg-surface px-3 py-1.5 text-[12px] font-semibold text-navy hover:bg-workspace"
+            >
+              <Plus size={14} aria-hidden="true" />
+              Add row
+            </button>
           </div>
-
-          <button
-            type="button"
-            onClick={addLine}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-action-navy hover:text-blue-700 hover:bg-slate-50 border border-slate-300 rounded-lg transition-colors"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>Add row</span>
-          </button>
         </div>
-
-        {/* Footer */}
-        <div className="flex items-center justify-end gap-3 pt-4 border-t border-field-line">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-5 py-2 text-sm font-medium text-ink bg-surface border border-line rounded-lg hover:bg-workspace transition-colors"
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="px-6 py-2 text-sm font-semibold text-white bg-[#1b3858] hover:bg-[#142c46] rounded-lg transition-colors shadow-xs disabled:opacity-50"
-          >
-            {isSubmitting ? "Creating..." : "Create Transfer"}
-          </button>
-        </div>
-      </form>
+      </ModalForm>
     </Modal>
   );
 }
-

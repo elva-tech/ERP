@@ -101,7 +101,7 @@ export default function StockReconciliationPage({ onShowToast }) {
         </div>
         <button
           onClick={() => setIsModalOpen(true)}
-          className="inline-flex items-center gap-2 px-4 py-2.5 bg-brand text-white rounded-lg text-sm font-semibold hover:bg-brand-hover transition shadow-xs self-start sm:self-auto"
+          className="inline-flex items-center gap-2 px-4 py-2.5 bg-navy text-white rounded-lg text-sm font-semibold hover:bg-sidebar focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy transition shadow-xs self-start sm:self-auto"
         >
           <Plus className="w-4 h-4" />
           Start Reconciliation
@@ -289,7 +289,7 @@ export default function StockReconciliationPage({ onShowToast }) {
                         {hasDiscrepancy && r.status !== "Adjusted" ? (
                           <button
                             onClick={() => handleAdjustStock(r)}
-                            className="px-2.5 py-1 text-xs font-medium bg-brand text-white hover:bg-brand-hover rounded-md transition shadow-2xs"
+                            className="px-2.5 py-1 text-xs font-medium bg-navy text-white hover:bg-sidebar focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy rounded-md transition shadow-2xs"
                           >
                             Adjust Stock
                           </button>
@@ -318,4 +318,3 @@ export default function StockReconciliationPage({ onShowToast }) {
     </div>
   );
 }
-

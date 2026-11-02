@@ -83,7 +83,7 @@ export default function SalesInvoicesPage({ onShowToast }) {
         </div>
         <button
           onClick={() => setIsModalOpen(true)}
-          className="inline-flex items-center gap-2 px-4 py-2.5 bg-brand text-white rounded-lg text-sm font-semibold hover:bg-brand-hover transition shadow-xs self-start sm:self-auto"
+          className="inline-flex items-center gap-2 px-4 py-2.5 bg-navy text-white rounded-lg text-sm font-semibold hover:bg-sidebar focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy transition shadow-xs self-start sm:self-auto"
         >
           <Plus className="w-4 h-4" />
           Create Invoice
@@ -336,4 +336,3 @@ export default function SalesInvoicesPage({ onShowToast }) {
     </div>
   );
 }
-

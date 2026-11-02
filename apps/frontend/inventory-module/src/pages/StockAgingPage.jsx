@@ -3,6 +3,7 @@ import { Download, AlertTriangle, Clock, ShieldAlert, CheckCircle, Search, Filte
 import { agingService } from "../features/aging/services/agingService.js";
 import { warehouseService } from "../features/warehouses/services/warehouseService.js";
 import Badge from "../components/ui/Badge.jsx";
+import { matchesSearch } from "../lib/search.js";
 
 export default function StockAgingPage({ onShowToast }) {
   const [agingData, setAgingData] = useState({ buckets: [], itemDetails: [], totalValue: 0 });
@@ -41,10 +42,13 @@ export default function StockAgingPage({ onShowToast }) {
 
   const filteredItems = useMemo(() => {
     return items.filter((item) => {
-      const matchSearch =
-        (item.itemCode || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (item.itemName || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (item.warehouseName || "").toLowerCase().includes(searchQuery.toLowerCase());
+      const matchSearch = matchesSearch(
+        searchQuery,
+        item.itemCode,
+        item.itemName,
+        item.warehouseName,
+        item.lastMovementDate,
+      );
 
       let matchBucket = true;
       if (selectedBucket === "0-30") matchBucket = item.ageDays <= 30;
@@ -112,7 +116,7 @@ export default function StockAgingPage({ onShowToast }) {
           </select>
           <button
             onClick={handleExportCSV}
-            className="inline-flex items-center gap-2 px-3.5 py-2 bg-brand text-white rounded-lg text-sm font-semibold hover:bg-brand-hover transition shadow-xs"
+            className="inline-flex items-center gap-2 px-3.5 py-2 bg-navy text-white rounded-lg text-sm font-semibold hover:bg-sidebar focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy transition shadow-xs"
           >
             <Download className="w-4 h-4" />
             Export Analysis
@@ -302,4 +306,3 @@ export default function StockAgingPage({ onShowToast }) {
     </div>
   );
 }
-

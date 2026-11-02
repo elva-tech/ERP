@@ -10,6 +10,8 @@ import {
   CreateInvoiceInputSchema,
 } from "../schemas/inventorySchemas.js";
 import { mockDb } from "./mockDatabase.js";
+import { filterByDatePeriod } from "../lib/dateRange.js";
+import { matchesSearch } from "../lib/search.js";
 
 /**
  * Parses route paths and dispatches to mock handlers.
@@ -197,15 +199,16 @@ export const mockApiAdapter = {
   async listItems(query = {}) {
     let result = [...mockDb.items];
 
-    if (query.search) {
-      const q = String(query.search).toLowerCase();
-      result = result.filter(
-        (i) =>
-          i.itemCode.toLowerCase().includes(q) ||
-          i.itemName.toLowerCase().includes(q) ||
-          i.hsnCode.includes(q)
-      );
-    }
+    result = result.filter((item) => matchesSearch(
+      query.search,
+      item.itemCode,
+      item.itemName,
+      item.category,
+      item.hsnCode,
+      item.unit,
+      item.status,
+      item.description,
+    ));
     if (query.category && query.category !== "all" && query.category !== "All Categories") {
       result = result.filter((i) => i.category.toLowerCase() === String(query.category).toLowerCase());
     }
@@ -323,10 +326,16 @@ export const mockApiAdapter = {
 
   async listWarehouses(query = {}) {
     let result = [...mockDb.warehouses];
-    if (query.search) {
-      const q = String(query.search).toLowerCase();
-      result = result.filter((w) => w.name.toLowerCase().includes(q) || w.code.toLowerCase().includes(q) || w.city.toLowerCase().includes(q));
-    }
+    result = result.filter((warehouse) => matchesSearch(
+      query.search,
+      warehouse.name,
+      warehouse.code,
+      warehouse.streetAddress,
+      warehouse.city,
+      warehouse.state,
+      warehouse.pinCode,
+      warehouse.contactPerson,
+    ));
     return { data: result, total: result.length };
   },
 
@@ -419,13 +428,23 @@ export const mockApiAdapter = {
   },
 
   async listInward(query = {}) {
-    let result = [...mockDb.inwardEntries];
+    // The period is applied to the full list first so its window does not move with the other filters.
+    let result = filterByDatePeriod(mockDb.inwardEntries, query.dateRange);
     if (query.warehouseId && query.warehouseId !== "all") {
       result = result.filter((e) => e.warehouseId === query.warehouseId);
     }
     if (query.status && query.status !== "all") {
       result = result.filter((e) => e.status.toLowerCase() === String(query.status).toLowerCase());
     }
+    result = result.filter((entry) => matchesSearch(
+      query.search,
+      entry.grnNo,
+      entry.supplier,
+      entry.purchaseOrderRef,
+      entry.warehouseName,
+      entry.remarks,
+      ...(entry.lineItems ?? []).flatMap((line) => [line.itemCode, line.itemName]),
+    ));
     return { data: result, total: result.length };
   },
 
@@ -474,9 +493,12 @@ export const mockApiAdapter = {
         itemCode: item.itemCode,
         itemName: item.itemName,
         unit: item.unit,
+        challanQuantity: line.challanQuantity,
         quantity: qty,
+        rejectedQuantity: line.rejectedQuantity,
         rate,
         amount,
+        remarks: line.remarks,
       });
 
       // Update warehouse stock
@@ -531,13 +553,24 @@ export const mockApiAdapter = {
   },
 
   async listOutward(query = {}) {
-    let result = [...mockDb.outwardEntries];
+    let result = filterByDatePeriod(mockDb.outwardEntries, query.dateRange);
     if (query.warehouseId && query.warehouseId !== "all") {
       result = result.filter((e) => e.warehouseId === query.warehouseId);
     }
     if (query.status && query.status !== "all") {
       result = result.filter((e) => e.status.toLowerCase() === String(query.status).toLowerCase());
     }
+    result = result.filter((entry) => matchesSearch(
+      query.search,
+      entry.deliveryNoteNo,
+      entry.purpose,
+      entry.destination,
+      entry.warehouseName,
+      entry.status,
+      entry.authorization,
+      entry.remarks,
+      ...(entry.lineItems ?? []).flatMap((line) => [line.itemCode, line.itemName]),
+    ));
     return { data: result, total: result.length };
   },
 
@@ -661,7 +694,7 @@ export const mockApiAdapter = {
   },
 
   async getLedger(query = {}) {
-    let result = [...mockDb.ledgerEntries];
+    let result = filterByDatePeriod(mockDb.ledgerEntries, query.dateRange);
 
     if (query.itemId && query.itemId !== "all") {
       result = result.filter((e) => e.itemId === query.itemId || e.itemCode === query.itemId);
@@ -669,6 +702,16 @@ export const mockApiAdapter = {
     if (query.warehouseId && query.warehouseId !== "all" && query.warehouseId !== "All Warehouses") {
       result = result.filter((e) => e.warehouseId === query.warehouseId || e.warehouseName === query.warehouseId);
     }
+    result = result.filter((entry) => matchesSearch(
+      query.search,
+      entry.date,
+      entry.voucherNo,
+      entry.type,
+      entry.itemCode,
+      entry.itemName,
+      entry.warehouseName,
+      entry.reference,
+    ));
 
     // Compute summary
     const selectedItem = mockDb.items.find((i) => i.id === query.itemId || i.itemCode === query.itemId) || mockDb.items[0];

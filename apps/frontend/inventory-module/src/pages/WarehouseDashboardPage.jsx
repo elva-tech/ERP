@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React from "react";
 import { Building2, MoreHorizontal, ArrowRight } from "lucide-react";
 import PrimaryActionButton from "../components/ui/PrimaryActionButton.jsx";
 import Panel from "../components/ui/Panel.jsx";
@@ -6,35 +6,23 @@ import StatCard from "../components/ui/StatCard.jsx";
 import { ROUTES } from "../config/navigation.js";
 import { warehouseService } from "../features/warehouses/services/warehouseService.js";
 import AddWarehouseModal from "../features/warehouses/components/AddWarehouseModal.jsx";
+import { useListQuery } from "../hooks/useListQuery.js";
+import { usePageSearch } from "../hooks/usePageSearch.jsx";
+
+const fetchWarehouses = (params) => warehouseService.getWarehouses(params);
 
 export default function WarehouseDashboardPage({ onNavigate, onShowToast }) {
-  const [warehouses, setWarehouses] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const { search } = usePageSearch();
+  const [isModalOpen, setIsModalOpen] = React.useState(false);
 
-  const fetchWarehouses = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const res = await warehouseService.getWarehouses();
-      setWarehouses(res.data || []);
-    } catch (err) {
-      setError(err.message || "Failed to load warehouses");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchWarehouses();
-  }, []);
+  const { data: filteredWarehouses, status, error, reload } = useListQuery(fetchWarehouses, { search });
+  const loading = status === "loading";
 
   function handleWarehouseCreated(created) {
     setIsModalOpen(false);
     const name = created?.name ?? created?.data?.name;
     onShowToast?.(name ? `Warehouse ${name} added successfully!` : "Warehouse added successfully!", "success");
-    fetchWarehouses();
+    reload();
   }
 
   const formatStockValue = (val) => {
@@ -63,9 +51,13 @@ export default function WarehouseDashboardPage({ onNavigate, onShowToast }) {
         <div className="p-12 text-center text-muted text-sm">Loading warehouses...</div>
       ) : error ? (
         <div className="p-6 bg-red-50 text-danger text-sm rounded-xl">{error}</div>
+      ) : filteredWarehouses.length === 0 ? (
+        <div className="rounded-xl border border-line bg-surface p-8 text-center text-sm text-muted">
+          No warehouses match your search.
+        </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {warehouses.map((wh) => {
+          {filteredWarehouses.map((wh) => {
             const isHigh = wh.capacityUtilization >= 80;
             const progressColor = isHigh ? "bg-amber-500" : "bg-emerald-600";
 
@@ -150,4 +142,3 @@ export default function WarehouseDashboardPage({ onNavigate, onShowToast }) {
     </div>
   );
 }
-

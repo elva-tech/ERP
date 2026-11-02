@@ -43,8 +43,8 @@ function LoginPage({ onLogin, onShowToast }) {
   const inputBorder = (name) => (fieldErrors[name] ? "border-danger" : "border-[#dfe3e8]");
 
   return (
-    <div className="flex min-h-screen flex-col items-center bg-[#f1f2f2] px-4 pt-10 text-ink">
-      <main className="w-full max-w-[450px] rounded-lg border border-[#e3e6e8] bg-surface px-10 pb-10 pt-10 shadow-[0_2px_8px_rgba(15,23,42,0.06)]">
+    <div className="grid min-h-screen w-screen grid-rows-[1fr_auto_1fr] items-center justify-items-center bg-[#f1f2f2] px-4 text-ink">
+      <main className="row-start-2 w-full max-w-[450px] rounded-lg border border-[#e3e6e8] bg-surface px-10 pb-10 pt-10 shadow-[0_2px_8px_rgba(15,23,42,0.06)]">
         <div className="flex flex-col items-center text-center">
           <img src={elvaLogo} alt="" className="size-[82px] rounded-md" />
           <h1 className="mt-4 text-[18px] font-bold leading-6 text-ink">ELVA TECH</h1>
@@ -136,7 +136,7 @@ function LoginPage({ onLogin, onShowToast }) {
           </button>
         </form>
       </main>
-      <p className="mt-auto pb-8 pt-10 text-[10px] text-placeholder">Powered by ELVA</p>
+      <p className="row-start-3 self-end pb-8 pt-10 text-[10px] text-placeholder">Powered by ELVA</p>
     </div>
   );
 }

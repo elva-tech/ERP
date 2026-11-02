@@ -1,5 +1,9 @@
 import React, { useState } from "react";
 import Modal from "../../../components/ui/Modal.jsx";
+import ModalForm from "../../../components/ui/ModalForm.jsx";
+import FormField from "../../../components/ui/FormField.jsx";
+import SelectInput from "../../../components/ui/SelectInput.jsx";
+import { INPUT_CLASS } from "../../../components/ui/formStyles.js";
 import { Info } from "lucide-react";
 
 export default function CreateDeliveryNoteModal({
@@ -41,140 +45,106 @@ export default function CreateDeliveryNoteModal({
       onClose={onClose}
       title="Create Delivery Note"
       description="Plan dispatch against an approved sales invoice"
-      width="md"
+      width="xl"
     >
-      <form onSubmit={handleSubmit} className="space-y-4">
-        {/* Sales Invoice Selection */}
-        <div>
-          <label className="block text-xs font-semibold text-ink mb-1.5">
-            Sales Invoice <span className="text-brand">*</span>
-          </label>
-          <select
-            value={formData.salesInvoiceRef}
-            onChange={(e) => handleInvoiceChange(e.target.value)}
-            className="w-full px-3.5 py-2 text-sm bg-field border border-field-line rounded-lg focus:outline-none focus:ring-1 focus:border-navy"
-          >
-            {invoices.map((inv) => (
-              <option key={inv.id} value={inv.invoiceNo}>
-                {inv.invoiceNo} — {inv.customer}
-              </option>
-            ))}
-          </select>
-        </div>
+      <ModalForm onSubmit={handleSubmit} onCancel={onClose} submitLabel="Create Delivery Note" isSubmitting={isSubmitting}>
+        <div className="grid grid-cols-1 gap-x-3 gap-y-[11px] sm:grid-cols-2">
+          <FormField label="Sales Invoice" htmlFor="delivery-invoice" required>
+            <SelectInput
+              id="delivery-invoice"
+              name="salesInvoiceRef"
+              value={formData.salesInvoiceRef}
+              required
+              options={invoices.map((inv) => ({ value: inv.invoiceNo, label: `${inv.invoiceNo} — ${inv.customer}` }))}
+              onChange={(e) => handleInvoiceChange(e.target.value)}
+            />
+          </FormField>
 
-        {/* Info Banner */}
-        <div className="flex items-center gap-2 p-2.5 bg-blue-50/70 border border-blue-100 rounded-lg text-xs text-blue-800">
-          <Info className="w-4 h-4 text-blue-600 shrink-0" />
-          <span>Selecting an invoice will auto-fill the customer details.</span>
-        </div>
-
-        {/* Row 2: Customer & Warehouse */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-xs font-semibold text-ink mb-1.5">
-              Customer <span className="text-brand">*</span>
-            </label>
+          <FormField label="Delivery Date" htmlFor="delivery-date" required>
             <input
+              id="delivery-date"
+              name="deliveryDate"
+              type="text"
+              placeholder="DD / MM / YYYY"
+              value={formData.deliveryDate}
+              onChange={(e) => setFormData((p) => ({ ...p, deliveryDate: e.target.value }))}
+              className={INPUT_CLASS}
+            />
+          </FormField>
+
+          <div className="flex items-start gap-2 rounded-md border border-info/20 bg-info-soft px-3 py-2.5 text-[12px] leading-[17px] text-ink sm:col-span-2">
+            <Info size={15} className="mt-px shrink-0 text-info" aria-hidden="true" />
+            <span>Selecting an invoice will auto-fill the customer details.</span>
+          </div>
+
+          <FormField label="Customer" htmlFor="delivery-customer" required>
+            <input
+              id="delivery-customer"
+              name="customer"
               type="text"
               readOnly
               value={formData.customer}
               placeholder="Auto-filled from sales invoice"
-              className="w-full px-3.5 py-2 text-sm bg-slate-100 border border-field-line rounded-lg text-ink cursor-not-allowed"
+              className={`${INPUT_CLASS} cursor-not-allowed bg-workspace text-muted`}
             />
-          </div>
+          </FormField>
 
-          <div>
-            <label className="block text-xs font-semibold text-ink mb-1.5">
-              Warehouse <span className="text-brand">*</span>
-            </label>
-            <select
+          <FormField label="Warehouse" htmlFor="delivery-warehouse" required>
+            <SelectInput
+              id="delivery-warehouse"
+              name="warehouseId"
               value={formData.warehouseId}
+              required
+              options={warehouses.map((w) => ({ value: w.id, label: w.name }))}
               onChange={(e) => setFormData((p) => ({ ...p, warehouseId: e.target.value }))}
-              className="w-full px-3.5 py-2 text-sm bg-field border border-field-line rounded-lg focus:outline-none focus:ring-1 focus:border-navy"
-            >
-              {warehouses.map((w) => (
-                <option key={w.id} value={w.id}>
-                  {w.name}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
+            />
+          </FormField>
 
-        {/* Delivery Date */}
-        <div>
-          <label className="block text-xs font-semibold text-ink mb-1.5">
-            Delivery Date <span className="text-brand">*</span>
-          </label>
-          <input
-            type="text"
-            placeholder="DD / MM / YYYY"
-            value={formData.deliveryDate}
-            onChange={(e) => setFormData((p) => ({ ...p, deliveryDate: e.target.value }))}
-            className="w-full px-3.5 py-2 text-sm bg-field border border-field-line rounded-lg focus:outline-none focus:ring-1 focus:border-navy"
-          />
-        </div>
+          <section className="space-y-2 sm:col-span-2" aria-labelledby="delivery-transport-heading">
+            <h3 id="delivery-transport-heading" className="text-[13px] font-semibold leading-4 text-ink">
+              Transport Details
+            </h3>
+            <div className="grid grid-cols-1 gap-x-3 gap-y-[11px] sm:grid-cols-2">
+              <FormField label="Vehicle No" htmlFor="delivery-vehicle">
+                <input
+                  id="delivery-vehicle"
+                  name="vehicleNo"
+                  type="text"
+                  placeholder="e.g. MH 12 AB 4521"
+                  value={formData.vehicleNo}
+                  onChange={(e) => setFormData((p) => ({ ...p, vehicleNo: e.target.value }))}
+                  className={INPUT_CLASS}
+                />
+              </FormField>
 
-        {/* Transport Details Section */}
-        <div className="pt-2">
-          <h4 className="text-xs font-semibold text-ink uppercase tracking-wider mb-2">
-            Transport Details
-          </h4>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <div>
-              <label className="block text-[11px] font-medium text-muted mb-1">Vehicle No</label>
-              <input
-                type="text"
-                placeholder="e.g. MH 12 AB 4521"
-                value={formData.vehicleNo}
-                onChange={(e) => setFormData((p) => ({ ...p, vehicleNo: e.target.value }))}
-                className="w-full px-3 py-1.5 text-xs bg-field border border-field-line rounded-lg focus:outline-none focus:border-navy"
-              />
+              <FormField label="Transporter Name" htmlFor="delivery-transporter">
+                <input
+                  id="delivery-transporter"
+                  name="transporterName"
+                  type="text"
+                  placeholder="Enter transporter"
+                  value={formData.transporterName}
+                  onChange={(e) => setFormData((p) => ({ ...p, transporterName: e.target.value }))}
+                  className={INPUT_CLASS}
+                />
+              </FormField>
+
+              <FormField label="Contact Phone" htmlFor="delivery-phone">
+                <input
+                  id="delivery-phone"
+                  name="contactPhone"
+                  type="tel"
+                  inputMode="tel"
+                  placeholder="+91 00000 00000"
+                  value={formData.contactPhone}
+                  onChange={(e) => setFormData((p) => ({ ...p, contactPhone: e.target.value }))}
+                  className={INPUT_CLASS}
+                />
+              </FormField>
             </div>
-
-            <div>
-              <label className="block text-[11px] font-medium text-muted mb-1">Transporter Name</label>
-              <input
-                type="text"
-                placeholder="Enter transporter"
-                value={formData.transporterName}
-                onChange={(e) => setFormData((p) => ({ ...p, transporterName: e.target.value }))}
-                className="w-full px-3 py-1.5 text-xs bg-field border border-field-line rounded-lg focus:outline-none focus:border-navy"
-              />
-            </div>
-
-            <div>
-              <label className="block text-[11px] font-medium text-muted mb-1">Contact Phone</label>
-              <input
-                type="text"
-                placeholder="+91 00000 00000"
-                value={formData.contactPhone}
-                onChange={(e) => setFormData((p) => ({ ...p, contactPhone: e.target.value }))}
-                className="w-full px-3 py-1.5 text-xs bg-field border border-field-line rounded-lg focus:outline-none focus:border-navy"
-              />
-            </div>
-          </div>
+          </section>
         </div>
-
-        {/* Footer */}
-        <div className="flex items-center justify-end gap-3 pt-4 border-t border-field-line">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-5 py-2 text-sm font-medium text-ink bg-surface border border-line rounded-lg hover:bg-workspace transition-colors"
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="px-6 py-2 text-sm font-semibold text-white bg-[#1b3858] hover:bg-[#142c46] rounded-lg transition-colors shadow-xs disabled:opacity-50"
-          >
-            {isSubmitting ? "Creating..." : "Create Delivery Note"}
-          </button>
-        </div>
-      </form>
+      </ModalForm>
     </Modal>
   );
 }
-

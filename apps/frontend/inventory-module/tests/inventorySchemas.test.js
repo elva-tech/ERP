@@ -99,26 +99,37 @@ describe("Inventory Zod Runtime Validation Schemas", () => {
   });
 
   describe("Inward and Outward Schemas", () => {
-    it("should validate inward entry with positive quantities", () => {
+    it("should validate inward entry with non-negative quantities and optional line remarks", () => {
       const validInward = {
         supplier: "Polycab India Ltd",
         warehouseId: "wh-1",
         date: "11 Sep 2026",
         lineItems: [
-          { itemId: "item-1", quantity: 500, rate: 248 },
-          { itemId: "item-2", quantity: 50, rate: 1800 },
+          { itemId: "item-1", challanQuantity: 500, quantity: 500, rejectedQuantity: 0, rate: 248 },
+          { itemId: "item-2", challanQuantity: 50, quantity: 50, rejectedQuantity: 0, rate: 1800 },
         ],
       };
       const result = CreateInwardInputSchema.safeParse(validInward);
       expect(result.success).toBe(true);
     });
 
-    it("should reject inward entry with negative or zero quantity", () => {
+    it("should allow zero quantities", () => {
+      const zeroInward = {
+        supplier: "Polycab India Ltd",
+        warehouseId: "wh-1",
+        date: "11 Sep 2026",
+        lineItems: [{ itemId: "item-1", challanQuantity: 0, quantity: 0, rejectedQuantity: 0, rate: 0 }],
+      };
+      const result = CreateInwardInputSchema.safeParse(zeroInward);
+      expect(result.success).toBe(true);
+    });
+
+    it("should reject inward entry with negative quantities", () => {
       const invalidInward = {
         supplier: "Polycab India Ltd",
         warehouseId: "wh-1",
         date: "11 Sep 2026",
-        lineItems: [{ itemId: "item-1", quantity: -10, rate: 248 }],
+        lineItems: [{ itemId: "item-1", challanQuantity: 500, quantity: 490, rejectedQuantity: -10, rate: 248 }],
       };
       const result = CreateInwardInputSchema.safeParse(invalidInward);
       expect(result.success).toBe(false);

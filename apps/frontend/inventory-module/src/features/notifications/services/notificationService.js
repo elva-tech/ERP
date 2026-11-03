@@ -210,12 +210,6 @@ export function getUnreadCount(state) {
 
 // --- Modules, categories and tabs -----------------------------------------
 
-export const NOTIFICATION_MODULES = [
-  { key: "all", label: "All modules", available: true },
-  { key: "inventory", label: "Inventory", available: true },
-  { key: "procurement", label: "Procurement", available: false },
-];
-
 export const DEFAULT_MODULE = "inventory";
 
 export const NOTIFICATION_CATEGORIES = {
@@ -226,45 +220,12 @@ export const NOTIFICATION_CATEGORIES = {
   [NOTIFICATION_TYPES.stockDiscrepancy]: "Reconciliation",
 };
 
-/**
- * Tabs are views over real notifications, never separate data:
- *  Focus     - High priority alerts
- *  Others    - everything below High priority
- *  Watching  - stock levels (low stock and out of stock)
- *  @Mention  - documents waiting on you (pending GRNs and delivery notes)
- */
-export const NOTIFICATION_TABS = [
-  { key: "all", label: "All", matches: () => true },
-  { key: "focus", label: "Focus", matches: (n) => n.priority === NOTIFICATION_PRIORITIES.high },
-  { key: "others", label: "Others", matches: (n) => n.priority !== NOTIFICATION_PRIORITIES.high },
-  {
-    key: "watching",
-    label: "Watching",
-    matches: (n) => n.type === NOTIFICATION_TYPES.lowStock || n.type === NOTIFICATION_TYPES.outOfStock,
-  },
-  {
-    key: "mention",
-    label: "@Mention",
-    matches: (n) => n.type === NOTIFICATION_TYPES.pendingGrn || n.type === NOTIFICATION_TYPES.pendingDeliveryNote,
-  },
-];
-
-export function getNotificationModule(notification) {
-  return notification.module ?? DEFAULT_MODULE;
-}
-
 export function getNotificationCategory(notification) {
   return NOTIFICATION_CATEGORIES[notification.type] ?? "Inventory";
 }
 
-export function filterNotifications(notifications, { tab = "all", module = "all", unreadOnly = false } = {}) {
-  const tabMatches = NOTIFICATION_TABS.find((t) => t.key === tab)?.matches ?? (() => true);
-  return notifications.filter(
-    (n) =>
-      tabMatches(n) &&
-      (module === "all" || getNotificationModule(n) === module) &&
-      (!unreadOnly || !n.read),
-  );
+export function filterNotifications(notifications, { unreadOnly = false } = {}) {
+  return unreadOnly ? notifications.filter((n) => !n.read) : notifications;
 }
 
 // --- Date grouping and relative time --------------------------------------

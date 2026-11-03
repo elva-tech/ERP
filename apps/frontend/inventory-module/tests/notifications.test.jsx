@@ -1,7 +1,8 @@
-import React from "react";
+﻿import React from "react";
 import { beforeEach, describe, expect, it } from "vitest";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import NotificationBell from "../src/components/layout/NotificationBell.jsx";
+import { ROUTES } from "../src/config/navigation.js";
 import {
   NOTIFICATION_STORAGE_KEY,
   NOTIFICATION_TYPES,
@@ -147,7 +148,7 @@ describe("NotificationBell", () => {
   it("filters the Unread tab, marks all as read, and shows empty states", async () => {
     await renderBell();
     fireEvent.click(screen.getByRole("button", { name: /Notifications, \d+ unread/ }));
-    fireEvent.click(screen.getByRole("checkbox", { name: "Unread" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Unread" }));
     const list = screen.getByRole("list", { name: "Today notifications" });
     expect(within(list).getAllByRole("listitem").length).toBeGreaterThan(0);
 
@@ -155,7 +156,7 @@ describe("NotificationBell", () => {
     expect(screen.queryByTestId("notification-badge")).not.toBeInTheDocument();
     expect(screen.getByText(/No unread notifications/)).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("checkbox", { name: "Unread" }));
+    fireEvent.click(screen.getByRole("tab", { name: "All" }));
     expect(screen.getByRole("list", { name: "Today notifications" })).toBeInTheDocument();
   });
 
@@ -191,60 +192,100 @@ describe("NotificationBell", () => {
     fireEvent.click(screen.getByRole("button", { name: /Notifications, \d+ unread/ }));
     const panel = screen.getByRole("dialog");
     expect(panel.className).toContain("fixed");
-    expect(panel.className).toContain("md:w-[540px]");
-    expect(screen.getByTestId("notification-scroll").className).toContain("overflow-y-auto");
+    expect(panel.className).toContain("sm:w-[400px]");
+    expect(panel.className).not.toContain("w-[540px]");
+    expect(panel.className).toContain("inset-x-3");
+    expect(panel.className).toContain("max-w-[calc(100vw-1.5rem)]");
+    expect(panel.className).toContain("max-h-[min(520px");
+    expect(panel.className).toContain("flex-col");
+    const scroll = screen.getByTestId("notification-scroll");
+    expect(scroll.className).toContain("overflow-y-auto");
+    expect(scroll.className).toContain("overflow-x-hidden");
+    expect(scroll.contains(screen.getByRole("tablist"))).toBe(false);
+    expect(scroll.contains(screen.getByRole("button", { name: /Mark all as read/ }))).toBe(false);
   });
 
-  it("shows all five category tabs and filters by them", async () => {
-    await renderBell();
-    fireEvent.click(screen.getByRole("button", { name: /Notifications, \d+ unread/ }));
-    const names = screen.getAllByRole("tab").map((t) => t.textContent);
-    expect(names).toEqual(["All", "Focus", "Others", "Watching", "@Mention"]);
-
-    const titlesFor = (tab) => {
-      fireEvent.click(screen.getByRole("tab", { name: tab }));
-      return screen.queryAllByRole("heading", { level: 3 }).length === 0
-        ? []
-        : screen.getAllByRole("listitem").map((li) => li.textContent);
+  it("opens the registered route for every notification type, marks it read and closes the panel", async () => {
+    const registered = Object.values(ROUTES);
+    const expected = {
+      "Low Stock Alert": ROUTES.itemMaster,
+      "Out of Stock": ROUTES.itemMaster,
+      "Pending GRN": ROUTES.inward,
+      "Pending Delivery Note": ROUTES.deliveryNote,
+      "Stock Discrepancy": ROUTES.stockReconciliation,
     };
-    expect(titlesFor("Watching").every((t) => /Stock/.test(t))).toBe(true);
-    expect(titlesFor("@Mention").every((t) => /Pending (GRN|Delivery Note)/.test(t))).toBe(true);
-    expect(titlesFor("Focus").every((t) => /High/.test(t))).toBe(true);
-    expect(titlesFor("Others").every((t) => !/High/.test(t))).toBe(true);
-    expect(titlesFor("All").length).toBeGreaterThan(titlesFor("Focus").length);
+    await renderBell();
+    let visited = 0;
+    for (const [title, path] of Object.entries(expected)) {
+      window.location.hash = "#/dashboard";
+      const before = Number(screen.getByTestId("notification-badge").textContent);
+      fireEvent.click(screen.getByRole("button", { name: /^Notifications/ }));
+      const match = screen.queryAllByText(title)[0];
+      if (!match) {
+        fireEvent.click(screen.getByRole("button", { name: /^Notifications/ }));
+        continue;
+      }
+      fireEvent.click(match.closest("button"));
+      visited += 1;
+      expect(registered).toContain(path);
+      expect(window.location.hash).toBe(`#${path}`);
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+      const after = screen.queryByTestId("notification-badge");
+      expect(after ? Number(after.textContent) : 0).toBe(before - 1);
+    }
+    expect(visited).toBeGreaterThanOrEqual(4);
   });
 
-  it("filters by module and keeps Procurement unavailable", async () => {
-    await renderBell();
-    fireEvent.click(screen.getByRole("button", { name: /Notifications, \d+ unread/ }));
-    fireEvent.click(screen.getByRole("button", { name: /Module filter/ }));
-    expect(screen.getByRole("option", { name: /Procurement/ })).toBeDisabled();
-    fireEvent.click(screen.getByRole("option", { name: "Inventory" }));
-    expect(screen.getAllByRole("listitem").length).toBeGreaterThan(0);
-    expect(screen.getByRole("button", { name: "Module filter: Inventory" })).toBeInTheDocument();
-  });
-
-  it("three-dot menu marks all read, clears read, and refreshes without duplicates", async () => {
-    await renderBell();
+  it("does not duplicate notifications across remounts and keeps read state", async () => {
+    const first = render(<NotificationBell />);
+    await waitFor(() => expect(screen.getByTestId("notification-badge")).toBeInTheDocument());
     const total = Number(screen.getByTestId("notification-badge").textContent);
     fireEvent.click(screen.getByRole("button", { name: /Notifications, \d+ unread/ }));
+    fireEvent.click(screen.getAllByTitle("Mark as read")[0]);
+    first.unmount();
+    for (let i = 0; i < 2; i += 1) {
+      const again = render(<NotificationBell />);
+      await waitFor(() => expect(screen.getByTestId("notification-badge")).toHaveTextContent(String(total - 1)));
+      again.unmount();
+    }
+    expect(JSON.parse(localStorage.getItem(NOTIFICATION_STORAGE_KEY)).notifications).toHaveLength(total);
+  });
 
-    fireEvent.click(screen.getByRole("button", { name: "More notification actions" }));
-    fireEvent.click(screen.getByRole("menuitem", { name: "Mark all as read" }));
+  it("shows only the All and Unread filters and no module dropdown", async () => {
+    await renderBell();
+    fireEvent.click(screen.getByRole("button", { name: /Notifications, \d+ unread/ }));
+    expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual(["All", "Unread"]);
+    for (const removed of [/Focus/, /Others/, /Watching/, /Mention/, /All modules/, /Module filter/]) {
+      expect(screen.queryByRole("tab", { name: removed })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: removed })).not.toBeInTheDocument();
+    }
+    expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+    expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
+
+    const total = screen.getAllByRole("listitem").length;
+    fireEvent.click(screen.getByRole("tab", { name: "Unread" }));
+    expect(screen.getAllByRole("listitem").length).toBe(Number(screen.getByTestId("notification-badge").textContent));
+    fireEvent.click(screen.getByRole("tab", { name: "All" }));
+    expect(screen.getAllByRole("listitem")).toHaveLength(total);
+  });
+
+  it("puts Mark all as read on the title row, with tabs below and no three-dot menu", async () => {
+    await renderBell();
+    fireEvent.click(screen.getByRole("button", { name: /Notifications, \d+ unread/ }));
+    const heading = screen.getByRole("heading", { name: "Notifications" });
+    const markAll = screen.getByRole("button", { name: "Mark all as read" });
+    expect(heading.parentElement).toBe(markAll.parentElement);
+    expect(heading.parentElement.className).toContain("justify-between");
+    const tabs = screen.getByRole("tablist");
+    expect(tabs.contains(markAll)).toBe(false);
+    expect(heading.compareDocumentPosition(tabs) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(tabs.compareDocumentPosition(screen.getByRole("region", { name: "Today" })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "More notification actions" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Refresh notifications" })).not.toBeInTheDocument();
+    fireEvent.click(markAll);
     expect(screen.queryByTestId("notification-badge")).not.toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: "Refresh notifications", hidden: false }));
-    await waitFor(() => expect(screen.getAllByRole("listitem")).toHaveLength(total));
-
-    fireEvent.click(screen.getByRole("button", { name: "More notification actions" }));
-    fireEvent.click(screen.getByRole("menuitem", { name: "Clear read notifications" }));
-    expect(screen.getByText("No notifications yet.")).toBeInTheDocument();
-
-    // Cleared conditions are still unresolved, so a refresh must not announce them again.
-    fireEvent.click(screen.getByRole("button", { name: "Refresh notifications" }));
-    await new Promise((resolve) => setTimeout(resolve, 100));
-    expect(screen.queryByTestId("notification-badge")).not.toBeInTheDocument();
-    expect(screen.getByText("No notifications yet.")).toBeInTheDocument();
+    expect(markAll).toBeDisabled();
   });
 });
 
@@ -271,15 +312,13 @@ describe("date grouping", () => {
     expect(DATE_GROUPS).toHaveLength(4);
   });
 
-  it("filters by tab, module and unread, and clears only read items", () => {
+  it("filters by unread only, and clears only read items", () => {
     const list = [
       { id: "1", type: "low-stock", priority: "High", read: false, module: "inventory" },
       { id: "2", type: "pending-grn", priority: "Medium", read: true },
     ];
-    expect(filterNotifications(list, { tab: "focus" }).map((n) => n.id)).toEqual(["1"]);
-    expect(filterNotifications(list, { tab: "mention" }).map((n) => n.id)).toEqual(["2"]);
+    expect(filterNotifications(list).map((n) => n.id)).toEqual(["1", "2"]);
     expect(filterNotifications(list, { unreadOnly: true }).map((n) => n.id)).toEqual(["1"]);
-    expect(filterNotifications(list, { module: "procurement" })).toEqual([]);
     expect(clearRead({ ...createEmptyState(), notifications: list }).notifications.map((n) => n.id)).toEqual(["1"]);
   });
 });

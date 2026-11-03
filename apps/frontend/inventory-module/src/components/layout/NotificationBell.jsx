@@ -1,22 +1,17 @@
-import { useEffect, useId, useRef, useState } from "react";
+﻿import { useEffect, useId, useRef, useState } from "react";
 import {
   AlertTriangle,
   ArrowDownLeft,
   Bell,
   BellOff,
   Check,
-  ChevronDown,
   ClipboardCheck,
-  EllipsisVertical,
   PackageX,
-  RefreshCw,
   Truck,
 } from "lucide-react";
 import { buildHref } from "../../hooks/useHashRoute.js";
 import { useNotifications } from "../../hooks/useNotifications.js";
 import {
-  NOTIFICATION_MODULES,
-  NOTIFICATION_TABS,
   NOTIFICATION_TYPES,
   filterNotifications,
   formatRelativeTime,
@@ -44,10 +39,6 @@ const BUTTON_STYLES = {
   default: "size-9 bg-workspace text-ink hover:bg-line",
   compact: "size-8 text-[#1b2631] hover:bg-workspace",
 };
-
-const MENU_PANEL = "absolute top-full z-10 mt-1 overflow-hidden rounded-lg border border-line bg-surface py-1 shadow-[0_8px_24px_rgba(15,23,42,0.12)]";
-const MENU_ITEM =
-  "flex w-full items-center gap-2 px-3 py-2 text-left text-[12px] font-medium text-ink hover:bg-workspace disabled:cursor-not-allowed disabled:text-placeholder disabled:hover:bg-transparent";
 
 function NotificationItem({ notification, now, onSelect, onMarkRead }) {
   const { icon: Icon, tone } = TYPE_ICONS[notification.type] ?? TYPE_ICONS[NOTIFICATION_TYPES.lowStock];
@@ -79,7 +70,7 @@ function NotificationItem({ notification, now, onSelect, onMarkRead }) {
             {notification.priority}
           </span>
         </span>
-        <span className="mt-1 line-clamp-3 block text-[13px] leading-[18px] text-muted">{notification.message}</span>
+        <span className="mt-1 line-clamp-3 block break-words text-[13px] leading-[18px] text-muted">{notification.message}</span>
       </button>
       <span className="flex shrink-0 flex-col items-end gap-1.5">
         <span className="text-[12px] leading-5 text-muted">{formatRelativeTime(notification.createdAt, now)}</span>
@@ -99,141 +90,24 @@ function NotificationItem({ notification, now, onSelect, onMarkRead }) {
   );
 }
 
-function ModuleFilter({ value, onChange }) {
-  const [isOpen, setIsOpen] = useState(false);
-  const ref = useRef(null);
-  const current = NOTIFICATION_MODULES.find((m) => m.key === value) ?? NOTIFICATION_MODULES[0];
+const FILTER_TABS = [
+  { key: "all", label: "All" },
+  { key: "unread", label: "Unread" },
+];
 
-  useEffect(() => {
-    if (!isOpen) return undefined;
-    function handlePointerDown(event) {
-      if (!ref.current?.contains(event.target)) setIsOpen(false);
-    }
-    function handleKeyDown(event) {
-      if (event.key !== "Escape") return;
-      event.stopPropagation();
-      setIsOpen(false);
-    }
-    document.addEventListener("pointerdown", handlePointerDown);
-    document.addEventListener("keydown", handleKeyDown, true);
-    return () => {
-      document.removeEventListener("pointerdown", handlePointerDown);
-      document.removeEventListener("keydown", handleKeyDown, true);
-    };
-  }, [isOpen]);
-
-  return (
-    <div ref={ref} className="relative">
-      <button
-        type="button"
-        onClick={() => setIsOpen((open) => !open)}
-        aria-haspopup="listbox"
-        aria-expanded={isOpen}
-        aria-label={`Module filter: ${current.label}`}
-        className="flex items-center gap-1 rounded-md py-1 text-[13px] font-semibold text-ink hover:text-navy"
-      >
-        {current.label}
-        <ChevronDown size={14} aria-hidden="true" className={isOpen ? "rotate-180" : ""} />
-      </button>
-      {isOpen && (
-        <div role="listbox" aria-label="Modules" className={`${MENU_PANEL} left-0 w-44`}>
-          {NOTIFICATION_MODULES.map((module) => (
-            <button
-              key={module.key}
-              type="button"
-              role="option"
-              aria-selected={module.key === value}
-              disabled={!module.available}
-              onClick={() => {
-                onChange(module.key);
-                setIsOpen(false);
-              }}
-              className={MENU_ITEM}
-            >
-              <span className="flex-1">{module.label}</span>
-              {!module.available && <span className="text-[10px] font-normal">Soon</span>}
-              {module.key === value && <Check size={13} aria-hidden="true" />}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function MoreMenu({ unreadCount, hasRead, onMarkAll, onClearRead, onRefresh }) {
-  const [isOpen, setIsOpen] = useState(false);
-  const ref = useRef(null);
-
-  useEffect(() => {
-    if (!isOpen) return undefined;
-    function handlePointerDown(event) {
-      if (!ref.current?.contains(event.target)) setIsOpen(false);
-    }
-    function handleKeyDown(event) {
-      if (event.key !== "Escape") return;
-      event.stopPropagation();
-      setIsOpen(false);
-    }
-    document.addEventListener("pointerdown", handlePointerDown);
-    document.addEventListener("keydown", handleKeyDown, true);
-    return () => {
-      document.removeEventListener("pointerdown", handlePointerDown);
-      document.removeEventListener("keydown", handleKeyDown, true);
-    };
-  }, [isOpen]);
-
-  function run(action) {
-    setIsOpen(false);
-    action();
-  }
-
-  return (
-    <div ref={ref} className="relative">
-      <button
-        type="button"
-        onClick={() => setIsOpen((open) => !open)}
-        aria-haspopup="menu"
-        aria-expanded={isOpen}
-        aria-label="More notification actions"
-        className="grid size-7 place-items-center rounded-full text-muted hover:bg-line hover:text-ink"
-      >
-        <EllipsisVertical size={16} aria-hidden="true" />
-      </button>
-      {isOpen && (
-        <div role="menu" aria-label="Notification actions" className={`${MENU_PANEL} right-0 w-52`}>
-          <button type="button" role="menuitem" disabled={unreadCount === 0} onClick={() => run(onMarkAll)} className={MENU_ITEM}>
-            Mark all as read
-          </button>
-          <button type="button" role="menuitem" disabled={!hasRead} onClick={() => run(onClearRead)} className={MENU_ITEM}>
-            Clear read notifications
-          </button>
-          <button type="button" role="menuitem" onClick={() => run(onRefresh)} className={MENU_ITEM}>
-            Refresh notifications
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function getEmptyText({ unreadOnly, tab, module, hasAny }) {
+function getEmptyText({ unreadOnly, hasAny }) {
   if (!hasAny) return "No notifications yet.";
   if (unreadOnly) return "You're all caught up. No unread notifications.";
-  if (tab !== "all" || module !== "all") return "No notifications match these filters.";
   return "No notifications yet.";
 }
 
 function NotificationBell({ variant = "default" }) {
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("all");
-  const [moduleFilter, setModuleFilter] = useState("all");
-  const [unreadOnly, setUnreadOnly] = useState(false);
-  const [isRefreshing, setIsRefreshing] = useState(false);
   const [now, setNow] = useState(() => new Date());
   const containerRef = useRef(null);
   const panelId = useId();
-  const { notifications, unreadCount, markAsRead, markAllAsRead, clearRead, refresh } = useNotifications();
+  const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
 
   useEffect(() => {
     if (!isOpen) return undefined;
@@ -254,20 +128,15 @@ function NotificationBell({ variant = "default" }) {
     };
   }, [isOpen]);
 
-  const visible = filterNotifications(notifications, { tab: activeTab, module: moduleFilter, unreadOnly });
+  const unreadOnly = activeTab === "unread";
+  const visible = filterNotifications(notifications, { unreadOnly });
   const groups = groupByDate(visible, now);
 
   function handleSelect(notification) {
+    // Navigate first so the state updates below can never swallow the route change.
+    window.location.hash = buildHref(notification.route).slice(1);
     markAsRead(notification.id);
     setIsOpen(false);
-    window.location.hash = buildHref(notification.route).slice(1);
-  }
-
-  async function handleRefresh() {
-    setIsRefreshing(true);
-    await refresh();
-    setNow(new Date());
-    setIsRefreshing(false);
   }
 
   return (
@@ -298,27 +167,27 @@ function NotificationBell({ variant = "default" }) {
           id={panelId}
           role="dialog"
           aria-label="Notifications"
-          className="fixed inset-x-3 top-[72px] z-30 flex max-h-[min(540px,calc(100vh-88px))] flex-col overflow-hidden rounded-2xl border border-navy/50 bg-surface shadow-[0_16px_40px_rgba(15,23,42,0.18)] md:absolute md:inset-x-auto md:right-0 md:top-full md:mt-2 md:w-[540px] md:max-h-[min(540px,calc(100vh-96px))]"
+          className="fixed inset-x-3 top-[72px] z-30 flex max-h-[min(520px,calc(100dvh-88px))] max-w-[calc(100vw-1.5rem)] flex-col overflow-hidden rounded-2xl border border-navy/50 bg-surface shadow-[0_16px_40px_rgba(15,23,42,0.18)] sm:inset-x-auto sm:right-3 sm:w-[400px] md:absolute md:right-0 md:top-full md:mt-2 md:max-h-[min(520px,calc(100dvh-96px))]"
         >
           <div className="shrink-0">
-            <div className="flex items-center gap-2.5 px-5 pt-4">
+            <div className="flex items-center justify-between gap-2.5 px-5 pt-4">
               <h2 className="text-[20px] font-bold leading-7 text-ink">Notifications</h2>
               <button
                 type="button"
-                onClick={handleRefresh}
-                aria-label="Refresh notifications"
-                className="grid size-7 place-items-center rounded-full text-muted hover:bg-workspace hover:text-ink"
+                onClick={markAllAsRead}
+                disabled={unreadCount === 0}
+                className="whitespace-nowrap text-[13px] font-semibold text-navy hover:underline disabled:cursor-not-allowed disabled:text-placeholder disabled:no-underline"
               >
-                <RefreshCw size={16} className={isRefreshing ? "animate-spin" : ""} aria-hidden="true" />
+                Mark all as read
               </button>
             </div>
 
             <div
               role="tablist"
-              aria-label="Notification categories"
+              aria-label="Notification filter"
               className="flex gap-5 overflow-x-auto overflow-y-hidden px-5 pt-1"
             >
-              {NOTIFICATION_TABS.map((tab) => {
+              {FILTER_TABS.map((tab) => {
                 const selected = activeTab === tab.key;
                 return (
                   <button
@@ -337,52 +206,18 @@ function NotificationBell({ variant = "default" }) {
               })}
             </div>
 
-            <div className="flex items-center gap-4 border-y border-line bg-surface-muted px-5 py-2.5">
-              <ModuleFilter value={moduleFilter} onChange={setModuleFilter} />
-              <div className="ml-auto flex items-center gap-4">
-                <label className="flex cursor-pointer items-center gap-2 text-[13px] text-ink-soft">
-                  <input
-                    type="checkbox"
-                    checked={unreadOnly}
-                    onChange={(event) => setUnreadOnly(event.target.checked)}
-                    className="size-4 rounded border-field-line accent-navy"
-                  />
-                  Unread
-                </label>
-                <button
-                  type="button"
-                  onClick={markAllAsRead}
-                  disabled={unreadCount === 0}
-                  className="whitespace-nowrap text-[13px] font-semibold text-navy hover:underline disabled:cursor-not-allowed disabled:text-placeholder disabled:no-underline"
-                >
-                  Mark all as read
-                </button>
-                <span aria-hidden="true" className="h-4 w-px bg-line" />
-                <MoreMenu
-                  unreadCount={unreadCount}
-                  hasRead={notifications.some((n) => n.read)}
-                  onMarkAll={markAllAsRead}
-                  onClearRead={clearRead}
-                  onRefresh={handleRefresh}
-                />
-              </div>
-            </div>
+            <div className="border-b border-line" />
           </div>
 
           {groups.length === 0 ? (
             <div className="flex flex-col items-center gap-2 px-6 py-12 text-center">
               <BellOff size={26} className="text-placeholder" aria-hidden="true" />
               <p className="text-[13px] text-muted">
-                {getEmptyText({
-                  unreadOnly,
-                  tab: activeTab,
-                  module: moduleFilter,
-                  hasAny: notifications.length > 0,
-                })}
+                {getEmptyText({ unreadOnly, hasAny: notifications.length > 0 })}
               </p>
             </div>
           ) : (
-            <div data-testid="notification-scroll" className="min-h-0 flex-1 overflow-y-auto">
+            <div data-testid="notification-scroll" className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain scroll-smooth">
               {groups.map((group) => (
                 <section key={group.label} aria-label={group.label}>
                   <h3 className="border-b border-dashed border-line bg-surface px-5 pb-1.5 pt-3 text-[12px] font-semibold uppercase tracking-wide text-placeholder">

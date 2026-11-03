@@ -1,4 +1,5 @@
-import { Bell, Menu, Search } from "lucide-react";
+import { Menu, Search } from "lucide-react";
+import NotificationBell from "./NotificationBell.jsx";
 import UserMenu from "./UserMenu.jsx";
 
 function MenuButton({ isMenuOpen, onOpenMenu }) {
@@ -48,13 +49,7 @@ function TopBar({ title, titleAdornment, searchPlaceholder, searchValue, onSearc
             onChange={onSearchChange}
             className="hidden h-[34px] w-[240px] items-center gap-2 rounded-md bg-[#f1f3f5] px-3 text-[#4b5563] focus-within:ring-2 focus-within:ring-navy/15 md:flex"
           />
-          <button
-            type="button"
-            aria-label="Notifications"
-            className="grid size-8 place-items-center rounded-full text-[#1b2631] hover:bg-workspace"
-          >
-            <Bell size={19} aria-hidden="true" />
-          </button>
+          <NotificationBell size="compact" />
           <span aria-hidden="true" className="hidden h-5 w-px bg-[#e0e0e0] sm:block" />
           <UserMenu size="compact" />
         </div>
@@ -77,13 +72,7 @@ function TopBar({ title, titleAdornment, searchPlaceholder, searchValue, onSearc
           onChange={onSearchChange}
           className="hidden h-9 w-[240px] items-center gap-2 rounded-full border border-line bg-workspace px-3 text-muted focus-within:border-muted md:flex"
         />
-        <button
-          type="button"
-          aria-label="Notifications"
-          className="grid size-9 place-items-center rounded-full bg-workspace text-ink hover:bg-line"
-        >
-          <Bell size={18} strokeWidth={2.25} aria-hidden="true" />
-        </button>
+        <NotificationBell />
         <UserMenu />
       </div>
     </header>

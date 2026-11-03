@@ -59,14 +59,12 @@ export function useNotifications() {
 
   const markAsRead = useCallback((id) => commit(notificationService.markAsRead(stateRef.current, id)), [commit]);
   const markAllAsRead = useCallback(() => commit(notificationService.markAllAsRead(stateRef.current)), [commit]);
-  const clearRead = useCallback(() => commit(notificationService.clearRead(stateRef.current)), [commit]);
 
   return {
     notifications: state.notifications,
     unreadCount: notificationService.getUnreadCount(state),
     markAsRead,
     markAllAsRead,
-    clearRead,
     refresh: sync,
   };
 }

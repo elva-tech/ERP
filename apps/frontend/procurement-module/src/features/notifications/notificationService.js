@@ -1,14 +1,17 @@
 import { ROUTES } from "../../config/navigation.js";
 import { formatInr } from "../../lib/formatters.js";
 import { listApprovalHistory, listPendingApprovals } from "../approvals/approvalService.js";
+import { listPurchaseInvoices } from "../purchase-invoices/purchaseInvoiceService.js";
 import { listPurchaseOrders } from "../purchase-orders/purchaseOrderService.js";
 import { listPurchaseRequisitions } from "../purchase-requisitions/purchaseRequisitionService.js";
-import { listSuppliers } from "../suppliers/supplierService.js";
+import { listPurchaseReturns } from "../purchase-returns/purchaseReturnService.js";
+import { listSubcontractAgreements } from "../subcontract-agreements/subcontractAgreementService.js";
+import { listSubcontractBills } from "../subcontract-bills/subcontractBillService.js";
 
 /**
  * Procurement notifications.
  *
- * Notifications are derived from the real Procurement API (the same services the screens use) and are
+ * Notifications are derived from the Procurement API (the same services the screens use) and are
  * kept in localStorage under a Procurement-only key. Nothing here is shared with other modules.
  * To move to a backend notification feed, replace `fetchSnapshot` and the load/save functions;
  * the UI only talks to `notificationService`.
@@ -20,10 +23,13 @@ const SOURCE_PAGE_SIZE = 50;
 
 export const NOTIFICATION_TYPES = {
   pendingRequisition: "pending-requisition",
+  requisitionUpdate: "requisition-update",
   pendingPoApproval: "pending-po-approval",
   poUpdate: "po-update",
-  supplierUpdate: "supplier-update",
-  workflowDecision: "workflow-decision",
+  invoiceException: "invoice-exception",
+  returnUpdate: "return-update",
+  agreementUpdate: "agreement-update",
+  subcontractBillUpdate: "subcontract-bill-update",
 };
 
 export const NOTIFICATION_PRIORITIES = { high: "High", medium: "Medium", low: "Low" };
@@ -34,14 +40,19 @@ const PRIORITY_BY_API_VALUE = {
   low: NOTIFICATION_PRIORITIES.low,
 };
 
-/** Each snapshot source feeds one notification type, so a failed source only pauses its own type. */
+/** Each snapshot source feeds its own notification types, so a failed source only pauses those types. */
 const SOURCE_TYPES = {
   requisitions: [NOTIFICATION_TYPES.pendingRequisition],
   pendingPoApprovals: [NOTIFICATION_TYPES.pendingPoApproval],
   purchaseOrders: [NOTIFICATION_TYPES.poUpdate],
-  suppliers: [NOTIFICATION_TYPES.supplierUpdate],
-  approvalHistory: [NOTIFICATION_TYPES.workflowDecision],
+  approvalHistory: [NOTIFICATION_TYPES.requisitionUpdate, NOTIFICATION_TYPES.poUpdate],
+  purchaseInvoices: [NOTIFICATION_TYPES.invoiceException],
+  purchaseReturns: [NOTIFICATION_TYPES.returnUpdate],
+  subcontractAgreements: [NOTIFICATION_TYPES.agreementUpdate],
+  subcontractBills: [NOTIFICATION_TYPES.subcontractBillUpdate],
 };
+
+const KNOWN_TYPES = new Set(Object.values(NOTIFICATION_TYPES));
 
 export function createEmptyState() {
   return { notifications: [], active: {}, occurrences: {} };
@@ -51,12 +62,23 @@ function isPlainObject(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
+function typeOfKey(key) {
+  return key.slice(0, key.indexOf(":"));
+}
+
+/** Drops anything stored by earlier versions for notification types Procurement no longer uses. */
 function normalizeState(raw) {
   if (!isPlainObject(raw) || !Array.isArray(raw.notifications)) return createEmptyState();
+  const pickKnown = (value) =>
+    isPlainObject(value)
+      ? Object.fromEntries(Object.entries(value).filter(([key]) => KNOWN_TYPES.has(typeOfKey(key))))
+      : {};
   return {
-    notifications: raw.notifications.filter((n) => isPlainObject(n) && typeof n.id === "string"),
-    active: isPlainObject(raw.active) ? raw.active : {},
-    occurrences: isPlainObject(raw.occurrences) ? raw.occurrences : {},
+    notifications: raw.notifications.filter(
+      (n) => isPlainObject(n) && typeof n.id === "string" && KNOWN_TYPES.has(n.type),
+    ),
+    active: pickKnown(raw.active),
+    occurrences: pickKnown(raw.occurrences),
   };
 }
 
@@ -103,17 +125,83 @@ function recordRoute(type, id, number) {
   return { route: ROUTES.recordDetail, query: { type, id, number: number ?? "" } };
 }
 
+function listRoute(route) {
+  return { route, query: null };
+}
+
+const DECISION_LABELS = { approved: "Approved", rejected: "Rejected", returned: "Returned" };
+const DECISION_PRIORITIES = {
+  approved: NOTIFICATION_PRIORITIES.low,
+  rejected: NOTIFICATION_PRIORITIES.high,
+  returned: NOTIFICATION_PRIORITIES.medium,
+};
+
+function isInvoiceException(invoice) {
+  const flags = [invoice.matchStatus, invoice.status, invoice.exceptionStatus];
+  return (
+    invoice.hasMismatch === true ||
+    invoice.hasException === true ||
+    (Array.isArray(invoice.exceptions) && invoice.exceptions.length > 0) ||
+    flags.some((value) => value === "mismatch" || value === "exception")
+  );
+}
+
+const RETURN_UPDATES = {
+  pending_approval: {
+    title: "Purchase Return Awaiting Approval",
+    verb: "is awaiting approval",
+    priority: NOTIFICATION_PRIORITIES.medium,
+  },
+  rejected: { title: "Purchase Return Rejected", verb: "was rejected", priority: NOTIFICATION_PRIORITIES.high },
+  credit_note_issued: {
+    title: "Purchase Return Approved",
+    verb: "was approved and a credit note was issued",
+    priority: NOTIFICATION_PRIORITIES.low,
+  },
+};
+
+const AGREEMENT_UPDATES = {
+  active: { title: "Subcontract Agreement Active", verb: "is now active", priority: NOTIFICATION_PRIORITIES.low },
+  completed: {
+    title: "Subcontract Agreement Completed",
+    verb: "was marked completed",
+    priority: NOTIFICATION_PRIORITIES.low,
+  },
+  expired: {
+    title: "Subcontract Agreement Expired",
+    verb: "has expired",
+    priority: NOTIFICATION_PRIORITIES.high,
+  },
+};
+
+const BILL_UPDATES = {
+  submitted: {
+    title: "Subcontract Bill Needs Review",
+    verb: "was submitted and needs review",
+    priority: NOTIFICATION_PRIORITIES.medium,
+  },
+  verified: {
+    title: "Subcontract Bill Verified",
+    verb: "was verified and awaits approval",
+    priority: NOTIFICATION_PRIORITIES.medium,
+  },
+  approved: { title: "Subcontract Bill Approved", verb: "was approved", priority: NOTIFICATION_PRIORITIES.low },
+};
+
 /**
  * Turns a snapshot of Procurement records into the currently unresolved conditions.
  * A source that is `null` (failed to load) contributes nothing.
- * Each condition is identified by `type:sourceId`.
+ * Each condition is identified by `type:sourceId`, so a status change is a new event.
  */
 export function detectConditions({
   requisitions,
   pendingPoApprovals,
   purchaseOrders,
-  suppliers,
   approvalHistory,
+  purchaseInvoices,
+  purchaseReturns,
+  subcontractAgreements,
+  subcontractBills,
 } = {}) {
   const conditions = [];
 
@@ -123,7 +211,7 @@ export function detectConditions({
     const requester = pr.requestedBy?.displayName ? ` by ${pr.requestedBy.displayName}` : "";
     conditions.push(
       makeCondition(NOTIFICATION_TYPES.pendingRequisition, pr.id, {
-        title: "Requisition Pending",
+        title: "Requisition Pending Approval",
         message: `${pr.requisitionNumber}${summary}, requested${requester}, is awaiting approval.`,
         priority: priorityFrom(pr.priority),
         occurredAt: eventTime(pr.requestDate),
@@ -142,63 +230,113 @@ export function detectConditions({
         message: `${approval.document?.number ?? "Purchase order"}${amount}${requester} needs your approval.`,
         priority: priorityFrom(approval.priority),
         occurredAt: eventTime(approval.submittedAt),
-        route: ROUTES.pendingApprovals,
-        query: null,
-      }),
-    );
-  }
-
-  for (const po of purchaseOrders ?? []) {
-    const supplier = po.supplier?.name ? ` (${po.supplier.name})` : "";
-    if (po.status === "partially_received") {
-      conditions.push(
-        makeCondition(NOTIFICATION_TYPES.poUpdate, `${po.id}:${po.status}`, {
-          title: "PO Partially Received",
-          message: `${po.orderNumber}${supplier} has been partially received; the balance is still outstanding.`,
-          priority: NOTIFICATION_PRIORITIES.low,
-          occurredAt: null,
-          ...recordRoute("purchaseOrder", po.id, po.orderNumber),
-        }),
-      );
-    } else if (po.status === "cancelled") {
-      conditions.push(
-        makeCondition(NOTIFICATION_TYPES.poUpdate, `${po.id}:${po.status}`, {
-          title: "PO Cancelled",
-          message: `${po.orderNumber}${supplier} was cancelled.`,
-          priority: NOTIFICATION_PRIORITIES.medium,
-          occurredAt: null,
-          ...recordRoute("purchaseOrder", po.id, po.orderNumber),
-        }),
-      );
-    }
-  }
-
-  for (const supplier of suppliers ?? []) {
-    if (supplier.status !== "inactive") continue;
-    conditions.push(
-      makeCondition(NOTIFICATION_TYPES.supplierUpdate, supplier.id, {
-        title: "Supplier Inactive",
-        message: `${supplier.name} (${supplier.code}) is inactive and cannot be used for new orders.`,
-        priority: NOTIFICATION_PRIORITIES.low,
-        occurredAt: null,
-        route: ROUTES.supplierMaster,
-        query: null,
+        ...listRoute(ROUTES.pendingApprovals),
       }),
     );
   }
 
   for (const item of approvalHistory ?? []) {
-    const approved = item.decision === "approved";
+    const label = DECISION_LABELS[item.decision];
+    if (!label) continue;
+    const number = item.document?.number ?? "";
     const by = item.decidedBy?.displayName ? ` by ${item.decidedBy.displayName}` : "";
+    const message = `${number} was ${item.decision}${by}.`.trim();
+    const decidedAt = eventTime(item.decidedAt);
+    const priority = DECISION_PRIORITIES[item.decision];
+
+    if (item.documentType === "purchaseRequisition") {
+      conditions.push(
+        makeCondition(NOTIFICATION_TYPES.requisitionUpdate, item.id, {
+          title: `Requisition ${label}`,
+          message: number ? `Requisition ${message}` : `A requisition was ${item.decision}${by}.`,
+          priority,
+          occurredAt: decidedAt,
+          ...(item.document?.id
+            ? recordRoute("purchaseRequisition", item.document.id, number)
+            : listRoute(ROUTES.purchaseRequisitions)),
+        }),
+      );
+    } else if (item.documentType === "purchaseOrder") {
+      conditions.push(
+        makeCondition(NOTIFICATION_TYPES.poUpdate, `approval:${item.id}`, {
+          title: `PO Approval ${label}`,
+          message: number ? `Purchase order ${message}` : `A purchase order was ${item.decision}${by}.`,
+          priority,
+          occurredAt: decidedAt,
+          ...(item.document?.id
+            ? recordRoute("purchaseOrder", item.document.id, number)
+            : listRoute(ROUTES.purchaseOrders)),
+        }),
+      );
+    }
+  }
+
+  for (const po of purchaseOrders ?? []) {
+    if (po.status !== "sent") continue;
+    const supplier = po.supplier?.name ? ` to ${po.supplier.name}` : "";
     conditions.push(
-      makeCondition(NOTIFICATION_TYPES.workflowDecision, item.id, {
-        title: approved ? "Approval Granted" : "Approval Rejected",
-        message: `${item.documentTypeLabel} ${item.document?.number ?? ""} was ${approved ? "approved" : "rejected"}${by}.`
-          .replace(/\s{2,}/g, " "),
-        priority: approved ? NOTIFICATION_PRIORITIES.low : NOTIFICATION_PRIORITIES.high,
-        occurredAt: eventTime(item.decidedAt),
-        route: ROUTES.approvalHistory,
-        query: null,
+      makeCondition(NOTIFICATION_TYPES.poUpdate, `issued:${po.id}`, {
+        title: "PO Issued",
+        message: `${po.orderNumber} was issued${supplier}.`,
+        priority: NOTIFICATION_PRIORITIES.low,
+        occurredAt: null,
+        ...recordRoute("purchaseOrder", po.id, po.orderNumber),
+      }),
+    );
+  }
+
+  for (const invoice of purchaseInvoices ?? []) {
+    if (!isInvoiceException(invoice)) continue;
+    const supplier = invoice.supplier?.name ? ` from ${invoice.supplier.name}` : "";
+    conditions.push(
+      makeCondition(NOTIFICATION_TYPES.invoiceException, invoice.id, {
+        title: "Invoice Mismatch",
+        message: `${invoice.invoiceNumber}${supplier} has a mismatch or exception that needs review.`,
+        priority: NOTIFICATION_PRIORITIES.high,
+        occurredAt: eventTime(invoice.updatedAt),
+        ...recordRoute("purchaseInvoice", invoice.id, invoice.invoiceNumber),
+      }),
+    );
+  }
+
+  for (const item of purchaseReturns ?? []) {
+    const update = RETURN_UPDATES[item.status];
+    if (!update) continue;
+    conditions.push(
+      makeCondition(NOTIFICATION_TYPES.returnUpdate, `${item.id}:${item.status}`, {
+        title: update.title,
+        message: `${item.returnNumber} ${update.verb}.`,
+        priority: update.priority,
+        occurredAt: eventTime(item.updatedAt),
+        ...listRoute(ROUTES.purchaseReturns),
+      }),
+    );
+  }
+
+  for (const agreement of subcontractAgreements ?? []) {
+    const update = AGREEMENT_UPDATES[agreement.status];
+    if (!update) continue;
+    conditions.push(
+      makeCondition(NOTIFICATION_TYPES.agreementUpdate, `${agreement.id}:${agreement.status}`, {
+        title: update.title,
+        message: `${agreement.agreementNumber} ${update.verb}.`,
+        priority: update.priority,
+        occurredAt: eventTime(agreement.updatedAt),
+        ...recordRoute("subcontractAgreement", agreement.id, agreement.agreementNumber),
+      }),
+    );
+  }
+
+  for (const bill of subcontractBills ?? []) {
+    const update = BILL_UPDATES[bill.status];
+    if (!update) continue;
+    conditions.push(
+      makeCondition(NOTIFICATION_TYPES.subcontractBillUpdate, `${bill.id}:${bill.status}`, {
+        title: update.title,
+        message: `${bill.billNumber} ${update.verb}.`,
+        priority: update.priority,
+        occurredAt: eventTime(bill.updatedAt),
+        ...listRoute(ROUTES.subcontractBills),
       }),
     );
   }
@@ -227,8 +365,7 @@ export function reconcileNotifications(state, conditions, { now = new Date(), lo
   let resolvedAny = false;
 
   for (const [key, id] of Object.entries(state.active)) {
-    const type = key.slice(0, key.indexOf(":"));
-    if (!isLoaded(type) || detectedKeys.has(key)) active[key] = id;
+    if (!isLoaded(typeOfKey(key)) || detectedKeys.has(key)) active[key] = id;
     else resolvedAny = true;
   }
 
@@ -244,7 +381,6 @@ export function reconcileNotifications(state, conditions, { now = new Date(), lo
       conditionKey: condition.key,
       type: condition.type,
       sourceId: condition.sourceId,
-      module: DEFAULT_MODULE,
       title: condition.title,
       message: condition.message,
       priority: condition.priority,
@@ -273,78 +409,13 @@ export function markAllAsRead(state) {
   return { ...state, notifications: state.notifications.map((n) => (n.read ? n : { ...n, read: true })) };
 }
 
-/**
- * Removes read notifications from the list. Their conditions stay in `active`,
- * so a still-unresolved condition is not announced again.
- */
-export function clearRead(state) {
-  if (!state.notifications.some((n) => n.read)) return state;
-  return { ...state, notifications: state.notifications.filter((n) => !n.read) };
-}
-
 export function getUnreadCount(state) {
   return state.notifications.filter((n) => !n.read).length;
 }
 
-// --- Modules, categories and tabs -----------------------------------------
-
-export const DEFAULT_MODULE = "procurement";
-
-/** Other ERP modules are listed so the filter is ready for them; they stay disabled until integrated. */
-export const NOTIFICATION_MODULES = [
-  { key: "all", label: "All modules", available: true },
-  { key: "procurement", label: "Procurement", available: true },
-  { key: "inventory", label: "Inventory", available: false },
-];
-
-export const NOTIFICATION_CATEGORIES = {
-  [NOTIFICATION_TYPES.pendingRequisition]: "Requisition",
-  [NOTIFICATION_TYPES.pendingPoApproval]: "Approval",
-  [NOTIFICATION_TYPES.poUpdate]: "Purchase Order",
-  [NOTIFICATION_TYPES.supplierUpdate]: "Supplier",
-  [NOTIFICATION_TYPES.workflowDecision]: "Workflow",
-};
-
-/**
- * Tabs are views over real notifications, never separate data:
- *  Focus     - High priority
- *  Others    - everything below High priority
- *  Watching  - status changes on orders and suppliers
- *  @Mention  - items waiting for your action (requisitions and PO approvals)
- */
-export const NOTIFICATION_TABS = [
-  { key: "all", label: "All", matches: () => true },
-  { key: "focus", label: "Focus", matches: (n) => n.priority === NOTIFICATION_PRIORITIES.high },
-  { key: "others", label: "Others", matches: (n) => n.priority !== NOTIFICATION_PRIORITIES.high },
-  {
-    key: "watching",
-    label: "Watching",
-    matches: (n) => n.type === NOTIFICATION_TYPES.poUpdate || n.type === NOTIFICATION_TYPES.supplierUpdate,
-  },
-  {
-    key: "mention",
-    label: "@Mention",
-    matches: (n) =>
-      n.type === NOTIFICATION_TYPES.pendingRequisition || n.type === NOTIFICATION_TYPES.pendingPoApproval,
-  },
-];
-
-export function getNotificationModule(notification) {
-  return notification.module ?? DEFAULT_MODULE;
-}
-
-export function getNotificationCategory(notification) {
-  return NOTIFICATION_CATEGORIES[notification.type] ?? "Procurement";
-}
-
-export function filterNotifications(notifications, { tab = "all", module = "all", unreadOnly = false } = {}) {
-  const tabMatches = NOTIFICATION_TABS.find((t) => t.key === tab)?.matches ?? (() => true);
-  return notifications.filter(
-    (n) =>
-      tabMatches(n) &&
-      (module === "all" || getNotificationModule(n) === module) &&
-      (!unreadOnly || !n.read),
-  );
+/** The panel only offers an All view and an Unread view. */
+export function filterNotifications(notifications, { unreadOnly = false } = {}) {
+  return unreadOnly ? notifications.filter((n) => !n.read) : notifications;
 }
 
 // --- Date grouping and relative time --------------------------------------
@@ -387,31 +458,39 @@ export function formatRelativeTime(isoDate, now = new Date()) {
 
 /**
  * Loads the records notifications are derived from. Each source fails independently: a failed
- * source is `null` and its types are left out of `loadedTypes`.
+ * source is `null` and its types are left out of `loadedTypes`. A type fed by several sources is
+ * only loaded when all of them loaded.
  */
 export async function fetchSnapshot(signal) {
+  const page = { page: 1, pageSize: SOURCE_PAGE_SIZE };
   const sources = {
-    requisitions: () => listPurchaseRequisitions({ page: 1, pageSize: SOURCE_PAGE_SIZE, status: "pending_approval" }, signal),
-    pendingPoApprovals: () =>
-      listPendingApprovals({ page: 1, pageSize: SOURCE_PAGE_SIZE, documentType: "purchaseOrder" }, signal),
-    purchaseOrders: () => listPurchaseOrders({ page: 1, pageSize: SOURCE_PAGE_SIZE }, signal),
-    suppliers: () => listSuppliers({ page: 1, pageSize: SOURCE_PAGE_SIZE, status: "inactive" }, signal),
-    approvalHistory: () =>
-      listApprovalHistory({ page: 1, pageSize: 20, dateRange: "last_30_days" }, signal),
+    requisitions: () => listPurchaseRequisitions({ ...page, status: "pending_approval" }, signal),
+    pendingPoApprovals: () => listPendingApprovals({ ...page, documentType: "purchaseOrder" }, signal),
+    purchaseOrders: () => listPurchaseOrders({ ...page, status: "sent" }, signal),
+    approvalHistory: () => listApprovalHistory({ page: 1, pageSize: 20, dateRange: "last_30_days" }, signal),
+    purchaseInvoices: () => listPurchaseInvoices(page, signal),
+    purchaseReturns: () => listPurchaseReturns(page, signal),
+    subcontractAgreements: () => listSubcontractAgreements(page, signal),
+    subcontractBills: () => listSubcontractBills(page, signal),
   };
   const names = Object.keys(sources);
   const results = await Promise.allSettled(names.map((name) => sources[name]()));
 
   const snapshot = {};
-  const loadedTypes = [];
+  const loadedSources = new Set();
   names.forEach((name, index) => {
     const result = results[index];
     if (result.status === "fulfilled" && Array.isArray(result.value?.items)) {
       snapshot[name] = result.value.items;
-      loadedTypes.push(...SOURCE_TYPES[name]);
+      loadedSources.add(name);
     } else {
       snapshot[name] = null;
     }
+  });
+
+  const loadedTypes = [...KNOWN_TYPES].filter((type) => {
+    const feeding = names.filter((name) => SOURCE_TYPES[name].includes(type));
+    return feeding.length > 0 && feeding.every((name) => loadedSources.has(name));
   });
   return { snapshot, loadedTypes };
 }
@@ -424,6 +503,5 @@ export const notificationService = {
   reconcile: reconcileNotifications,
   markAsRead,
   markAllAsRead,
-  clearRead,
   getUnreadCount,
 };

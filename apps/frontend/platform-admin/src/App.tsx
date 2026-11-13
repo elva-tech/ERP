@@ -1,7 +1,7 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import Sidebar from './components/Sidebar';
 import Topbar from './components/Topbar';
-
+import Notifications from './pages/notifications/Notifications';
 import Dashboard from './pages/dashboard/Dashboard';
 import TenantManagement from './pages/tenants/TenantManagement';
 import CreateTenant from './pages/tenants/CreateTenant';
@@ -42,6 +42,7 @@ function App() {
               <Route path="/operations" element={<PlatformOperations />} />
               <Route path="/operations/*" element={<OperationsFeaturePlaceholder />} />
               <Route path="/services" element={<SharedServices />} />
+              <Route path="/notifications" element={<Notifications />} />
             </Routes>
           </main>
 

@@ -7,6 +7,8 @@ import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -48,5 +50,13 @@ public class TenantController {
             throw new RuntimeException("Invalid status provided. Allowed values: PROVISIONING, ACTIVE, SUSPENDED, DEACTIVATED");
         }
         return ResponseEntity.ok(tenantService.updateStatus(id, newStatus));
+    }
+
+    @PutMapping("/{id}/modules")
+    public ResponseEntity<TenantResponse> updateTenantModules(
+        @PathVariable UUID id, @RequestBody Map<String, List<String>> body
+    ) {
+        List<String> newModules = body.get("modules");
+        return ResponseEntity.ok(tenantService.updateModules(id, newModules));
     }
 }

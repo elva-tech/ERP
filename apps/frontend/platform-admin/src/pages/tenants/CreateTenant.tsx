@@ -1,13 +1,16 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ArrowRight, ArrowLeft, CheckCircle2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { createTenant } from '../../api/tenantApi';
+import { createTenant, getAvailableModules } from '../../api/tenantApi';
 
 const CreateTenant = () => {
   const [currentStep, setCurrentStep] = useState(1);
   const navigate = useNavigate();
   
+  // State for dynamic modules
+  const [availableModules, setAvailableModules] = useState<any[]>([]);
+
   const [formData, setFormData] = useState({
     tenantName: '',
     tenantCode: '',
@@ -21,6 +24,19 @@ const CreateTenant = () => {
     adminEmail: '',
   });
 
+  // Fetch modules from database when component loads
+  useEffect(() => {
+    const fetchModules = async () => {
+      try {
+        const modules = await getAvailableModules();
+        setAvailableModules(modules);
+      } catch (error) {
+        toast.error("Failed to load available modules.");
+      }
+    };
+    fetchModules();
+  }, []);
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
@@ -33,6 +49,7 @@ const CreateTenant = () => {
         ? prev.modules.filter(m => m !== moduleName)
         : [...prev.modules, moduleName];
       
+      // Keep existing dependency logic just in case
       if (moduleName === 'Payroll' && !isSelected && !newModules.includes('HR Core')) {
         newModules.push('HR Core');
       }
@@ -48,7 +65,6 @@ const CreateTenant = () => {
 
   const handleSubmit = async () => {
     try {
-      // Map formData to match the backend DTO
       await createTenant({
         name: formData.tenantName,
         code: formData.tenantCode,
@@ -170,17 +186,17 @@ const CreateTenant = () => {
               <p className="text-gray-500 text-sm mt-1">Select the ERP modules this tenant can access.</p>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {['HR Core', 'Payroll', 'Finance', 'Procurement'].map((mod) => (
-                <div key={mod} 
-                     onClick={() => handleModuleToggle(mod)}
-                     className={`p-4 border rounded-xl cursor-pointer transition-all ${formData.modules.includes(mod) ? 'border-blue-600 bg-blue-50 ring-1 ring-blue-600' : 'border-gray-200 hover:border-gray-300'}`}>
+              {/* RENDERING DYNAMIC MODULES FROM DATABASE */}
+              {availableModules.map((mod) => (
+                <div key={mod.code} 
+                     onClick={() => handleModuleToggle(mod.name)}
+                     className={`p-4 border rounded-xl cursor-pointer transition-all ${formData.modules.includes(mod.name) ? 'border-blue-600 bg-blue-50 ring-1 ring-blue-600' : 'border-gray-200 hover:border-gray-300'}`}>
                   <div className="flex items-center gap-3">
-                    <div className={`w-5 h-5 rounded border flex items-center justify-center ${formData.modules.includes(mod) ? 'bg-blue-600 border-blue-600' : 'border-gray-300'}`}>
-                      {formData.modules.includes(mod) && <CheckCircle2 size={14} className="text-white" />}
+                    <div className={`w-5 h-5 rounded border flex items-center justify-center ${formData.modules.includes(mod.name) ? 'bg-blue-600 border-blue-600' : 'border-gray-300'}`}>
+                      {formData.modules.includes(mod.name) && <CheckCircle2 size={14} className="text-white" />}
                     </div>
-                    <span className="font-medium text-gray-900">{mod}</span>
+                    <span className="font-medium text-gray-900">{mod.name}</span>
                   </div>
-                  {mod === 'Payroll' && <p className="text-xs text-gray-500 mt-2 ml-8">Requires HR Core</p>}
                 </div>
               ))}
             </div>
@@ -224,7 +240,7 @@ const CreateTenant = () => {
                 <div>
                   <span className="text-gray-500 block">Modules</span>
                   <div className="flex gap-1 mt-1 flex-wrap">
-                    {formData.modules.map(m => <span key={m} className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-xs">{m}</span>)}
+                    {formData.modules.length > 0 ? formData.modules.map(m => <span key={m} className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-xs">{m}</span>) : <span className="text-gray-400 italic">None selected</span>}
                   </div>
                 </div>
               </div>

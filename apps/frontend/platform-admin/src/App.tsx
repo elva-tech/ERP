@@ -16,7 +16,9 @@ import SecurityFeaturePlaceholder from './pages/security/SecurityFeaturePlacehol
 import PlatformOperations from './pages/operations/PlatformOperations';
 import OperationsFeaturePlaceholder from './pages/operations/OperationsFeaturePlaceholder';
 import SharedServices from './pages/services/SharedServices';
-
+import CompanyRegister from './pages/auth/CompanyRegister';
+import ModuleCatalogue from './pages/modules/ModuleCatalogue';
+import UserDetails from './pages/users/UserDetails';
 function App() {
   return (
     <BrowserRouter>
@@ -43,6 +45,10 @@ function App() {
               <Route path="/operations/*" element={<OperationsFeaturePlaceholder />} />
               <Route path="/services" element={<SharedServices />} />
               <Route path="/notifications" element={<Notifications />} />
+              <Route path="/register" element={<CompanyRegister />} />
+              <Route path="/modules/catalogue" element={<ModuleCatalogue />} />
+              <Route path="/users/:id" element={<UserDetails />} />
+
             </Routes>
           </main>
 

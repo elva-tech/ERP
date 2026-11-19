@@ -31,3 +31,40 @@ export async function updateTenantStatus(id: string, status: string) {
   if (!res.ok) throw new Error('Failed to update status');
   return res.json();
 }
+
+export async function updateTenantModules(id: string, modules: string[]) {
+  const res = await fetch(`${API_BASE_URL}/tenants/${id}/modules`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ modules })
+  });
+  if (!res.ok) throw new Error('Failed to update modules');
+  return res.json();
+}
+
+export async function getAvailableModules() {
+  const res = await fetch(`${API_BASE_URL}/modules`);
+  if (!res.ok) throw new Error('Failed to fetch modules');
+  return res.json();
+}
+
+export async function createModule(data: any) {
+  const res = await fetch(`${API_BASE_URL}/modules`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  });
+  if (!res.ok) {
+    const error = await res.text();
+    throw new Error(error || 'Failed to create module');
+  }
+  return res.json();
+}
+
+export async function deleteModule(code: string) {
+  const res = await fetch(`${API_BASE_URL}/modules/${code}`, {
+    method: 'DELETE'
+  });
+  if (!res.ok) throw new Error('Failed to delete module');
+  return res;
+}

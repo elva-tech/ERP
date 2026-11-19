@@ -4,6 +4,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -51,6 +52,15 @@ public class TenantServiceImpl implements TenantService {
     public TenantResponse updateStatus(UUID id, TenantStatus newStatus) {
         Tenant tenant = repository.findById(id).orElseThrow(() -> new RuntimeException("Tenant not found"));
         tenant.setStatus(newStatus);
+        return mapToResponse(repository.save(tenant));
+    }
+
+    @Override
+    public TenantResponse updateModules(UUID id, List<String> modules) {
+        Tenant tenant = repository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Tenant not found"));
+        
+        tenant.setModules(modules);
         return mapToResponse(repository.save(tenant));
     }
 

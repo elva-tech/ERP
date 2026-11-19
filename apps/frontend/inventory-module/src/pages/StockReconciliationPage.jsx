@@ -274,7 +274,7 @@ export default function StockReconciliationPage({ onShowToast }) {
                       </td>
                       <td className="py-3 px-4">
                         <Badge
-                          variant={
+                          tone={
                             r.status === "Matched"
                               ? "success"
                               : r.status === "Adjusted"
@@ -318,3 +318,4 @@ export default function StockReconciliationPage({ onShowToast }) {
     </div>
   );
 }
+

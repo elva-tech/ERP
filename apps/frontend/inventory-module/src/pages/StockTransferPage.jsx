@@ -225,7 +225,7 @@ export default function StockTransferPage({ onShowToast }) {
                     </td>
                     <td className="py-3 px-4">
                       <Badge
-                        variant={
+                        tone={
                           t.status === "Received"
                             ? "success"
                             : t.status === "In Transit"
@@ -273,3 +273,4 @@ export default function StockTransferPage({ onShowToast }) {
     </div>
   );
 }
+

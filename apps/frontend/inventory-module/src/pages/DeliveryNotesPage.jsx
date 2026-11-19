@@ -197,7 +197,7 @@ export default function DeliveryNotesPage({ onShowToast }) {
                         </td>
                         <td className="py-3 px-4">
                           <Badge
-                            variant={
+                            tone={
                               dn.status === "Delivered"
                                 ? "success"
                                 : dn.status === "Dispatched"
@@ -239,7 +239,7 @@ export default function DeliveryNotesPage({ onShowToast }) {
                     {selectedNote.dnNo}
                   </span>
                   <Badge
-                    variant={
+                    tone={
                       selectedNote.status === "Delivered"
                         ? "success"
                         : selectedNote.status === "Dispatched"
@@ -347,3 +347,4 @@ export default function DeliveryNotesPage({ onShowToast }) {
     </div>
   );
 }
+

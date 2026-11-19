@@ -130,7 +130,7 @@ function LoginPage({ onLogin, onShowToast }) {
           <button
             type="submit"
             disabled={isSubmitting}
-            className="h-[41px] w-full rounded-md bg-login text-[13px] font-semibold text-white hover:bg-login-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-login disabled:cursor-wait disabled:opacity-70"
+            className="h-[41px] w-full rounded-md bg-brand text-[13px] font-semibold text-white hover:bg-brand-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand disabled:cursor-wait disabled:opacity-70"
           >
             {isSubmitting ? "Signing in…" : "Sign In"}
           </button>
@@ -142,3 +142,4 @@ function LoginPage({ onLogin, onShowToast }) {
 }
 
 export default LoginPage;
+

@@ -282,7 +282,7 @@ export default function StockAgingPage({ onShowToast }) {
                       </td>
                       <td className="py-3 px-4">
                         <Badge
-                          variant={
+                          tone={
                             isCritical
                               ? "danger"
                               : isSlow
@@ -306,3 +306,4 @@ export default function StockAgingPage({ onShowToast }) {
     </div>
   );
 }
+

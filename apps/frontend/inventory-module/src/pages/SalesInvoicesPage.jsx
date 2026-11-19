@@ -189,7 +189,7 @@ export default function SalesInvoicesPage({ onShowToast }) {
                         </td>
                         <td className="py-3 px-4">
                           <Badge
-                            variant={
+                            tone={
                               inv.status === "Paid"
                                 ? "success"
                                 : inv.status === "Pending"
@@ -231,7 +231,7 @@ export default function SalesInvoicesPage({ onShowToast }) {
                     {selectedInvoice.invoiceNo}
                   </span>
                   <Badge
-                    variant={
+                    tone={
                       selectedInvoice.status === "Paid"
                         ? "success"
                         : selectedInvoice.status === "Pending"
@@ -336,3 +336,4 @@ export default function SalesInvoicesPage({ onShowToast }) {
     </div>
   );
 }
+

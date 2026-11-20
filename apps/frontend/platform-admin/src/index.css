@@ -1,0 +1,16 @@
+@import "tailwindcss";
+
+@theme {
+  --color-elva-dark: #0F172A;
+  --color-elva-primary: #2563EB;
+}
+
+@layer utilities {
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}

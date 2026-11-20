@@ -52,6 +52,24 @@ public class ElvaUserServiceImpl implements ElvaUserService {
         repository.deleteById(id);
     }
 
+    @Override
+    public UserResponse updateUser(UUID id, CreateUserRequest req) {
+        ElvaUser user = repository.findById(id)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        
+        
+        if (!user.getWorkEmail().equals(req.workEmail()) && repository.existsByWorkEmail(req.workEmail())) {
+            throw new RuntimeException("This email is already in use by another user.");
+        }
+        user.setWorkEmail(req.workEmail());
+        
+        user.setFullName(req.fullName());
+        user.setMobileNumber(req.mobileNumber());
+        user.setPlatformRole(req.platformRole());
+        
+        return mapToResponse(repository.save(user));
+    }
+
     private UserResponse mapToResponse(ElvaUser u) {
         return new UserResponse(u.getId(), u.getFullName(), u.getWorkEmail(), 
             u.getMobileNumber(), u.getPlatformRole(), u.getStatus(), u.getCreatedAt(), u.getCreatedBy());

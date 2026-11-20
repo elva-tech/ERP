@@ -59,4 +59,12 @@ public class TenantController {
         List<String> newModules = body.get("modules");
         return ResponseEntity.ok(tenantService.updateModules(id, newModules));
     }
+
+    @GetMapping("/check-code")
+    public ResponseEntity<Boolean> checkCodeExists(@RequestParam String code) {
+        boolean exists = tenantService.getAllTenants(Pageable.unpaged())
+                .stream()
+                .anyMatch(t -> t.code().equalsIgnoreCase(code));
+        return ResponseEntity.ok(exists);
+    }
 }

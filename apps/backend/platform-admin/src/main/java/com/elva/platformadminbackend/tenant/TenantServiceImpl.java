@@ -60,8 +60,17 @@ public class TenantServiceImpl implements TenantService {
         Tenant tenant = repository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Tenant not found"));
         
-        tenant.setModules(modules);
-        return mapToResponse(repository.save(tenant));
+        
+        tenant.getModules().clear();
+        
+        
+        if (modules != null) {
+            tenant.getModules().addAll(modules);
+        }
+        
+        
+        Tenant savedTenant = repository.saveAndFlush(tenant);
+        return mapToResponse(savedTenant);
     }
 
     private TenantResponse mapToResponse(Tenant t) {

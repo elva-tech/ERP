@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { ArrowRight, ArrowLeft, CheckCircle2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { createTenant, getAvailableModules } from '../../api/tenantApi';
+// FIX 1: Removed duplicate import and added checkTenantCode
+import { createTenant, getAvailableModules, checkTenantCode } from '../../api/tenantApi';
 
 const CreateTenant = () => {
   const [currentStep, setCurrentStep] = useState(1);
@@ -10,6 +11,9 @@ const CreateTenant = () => {
   
   // State for dynamic modules
   const [availableModules, setAvailableModules] = useState<any[]>([]);
+  
+  // NEW: State for duplicate Tenant Code error
+  const [codeError, setCodeError] = useState('');
 
   const [formData, setFormData] = useState({
     tenantName: '',
@@ -40,6 +44,11 @@ const CreateTenant = () => {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+    
+    // Clear the error when the user starts typing a new code
+    if (name === 'tenantCode') {
+      setCodeError('');
+    }
   };
 
   const handleModuleToggle = (moduleName: string) => {
@@ -49,7 +58,6 @@ const CreateTenant = () => {
         ? prev.modules.filter(m => m !== moduleName)
         : [...prev.modules, moduleName];
       
-      // Keep existing dependency logic just in case
       if (moduleName === 'Payroll' && !isSelected && !newModules.includes('HR Core')) {
         newModules.push('HR Core');
       }
@@ -60,7 +68,27 @@ const CreateTenant = () => {
     });
   };
 
-  const nextStep = () => setCurrentStep(prev => Math.min(prev + 1, 5));
+  // FIX 2: New Next Step Handler with Duplicate Code Validation
+  const handleNextStep = async () => {
+    setCodeError('');
+
+    // If we are on Step 1, check if the code exists before moving
+    if (currentStep === 1) {
+      try {
+        const exists = await checkTenantCode(formData.tenantCode);
+        if (exists) {
+          setCodeError("This Tenant Code is already in use. Please choose another.");
+          return; // Stop moving to next step
+        }
+      } catch (error) {
+        toast.error("Failed to validate Tenant Code. Is backend running?");
+        return;
+      }
+    }
+
+    setCurrentStep(prev => Math.min(prev + 1, 5));
+  };
+
   const prevStep = () => setCurrentStep(prev => Math.max(prev - 1, 1));
 
   const handleSubmit = async () => {
@@ -77,9 +105,8 @@ const CreateTenant = () => {
       });
       toast.success('Tenant provisioned successfully!');
       navigate('/tenants');
-    } catch (error) {
-      console.error(error);
-      toast.error('Failed to create tenant.');
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to create tenant.');
     }
   };
 
@@ -131,11 +158,25 @@ const CreateTenant = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">Tenant / organisation name *</label>
                 <input type="text" name="tenantName" value={formData.tenantName} onChange={handleChange} placeholder="e.g. Apex Manufacturing Pvt Ltd" className="w-full border border-gray-300 rounded-xl p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all" />
               </div>
+              
+              {/* FIX 3: Dynamic styling and error message for duplicate code */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">Tenant code *</label>
-                <input type="text" name="tenantCode" value={formData.tenantCode} onChange={handleChange} placeholder="e.g. APEX" className="w-full border border-gray-300 rounded-xl p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all" />
-                <p className="text-xs text-gray-500 mt-1.5">Unique internal code. It cannot be reused by another tenant.</p>
+                <input 
+                  type="text" 
+                  name="tenantCode" 
+                  value={formData.tenantCode} 
+                  onChange={handleChange} 
+                  placeholder="e.g. APEX" 
+                  className={`w-full border rounded-xl p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all ${codeError ? 'border-red-500 bg-red-50' : 'border-gray-300'}`} 
+                />
+                {codeError ? (
+                  <p className="text-xs text-red-600 mt-1.5 font-medium">{codeError}</p>
+                ) : (
+                  <p className="text-xs text-gray-500 mt-1.5">Unique internal code. It cannot be reused by another tenant.</p>
+                )}
               </div>
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">Primary legal entity</label>
                 <input type="text" name="legalEntity" value={formData.legalEntity} onChange={handleChange} placeholder="Registered legal name" className="w-full border border-gray-300 rounded-xl p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all" />
@@ -186,7 +227,6 @@ const CreateTenant = () => {
               <p className="text-gray-500 text-sm mt-1">Select the ERP modules this tenant can access.</p>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* RENDERING DYNAMIC MODULES FROM DATABASE */}
               {availableModules.map((mod) => (
                 <div key={mod.code} 
                      onClick={() => handleModuleToggle(mod.name)}
@@ -267,7 +307,7 @@ const CreateTenant = () => {
         
         {currentStep < 5 ? (
           <button 
-            onClick={nextStep}
+            onClick={handleNextStep} // FIX: Changed to new handler
             disabled={(currentStep === 1 && !isStep1Valid) || (currentStep === 4 && !isStep4Valid)}
             className={`px-6 py-2.5 rounded-full text-sm font-medium flex items-center gap-2 transition-colors ${
               ((currentStep === 1 && !isStep1Valid) || (currentStep === 4 && !isStep4Valid))

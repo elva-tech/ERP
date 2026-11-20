@@ -18,7 +18,12 @@ export async function createTenant(data: any) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data)
   });
-  if (!res.ok) throw new Error('Failed to create tenant');
+  
+  if (!res.ok) {
+    // Parse the specific error message from the backend
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.error || 'Failed to create tenant');
+  }
   return res.json();
 }
 
@@ -67,4 +72,10 @@ export async function deleteModule(code: string) {
   });
   if (!res.ok) throw new Error('Failed to delete module');
   return res;
+}
+
+export async function checkTenantCode(code: string) {
+  const res = await fetch(`${API_BASE_URL}/tenants/check-code?code=${code}`);
+  if (!res.ok) throw new Error('Failed to check code');
+  return res.json();
 }

@@ -34,3 +34,16 @@ export async function deleteUser(id: string) {
   if (!res.ok) throw new Error('Failed to delete user');
   return res;
 }
+
+export async function updateUser(id: string, data: any) {
+  const res = await fetch(`${API_BASE_URL}/users/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  });
+  if (!res.ok) {
+    const errorMsg = await res.text();
+    throw new Error(errorMsg || 'Failed to update user');
+  }
+  return res.json();
+}

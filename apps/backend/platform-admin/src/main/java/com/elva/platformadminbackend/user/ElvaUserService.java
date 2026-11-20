@@ -9,4 +9,5 @@ public interface ElvaUserService {
     Page<UserResponse> getAllUsers(Pageable pageable);
     UserResponse getUserById(UUID id);
     void deleteUser(UUID id);
+    UserResponse updateUser(UUID id, CreateUserRequest request);
 }

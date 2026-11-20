@@ -19,6 +19,8 @@ import SharedServices from './pages/services/SharedServices';
 import CompanyRegister from './pages/auth/CompanyRegister';
 import ModuleCatalogue from './pages/modules/ModuleCatalogue';
 import UserDetails from './pages/users/UserDetails';
+import EditELVAUser from './pages/users/EditELVAUser';
+
 function App() {
   return (
     <BrowserRouter>
@@ -48,7 +50,7 @@ function App() {
               <Route path="/register" element={<CompanyRegister />} />
               <Route path="/modules/catalogue" element={<ModuleCatalogue />} />
               <Route path="/users/:id" element={<UserDetails />} />
-
+              <Route path="/users/:id/edit" element={<EditELVAUser />} />
             </Routes>
           </main>
 

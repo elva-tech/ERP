@@ -31,16 +31,21 @@ public class ElvaUserController {
         return ResponseEntity.ok(userService.getAllUsers(pageable));
     }
 
-    // VIEW ENDPOINT
+    
     @GetMapping("/{id}")
     public ResponseEntity<UserResponse> getUserById(@PathVariable UUID id) {
         return ResponseEntity.ok(userService.getUserById(id));
     }
 
-    // DELETE ENDPOINT
+    
     @DeleteMapping("/{id}")
     public ResponseEntity<?> deleteUser(@PathVariable UUID id) {
         userService.deleteUser(id);
         return ResponseEntity.ok().build();
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<UserResponse> updateUser(@PathVariable UUID id, @Valid @RequestBody CreateUserRequest request) {
+        return ResponseEntity.ok(userService.updateUser(id, request));
     }
 }

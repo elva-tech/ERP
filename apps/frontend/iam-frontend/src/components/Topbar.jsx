@@ -8,7 +8,7 @@ export default function Topbar({ activeTab }) {
       case 'directory': return 'Identity Directory';
       case 'sessions': return 'Sessions';
       case 'audit': return 'Security Audit';
-      default: return 'Dashboard';
+      case 'details': return 'Identity Details';
     }
   };
 

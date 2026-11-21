@@ -1,19 +1,26 @@
 import { useState } from 'react';
 import Layout from './components/Layout';
 
+// Matching your exact folder structure
+import CreateInvite from './pages/CreateInvite/CreateInvite';
+import Authentication from './pages/Authentication/Authentication';
+
 export default function App() {
-  // Setting default to 'create' since that's your first screen
   const [activeTab, setActiveTab] = useState('create'); 
 
   return (
     <Layout activeTab={activeTab} setActiveTab={setActiveTab}>
-      {/* This is just a placeholder to prove the menu works */}
-      <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-100 min-h-[400px]">
-        <h2 className="text-2xl font-bold text-gray-800 mb-4">
-          This is the {activeTab} page
-        </h2>
-        <p className="text-gray-500">Clicking the menu on the left changes this text.</p>
-      </div>
+      
+      {/* Tarun's Screens */}
+      {activeTab === 'create' && <CreateInvite />}
+      {activeTab === 'auth' && <Authentication />}
+      
+      {/* Placeholders for remaining screens */}
+      {activeTab === 'sessions' && <div className="p-8 text-gray-500">Sessions (Coming Soon)</div>}
+      {activeTab === 'audit' && <div className="p-8 text-gray-500">Security Audit (Coming Soon)</div>}
+      
+      {activeTab === 'dashboard' && <div className="p-8 text-gray-500">Dashboard (Tanmayi's Work)</div>}
+      {activeTab === 'directory' && <div className="p-8 text-gray-500">Identity Directory (Tanmayi's Work)</div>}
     </Layout>
   );
 }

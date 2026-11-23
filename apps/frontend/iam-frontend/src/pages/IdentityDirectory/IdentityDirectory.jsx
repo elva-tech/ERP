@@ -1,6 +1,6 @@
 
 import { useMemo, useState } from 'react';
-import { Search, Plus, MoreVertical, ChevronLeft, ChevronRight, Eye, UserCheck, UserX } from 'lucide-react';
+import { Search, Plus, ChevronLeft, ChevronRight, UserCheck, UserX, Ban, Trash2 } from 'lucide-react';
 const initialIdentities = [
   { id: 1, name: 'Prabhu T P', email: 'prabhu.tp@elva.com', centralId: 'CEN-10001', status: 'Active', mfa: true, createdOn: '10 Jun 2025' },
   { id: 2, name: 'Sowmya K', email: 'sowmya.k@elva.com', centralId: 'CEN-10002', status: 'Active', mfa: true, createdOn: '12 Jul 2025' },
@@ -13,13 +13,12 @@ const statusStyles = {
   Suspended: 'bg-red-50 text-red-700'
 };
 const pageSize = 4;
-export default function IdentityDirectory({ setActiveTab, onViewIdentity }) {
+export default function IdentityDirectory({ setActiveTab }) {
   const [identities, setIdentities] = useState(initialIdentities);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
   const [mfaFilter, setMfaFilter] = useState('All');
   const [page, setPage] = useState(1);
-  const [openMenu, setOpenMenu] = useState(null);
   const filteredIdentities = useMemo(() => {
     return identities.filter((identity) => {
       const query = search.trim().toLowerCase();
@@ -35,24 +34,25 @@ export default function IdentityDirectory({ setActiveTab, onViewIdentity }) {
   const handleSearchChange = (event) => {
     setSearch(event.target.value);
     setPage(1);
-    setOpenMenu(null);
   };
   const handleStatusChange = (event) => {
     setStatusFilter(event.target.value);
     setPage(1);
-    setOpenMenu(null);
   };
   const handleMfaChange = (event) => {
     setMfaFilter(event.target.value);
     setPage(1);
-    setOpenMenu(null);
   };
   const toggleStatus = (id) => {
     setIdentities((previous) => previous.map((identity) => {
       if (identity.id !== id) return identity;
       return { ...identity, status: identity.status === 'Suspended' ? 'Active' : 'Suspended' };
     }));
-    setOpenMenu(null);
+  };
+  const deleteIdentity = (identity) => {
+    const confirmed = window.confirm(`Are you sure you want to delete ${identity.name}?`);
+    if (!confirmed) return;
+    setIdentities((previous) => previous.filter((item) => item.id !== identity.id));
   };
   return (
     <div className="space-y-6">
@@ -123,21 +123,13 @@ export default function IdentityDirectory({ setActiveTab, onViewIdentity }) {
                   </td>
                   <td className="px-5 py-4 text-gray-600 whitespace-nowrap">{identity.createdOn}</td>
                   <td className="px-5 py-4 text-center">
-                    <div className="relative inline-block">
-                      <button type="button" aria-label={`Actions for ${identity.name}`} aria-expanded={openMenu === identity.id} onClick={() => setOpenMenu(openMenu === identity.id ? null : identity.id)} className="p-2 rounded-lg text-gray-500 hover:bg-gray-100">
-                        <MoreVertical size={18} />
+                    <div className="flex items-center justify-center gap-2">
+                      <button type="button" onClick={() => toggleStatus(identity.id)} aria-label={`${identity.status === 'Suspended' ? 'Activate' : 'Suspend'} ${identity.name}`} title={identity.status === 'Suspended' ? 'Activate' : 'Suspend'} className={`p-2 rounded-lg transition-colors ${identity.status === 'Suspended' ? 'text-green-600 hover:bg-green-50' : 'text-orange-600 hover:bg-orange-50'}`}>
+                        {identity.status === 'Suspended' ? <UserCheck size={18} /> : <Ban size={18} />}
                       </button>
-                      {openMenu === identity.id && (
-                        <div className="absolute right-0 top-full mt-1 z-20 w-44 bg-white border border-gray-200 rounded-lg shadow-lg text-left">
-                          <button type="button" onClick={() => { setOpenMenu(null); onViewIdentity(identity); }} className="w-full flex items-center gap-2 px-4 py-3 text-gray-700 hover:bg-gray-50">
-                            <Eye size={16} /> View Details
-                          </button>
-                          <button type="button" onClick={() => toggleStatus(identity.id)} className="w-full flex items-center gap-2 px-4 py-3 text-gray-700 hover:bg-gray-50">
-                            {identity.status === 'Suspended' ? <UserCheck size={16} /> : <UserX size={16} />}
-                            {identity.status === 'Suspended' ? 'Activate' : 'Suspend'}
-                          </button>
-                        </div>
-                      )}
+                      <button type="button" onClick={() => deleteIdentity(identity)} aria-label={`Delete ${identity.name}`} title="Delete" className="p-2 rounded-lg text-red-600 hover:bg-red-50 transition-colors">
+                        <Trash2 size={18} />
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -155,11 +147,11 @@ export default function IdentityDirectory({ setActiveTab, onViewIdentity }) {
             {filteredIdentities.length === 0 ? '0 of 0' : `${(currentPage - 1) * pageSize + 1}-${Math.min(currentPage * pageSize, filteredIdentities.length)} of ${filteredIdentities.length}`}
           </p>
           <div className="flex items-center gap-2">
-            <button type="button" aria-label="Previous page" disabled={currentPage === 1} onClick={() => { setPage(currentPage - 1); setOpenMenu(null); }} className="p-2 border border-gray-200 rounded-lg disabled:opacity-40 hover:bg-gray-50">
+            <button type="button" aria-label="Previous page" disabled={currentPage === 1} onClick={() => setPage(currentPage - 1)} className="p-2 border border-gray-200 rounded-lg disabled:opacity-40 hover:bg-gray-50">
               <ChevronLeft size={17} />
             </button>
             <span className="px-3 py-2 bg-[#2563EB] text-white rounded-lg text-xs font-semibold">{currentPage}</span>
-            <button type="button" aria-label="Next page" disabled={currentPage === totalPages} onClick={() => { setPage(currentPage + 1); setOpenMenu(null); }} className="p-2 border border-gray-200 rounded-lg disabled:opacity-40 hover:bg-gray-50">
+            <button type="button" aria-label="Next page" disabled={currentPage === totalPages} onClick={() => setPage(currentPage + 1)} className="p-2 border border-gray-200 rounded-lg disabled:opacity-40 hover:bg-gray-50">
               <ChevronRight size={17} />
             </button>
           </div>

@@ -2,10 +2,10 @@ import { ChevronDown } from 'lucide-react';
 
 export default function Audit() {
   const logs = [
-    { date: '12 Nov 2026, 04:12 PM', event: 'Login Success', user: 'Prabhu T P', result: 'Success' },
-    { date: '12 Nov 2026, 03:45 PM', event: 'MFA Enabled', user: 'Sowmya K', result: 'Success' },
-    { date: '12 Nov 2026, 02:30 PM', event: 'Failed Login', user: 'Unknown', result: 'Failed' },
-    { date: '11 Nov 2026, 01:20 PM', event: 'Invitation Sent', user: 'Manoj D', result: 'Success' },
+    { date: '13 Nov 2026, 10:05 AM', event: 'Password Changed', user: 'Arjun Mehta', result: 'Success' },
+    { date: '13 Nov 2026, 09:22 AM', event: 'Failed Login', user: 'test@elva.com', result: 'Failed' },
+    { date: '12 Nov 2026, 11:40 PM', event: 'User Invited', user: 'Central Admin', result: 'Success' },
+    { date: '12 Nov 2026, 04:15 PM', event: 'MFA Reset', user: 'Neha Sharma', result: 'Success' },
   ];
 
   return (
@@ -15,9 +15,19 @@ export default function Audit() {
           <h2 className="text-xl font-bold text-gray-800">Security Audit Logs</h2>
           <p className="text-sm text-gray-500 mt-1">Track identity and security events</p>
         </div>
-        <button className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
-          Last 30 Days <ChevronDown size={16} />
-        </button>
+        
+        {/* Date Range Dropdown */}
+        <div className="relative">
+          <select className="appearance-none bg-white border border-gray-300 text-gray-700 py-2 pl-4 pr-10 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent cursor-pointer text-sm font-medium shadow-sm hover:bg-gray-50 transition-colors">
+            <option value="30">Last 30 Days</option>
+            <option value="90">Last 3 Months</option>
+            <option value="180">Last 6 Months</option>
+            <option value="365">Last 1 Year</option>
+          </select>
+          <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
+            <ChevronDown size={16} />
+          </div>
+        </div>
       </div>
       
       <div className="overflow-x-auto">

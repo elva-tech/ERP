@@ -3,6 +3,7 @@ import Modal from "../../../components/ui/Modal.jsx";
 import ModalForm from "../../../components/ui/ModalForm.jsx";
 import { SelectField, TextAreaField, TextField } from "../../../components/ui/FormFields.jsx";
 import { useFormSubmission } from "../../../hooks/useFormSubmission.js";
+import { isValidTransactionDate } from "../../../lib/dateUtils.js";
 import { isBlank, isPositiveDecimal } from "../../../lib/validation.js";
 import { outwardService } from "../services/outwardService.js";
 
@@ -32,6 +33,7 @@ function validate(values) {
   if (isBlank(values.purpose)) errors.purpose = "Select a purpose.";
   if (isBlank(values.warehouseId)) errors.warehouseId = "Select a warehouse.";
   if (isBlank(values.date)) errors.date = "Enter the dispatch date.";
+  else if (!isValidTransactionDate(values.date)) errors.date = "Enter a valid dispatch date.";
   if (isBlank(values.destination)) errors.destination = "Destination or recipient is required.";
 
   values.lineItems.forEach((line, index) => {

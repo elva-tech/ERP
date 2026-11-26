@@ -8,7 +8,7 @@ function BrandMark() {
         alt="ELVA"
         width={34}
         height={34}
-        className="size-[34px] shrink-0 rounded-md object-cover"
+        className="size-[36px] shrink-0 rounded-md object-contain"
       />
       <div className="min-w-0">
         <p className="truncate text-[15px] font-bold leading-[18px] text-white">ELVA TECH</p>

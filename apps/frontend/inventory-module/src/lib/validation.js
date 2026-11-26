@@ -16,6 +16,13 @@ export function isBlank(value) {
   return String(value ?? "").trim() === "";
 }
 
+/** True for a decimal string that is zero or greater ("0", "12.5"). */
+export function isNonNegativeDecimal(value) {
+  const text = String(value ?? "").trim();
+  if (!DECIMAL.test(text)) return false;
+  return true;
+}
+
 function toScaled(value, scale) {
   const text = String(value ?? "").trim();
   if (!DECIMAL.test(text)) return null;

@@ -135,7 +135,7 @@ describe("Audit Fixes & Workflow Strengthening Verification", () => {
         warehouseId: "wh-1",
         date: "2026-10-31",
         remarks: "Existing remark",
-        lineItems: [{ itemId: "item-1", quantity: "50", rate: "200" }],
+        lineItems: [{ itemId: "item-1", challanQuantity: "50", quantity: "50", rejectedQuantity: "0", rate: "200" }],
       };
 
       render(

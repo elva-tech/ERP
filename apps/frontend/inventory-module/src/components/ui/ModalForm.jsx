@@ -7,11 +7,21 @@ import { describeError } from "./errorMessages.js";
  */
 const SUBMIT_TONES = {
   brand: "bg-brand-strong hover:bg-brand-hover focus-visible:outline-brand",
+  navy: "bg-navy hover:bg-sidebar focus-visible:outline-navy",
   success: "bg-success hover:bg-[#059669] focus-visible:outline-success",
   danger: "bg-danger hover:bg-[#dc2626] focus-visible:outline-danger",
 };
 
-function ModalForm({ onSubmit, onCancel, submitLabel, isSubmitting, formError, submitTone = "brand", children }) {
+function ModalForm({
+  onSubmit,
+  onCancel,
+  submitLabel,
+  isSubmitting,
+  submitDisabled = false,
+  formError,
+  submitTone = "brand",
+  children,
+}) {
   return (
     <form onSubmit={onSubmit} noValidate className="flex min-h-0 flex-1 flex-col">
       <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-4 pt-[15px]">
@@ -31,8 +41,8 @@ function ModalForm({ onSubmit, onCancel, submitLabel, isSubmitting, formError, s
           </button>
           <button
             type="submit"
-            disabled={isSubmitting}
-            className={`h-[35px] rounded-md px-5 text-[13px] font-semibold text-white transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-wait disabled:opacity-70 ${SUBMIT_TONES[submitTone]}`}
+            disabled={isSubmitting || submitDisabled}
+            className={`h-[35px] rounded-md px-5 text-[13px] font-semibold text-white transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-wait disabled:opacity-70 ${SUBMIT_TONES[submitTone] ?? SUBMIT_TONES.brand}`}
           >
             {isSubmitting ? "Saving…" : submitLabel}
           </button>

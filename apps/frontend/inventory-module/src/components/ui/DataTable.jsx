@@ -62,7 +62,7 @@ function DataTable({
               <th
                 key={column.key}
                 scope="col"
-                className={`${headerCellClass} overflow-hidden whitespace-nowrap p-0 ${ALIGN_CLASSES[column.align ?? "left"]} ${
+                className={`${headerCellClass} overflow-hidden whitespace-nowrap px-3 py-0 ${ALIGN_CLASSES[column.align ?? "left"]} ${
                   column.headerClass ?? ""
                 }`}
               >
@@ -84,7 +84,7 @@ function DataTable({
                 {columns.map((column) => (
                   <td
                     key={column.key}
-                    className={`${bodyCellClass} p-0 ${ALIGN_CLASSES[column.align ?? "left"]} ${
+                    className={`${bodyCellClass} px-3 py-0 ${ALIGN_CLASSES[column.align ?? "left"]} ${
                       column.truncate === false ? "" : "overflow-hidden text-ellipsis whitespace-nowrap"
                     } ${column.cellClass ?? "text-muted"}`}
                   >

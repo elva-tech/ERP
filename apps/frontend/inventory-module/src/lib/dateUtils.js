@@ -76,6 +76,11 @@ export function parseRecordDateToMs(recordDate) {
 /**
  * Validates whether start date is chronologically on or before end date.
  */
+/** True when the value can be parsed as an inventory transaction date. */
+export function isValidTransactionDate(dateStr) {
+  return parseRecordDateToMs(dateStr) !== null;
+}
+
 export function isValidDateRange(startDate, endDate) {
   if (!startDate || !endDate) return true;
   const startMs = parseBoundaryMs(startDate, false);

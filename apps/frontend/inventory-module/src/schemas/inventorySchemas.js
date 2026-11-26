@@ -41,6 +41,16 @@ export const WarehouseTypeEnum = z.enum([
 
 export const WarehouseStatusEnum = z.enum(["Active", "Inactive", "Maintenance"]);
 
+export const MAX_WAREHOUSE_PDF_BYTES = 5 * 1024 * 1024;
+
+export const WarehouseDocumentAttachmentSchema = z.object({
+  id: z.string(),
+  fileName: z.string().min(1),
+  mimeType: z.literal("application/pdf"),
+  sizeBytes: z.number().int().positive().max(MAX_WAREHOUSE_PDF_BYTES),
+  uploadedAt: z.string(),
+});
+
 export const InwardStatusEnum = z.enum(["Draft", "Received", "Quality Check"]);
 
 export const OutwardStatusEnum = z.enum(["Draft", "Dispatched", "Delivered"]);
@@ -122,6 +132,7 @@ export const WarehouseSchema = z.object({
   capacityUtilization: z.number().min(0).max(100).default(0),
   totalItems: z.number().int().default(0),
   stockValue: z.number().default(0),
+  documentAttachment: WarehouseDocumentAttachmentSchema.optional(),
 });
 
 export const CreateWarehouseInputSchema = WarehouseSchema.omit({
@@ -130,21 +141,35 @@ export const CreateWarehouseInputSchema = WarehouseSchema.omit({
   totalItems: true,
   stockValue: true,
   zonesCount: true,
+  documentAttachment: true,
 }).extend({
   zonesCount: z.number().int().positive().optional().default(4),
+  documentAttachment: WarehouseDocumentAttachmentSchema.optional(),
 });
 
 /**
  * 3. Inward Schemas
  */
+const inwardLineItemInputSchema = z.object({
+  itemId: z.string().min(1, "Item is required"),
+  challanQuantity: z.number().nonnegative("Challan quantity cannot be negative"),
+  quantity: z.number().nonnegative("Actual received quantity cannot be negative"),
+  rejectedQuantity: z.number().nonnegative("Rejected quantity cannot be negative"),
+  rate: z.number().nonnegative().default(0),
+  remarks: z.string().optional().default(""),
+});
+
 export const InwardLineItemSchema = z.object({
   itemId: z.string().min(1, "Item selection is required"),
   itemCode: z.string(),
   itemName: z.string(),
   unit: z.string().default("Nos"),
-  quantity: z.number().positive("Quantity must be greater than 0"),
+  challanQuantity: z.number().nonnegative().optional(),
+  quantity: z.number().nonnegative("Quantity cannot be negative"),
+  rejectedQuantity: z.number().nonnegative().optional().default(0),
   rate: z.number().nonnegative("Rate cannot be negative"),
   amount: z.number().nonnegative(),
+  remarks: z.string().optional().default(""),
 });
 
 export const InwardTransactionSchema = z.object({
@@ -165,21 +190,39 @@ export const InwardTransactionSchema = z.object({
   createdAt: z.string().optional(),
 });
 
-export const CreateInwardInputSchema = z.object({
-  supplier: z.string().min(2, "Supplier is required"),
-  supplierId: z.string().optional(),
-  grnNo: z.string().optional(),
-  isManualGrn: z.boolean().optional(),
-  warehouseId: z.string().min(1, "Warehouse is required"),
-  date: z.string().min(1, "Date is required"),
-  remarks: z.string().optional().default(""),
-  status: InwardStatusEnum.default("Received"),
-  lineItems: z.array(z.object({
-    itemId: z.string().min(1, "Item is required"),
-    quantity: z.number().positive("Quantity must be > 0"),
-    rate: z.number().nonnegative().default(0),
-  })).min(1, "Please add at least one line item"),
-});
+export const CreateInwardInputSchema = z
+  .object({
+    supplier: z.string().min(2, "Supplier is required"),
+    supplierId: z.string().optional(),
+    grnNo: z.string().optional(),
+    isManualGrn: z.boolean().optional(),
+    warehouseId: z.string().min(1, "Warehouse is required"),
+    date: z.string().min(1, "Date is required"),
+    remarks: z.string().optional().default(""),
+    status: InwardStatusEnum.default("Received"),
+    lineItems: z.array(inwardLineItemInputSchema).min(1, "Please add at least one line item"),
+  })
+  .superRefine((data, ctx) => {
+    data.lineItems.forEach((line, index) => {
+      const received = Number(line.quantity);
+      const rejected = Number(line.rejectedQuantity);
+      const challan = Number(line.challanQuantity);
+      if (Math.abs(challan - (received + rejected)) > 1e-6) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Challan quantity must equal received plus rejected.",
+          path: ["lineItems", index, "challanQuantity"],
+        });
+      }
+      if (received === 0 && rejected === 0 && challan === 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Enter at least one non-zero quantity on the line.",
+          path: ["lineItems", index, "quantity"],
+        });
+      }
+    });
+  });
 
 /**
  * 4. Outward Schemas

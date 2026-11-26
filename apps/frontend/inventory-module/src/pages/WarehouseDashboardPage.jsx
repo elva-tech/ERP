@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Building2, MoreHorizontal, ArrowRight } from "lucide-react";
 import PrimaryActionButton from "../components/ui/PrimaryActionButton.jsx";
 import Panel from "../components/ui/Panel.jsx";
@@ -6,8 +6,11 @@ import StatCard from "../components/ui/StatCard.jsx";
 import { ROUTES } from "../config/navigation.js";
 import { warehouseService } from "../features/warehouses/services/warehouseService.js";
 import AddWarehouseModal from "../features/warehouses/components/AddWarehouseModal.jsx";
+import { usePageSearch } from "../hooks/usePageSearch.jsx";
+import { matchesSearch } from "../lib/search.js";
 
 export default function WarehouseDashboardPage({ onNavigate, onShowToast }) {
+  const { search } = usePageSearch();
   const [warehouses, setWarehouses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -43,19 +46,60 @@ export default function WarehouseDashboardPage({ onNavigate, onShowToast }) {
     return `₹${val.toLocaleString("en-IN")}`;
   };
 
+  const warehouseSummary = useMemo(() => {
+    if (!warehouses.length) return null;
+    const activeCount = warehouses.filter((w) => w.status === "Active").length;
+    const transitCount = warehouses.filter((w) => w.type === "Transit").length;
+    const combinedStockValue = warehouses.reduce((sum, w) => sum + (Number(w.stockValue) || 0), 0);
+    const avgUtilization = Math.round(
+      warehouses.reduce((sum, w) => sum + (Number(w.capacityUtilization) || 0), 0) / warehouses.length
+    );
+    const totalLocationRecords = warehouses.reduce((sum, w) => sum + (Number(w.totalItems) || 0), 0);
+    return {
+      total: warehouses.length,
+      activeCount,
+      transitCount,
+      combinedStockValue,
+      avgUtilization,
+      totalLocationRecords,
+    };
+  }, [warehouses]);
+
   return (
     <div className="flex flex-1 flex-col gap-4">
       <h2 className="sr-only">Warehouse Overview</h2>
 
       <div className="flex flex-wrap items-center justify-end gap-3">
-        <PrimaryActionButton onClick={() => setIsModalOpen(true)}>+ Add Warehouse</PrimaryActionButton>
+        <PrimaryActionButton onClick={() => setIsModalOpen(true)}>Add Warehouse</PrimaryActionButton>
       </div>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <StatCard label="Total Warehouses" value="6" footnote={<p className="mt-1 text-[11px] leading-4 text-muted">5 active • 1 transit</p>} />
-        <StatCard label="Combined Stock Value" value="₹12.35 Cr" tone="brand" footnote={<p className="mt-1 text-[11px] leading-4 text-success">+4.8% this month</p>} />
-        <StatCard label="Average Utilization" value="69%" footnote={<p className="mt-1 text-[11px] leading-4 text-muted">Within optimal range</p>} />
-        <StatCard label="Total Unique Items" value="2,847" footnote={<p className="mt-1 text-[11px] leading-4 text-muted">4,467 location records</p>} />
+        <StatCard
+          label="Total Warehouses"
+          value={loading ? "—" : String(warehouseSummary?.total ?? 0)}
+          footnote={
+            <p className="mt-1 text-[11px] leading-4 text-muted">
+              {warehouseSummary
+                ? `${warehouseSummary.activeCount} active • ${warehouseSummary.transitCount} transit`
+                : "Loading summary…"}
+            </p>
+          }
+        />
+        <StatCard
+          label="Combined Stock Value"
+          value={loading ? "—" : formatStockValue(warehouseSummary?.combinedStockValue ?? 0)}
+          tone="brand"
+        />
+        <StatCard
+          label="Average Utilization"
+          value={loading ? "—" : `${warehouseSummary?.avgUtilization ?? 0}%`}
+          footnote={<p className="mt-1 text-[11px] leading-4 text-muted">Across all locations</p>}
+        />
+        <StatCard
+          label="Total Location Records"
+          value={loading ? "—" : (warehouseSummary?.totalLocationRecords ?? 0).toLocaleString("en-IN")}
+          footnote={<p className="mt-1 text-[11px] leading-4 text-muted">Item balances by warehouse</p>}
+        />
       </div>
 
       {/* Grid of Warehouse Cards */}
@@ -65,7 +109,13 @@ export default function WarehouseDashboardPage({ onNavigate, onShowToast }) {
         <div className="p-6 bg-red-50 text-danger text-sm rounded-xl">{error}</div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {warehouses.map((wh) => {
+          {warehouses
+            .filter(
+              (wh) =>
+                !search.trim() ||
+                matchesSearch(search, wh.name, wh.code, wh.city, wh.streetAddress)
+            )
+            .map((wh) => {
             const isHigh = wh.capacityUtilization >= 80;
             const progressColor = isHigh ? "bg-amber-500" : "bg-emerald-600";
 

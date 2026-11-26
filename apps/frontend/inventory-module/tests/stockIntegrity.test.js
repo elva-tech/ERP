@@ -22,7 +22,9 @@ describe("Inventory Stock Integrity & Business Rules", () => {
         lineItems: [
           {
             itemId: "item-1",
+            challanQuantity: 300,
             quantity: 300,
+            rejectedQuantity: 0,
             rate: 245,
           },
         ],

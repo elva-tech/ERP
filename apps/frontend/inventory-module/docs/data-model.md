@@ -76,6 +76,22 @@ Storage locations, yards, depot sites, and project stores.
 | `contactPhone` | `VARCHAR(32)` | YES| Contact mobile number |
 | `status` | `VARCHAR(32)` | NO | "Active", "Inactive", "Maintenance" |
 
+### 2.2.1 Warehouse Document Attachment (`warehouse_attachments`)
+Optional PDF lease / compliance documents linked to a warehouse.
+
+| Attribute | Type | Nullable | Description |
+|---|---|---|---|
+| `id` | `VARCHAR(36)` | NO | Primary Key (UUID) |
+| `warehouseId` | `VARCHAR(36)` | NO | FK → `warehouses.id` |
+| `tenantId` | `VARCHAR(36)` | NO | Multi-tenant identifier |
+| `fileName` | `VARCHAR(255)` | NO | Original uploaded file name |
+| `mimeType` | `VARCHAR(64)` | NO | Must be `application/pdf` |
+| `sizeBytes` | `BIGINT` | NO | Max 5 MB enforced at API |
+| `storageKey` | `VARCHAR(512)` | NO | Object storage path (backend only) |
+| `uploadedAt` | `TIMESTAMP` | NO | Upload timestamp |
+
+**Constraints**: One active attachment per warehouse optional; `warehouseId` indexed. Upload and virus scan handled in backend transaction with warehouse create.
+
 ---
 
 ### 2.3 Warehouse Balance (`warehouse_balances`)

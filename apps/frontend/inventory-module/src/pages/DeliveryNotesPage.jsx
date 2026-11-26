@@ -1,21 +1,26 @@
 import React, { useEffect, useState, useCallback, useMemo } from "react";
-import { Plus, Truck, Search, Eye, FileText, CheckCircle2, Clock, AlertCircle, MapPin, Phone } from "lucide-react";
+import { Truck, Eye, FileText, CheckCircle2, Clock, AlertCircle, MapPin, Phone } from "lucide-react";
 import { deliveryNoteService } from "../features/delivery-notes/services/deliveryNoteService.js";
 import { invoiceService } from "../features/invoices/services/invoiceService.js";
 import { warehouseService } from "../features/warehouses/services/warehouseService.js";
 import CreateDeliveryNoteModal from "../features/delivery-notes/components/CreateDeliveryNoteModal.jsx";
 import DateRangeFilter from "../components/ui/DateRangeFilter.jsx";
 import { isWithinDateRange } from "../lib/dateUtils.js";
-import Badge from "../components/ui/Badge.jsx";
+import { StatusBadge } from "../components/ui/Badge.jsx";
+import { DELIVERY_NOTE_STATUS_BADGES } from "../lib/inventoryStatusBadges.js";
+import PrimaryActionButton from "../components/ui/PrimaryActionButton.jsx";
+import ListFooter from "../components/ui/ListFooter.jsx";
+import { usePageSearch } from "../hooks/usePageSearch.jsx";
+import { useClientPagination } from "../hooks/useClientPagination.js";
 
 export default function DeliveryNotesPage({ onShowToast }) {
+  const { search } = usePageSearch();
   const [deliveryNotes, setDeliveryNotes] = useState([]);
   const [invoices, setInvoices] = useState([]);
   const [warehouses, setWarehouses] = useState([]);
   const [selectedNote, setSelectedNote] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
@@ -83,15 +88,22 @@ export default function DeliveryNotesPage({ onShowToast }) {
     return deliveryNotes.filter((dn) => {
       const matchStatus =
         statusFilter === "all" || dn.status.toLowerCase() === statusFilter.toLowerCase();
+      const q = search.trim().toLowerCase();
       const matchSearch =
-        (dn.dnNo || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (dn.customer || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (dn.salesInvoiceRef || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (dn.vehicleNo || "").toLowerCase().includes(searchQuery.toLowerCase());
+        !q ||
+        (dn.dnNo || "").toLowerCase().includes(q) ||
+        (dn.customer || "").toLowerCase().includes(q) ||
+        (dn.salesInvoiceRef || "").toLowerCase().includes(q) ||
+        (dn.vehicleNo || "").toLowerCase().includes(q);
       const matchDate = isWithinDateRange(dn.deliveryDate || dn.date, startDate, endDate);
       return matchStatus && matchSearch && matchDate;
     });
-  }, [deliveryNotes, statusFilter, searchQuery, startDate, endDate]);
+  }, [deliveryNotes, statusFilter, search, startDate, endDate]);
+
+  const { slice: pagedNotes, pagination, setPage } = useClientPagination(filteredNotes, {
+    pageSize: 8,
+    resetKey: `${search}|${statusFilter}|${startDate}|${endDate}`,
+  });
 
   return (
     <div className="flex flex-1 flex-col gap-4">
@@ -103,13 +115,9 @@ export default function DeliveryNotesPage({ onShowToast }) {
             Physical dispatch documentation, warehouse picking lists, and transport tracking
           </p>
         </div>
-        <button
-          onClick={() => setIsModalOpen(true)}
-          className="inline-flex items-center gap-2 px-4 py-2.5 bg-brand text-white rounded-lg text-sm font-semibold hover:bg-brand-hover transition shadow-xs self-start sm:self-auto"
-        >
-          <Plus className="w-4 h-4" />
+        <PrimaryActionButton onClick={() => setIsModalOpen(true)} className="self-start sm:self-auto">
           Create Delivery Note
-        </button>
+        </PrimaryActionButton>
       </div>
 
       {/* Integration Boundary Notice */}
@@ -125,18 +133,7 @@ export default function DeliveryNotesPage({ onShowToast }) {
       </div>
 
       {/* Search and Filters */}
-      <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3">
-        <div className="relative w-full sm:w-80">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-          <input
-            type="text"
-            placeholder="Search DN #, customer, invoice ref, vehicle..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary"
-          />
-        </div>
-
+      <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs flex flex-col sm:flex-row items-center justify-end gap-3">
         <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
           <DateRangeFilter
             startDate={startDate}
@@ -206,7 +203,7 @@ export default function DeliveryNotesPage({ onShowToast }) {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {filteredNotes.map((dn) => {
+                  {pagedNotes.map((dn) => {
                     const isSelected = selectedNote?.id === dn.id;
                     return (
                       <tr
@@ -229,17 +226,7 @@ export default function DeliveryNotesPage({ onShowToast }) {
                           {dn.warehouseName}
                         </td>
                         <td className="py-3 px-4">
-                          <Badge
-                            variant={
-                              dn.status === "Delivered"
-                                ? "success"
-                                : dn.status === "Dispatched"
-                                  ? "info"
-                                  : "warning"
-                            }
-                          >
-                            {dn.status}
-                          </Badge>
+                          <StatusBadge status={dn.status} statusMap={DELIVERY_NOTE_STATUS_BADGES} />
                         </td>
                         <td className="py-3 px-4 text-right">
                           <button
@@ -260,6 +247,9 @@ export default function DeliveryNotesPage({ onShowToast }) {
               </table>
             </div>
           )}
+          <div className="px-4 pb-4">
+            <ListFooter pagination={pagination} itemCount={pagedNotes.length} noun="notes" onPageChange={setPage} />
+          </div>
         </div>
 
         {/* Selected Delivery Note Inspection Panel */}
@@ -271,17 +261,7 @@ export default function DeliveryNotesPage({ onShowToast }) {
                   <span className="text-xs font-mono font-bold text-brand-primary bg-blue-50 px-2 py-0.5 rounded">
                     {selectedNote.dnNo}
                   </span>
-                  <Badge
-                    variant={
-                      selectedNote.status === "Delivered"
-                        ? "success"
-                        : selectedNote.status === "Dispatched"
-                          ? "info"
-                          : "warning"
-                    }
-                  >
-                    {selectedNote.status}
-                  </Badge>
+                  <StatusBadge status={selectedNote.status} statusMap={DELIVERY_NOTE_STATUS_BADGES} />
                 </div>
                 <h4 className="font-bold text-ink text-base mt-2">{selectedNote.customer}</h4>
                 <p className="text-xs text-ink-muted mt-0.5">

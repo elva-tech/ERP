@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import Modal from "../../../components/ui/Modal.jsx";
+import ModalForm from "../../../components/ui/ModalForm.jsx";
 import { Scale, AlertCircle, CheckCircle, TrendingUp, TrendingDown } from "lucide-react";
 import { warehouseService } from "../../warehouses/services/warehouseService.js";
 
@@ -156,19 +157,18 @@ export default function StartReconciliationModal({
       onClose={onClose}
       title="Start Stock Reconciliation"
       description="Compare physical stock with system balances and calculate discrepancy before adjustment"
-      width="md"
+      width="xl"
     >
-      <form onSubmit={handleSubmit} className="space-y-4">
-        {error && (
-          <div
-            role="alert"
-            className="p-3 bg-red-50 border border-red-200 text-xs text-danger rounded-lg flex items-center gap-2 font-medium"
-          >
-            <AlertCircle size={15} className="shrink-0 text-danger" />
-            <span>{error}</span>
-          </div>
-        )}
-
+      <ModalForm
+        onSubmit={handleSubmit}
+        onCancel={onClose}
+        submitLabel="Record Reconciliation"
+        submitTone="navy"
+        isSubmitting={isSubmitting}
+        submitDisabled={Boolean(existingPendingRec)}
+        formError={error ? { kind: "validation", message: error } : null}
+      >
+        <div className="flex flex-col gap-[11px]">
         {existingPendingRec && (
           <div
             role="alert"
@@ -182,8 +182,7 @@ export default function StartReconciliationModal({
           </div>
         )}
 
-        {/* Row 1: Warehouse & Item Selection */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-x-3 gap-y-[11px] sm:grid-cols-2">
           <div>
             <label htmlFor="reconcileWarehouseId" className="block text-xs font-semibold text-ink mb-1.5">
               Warehouse Location <span className="text-brand">*</span>
@@ -227,8 +226,7 @@ export default function StartReconciliationModal({
           </div>
         </div>
 
-        {/* Row 2: Read-Only System Qty & Editable Actual Present Qty */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-x-3 gap-y-[11px] sm:grid-cols-2">
           <div>
             <label htmlFor="systemQuantity" className="block text-xs font-semibold text-ink mb-1.5">
               System Quantity <span className="text-muted font-normal">(Authoritative in WH)</span>
@@ -324,8 +322,7 @@ export default function StartReconciliationModal({
           </div>
         )}
 
-        {/* Row 3: Date & Assigned Auditor */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-x-3 gap-y-[11px] sm:grid-cols-2">
           <div>
             <label htmlFor="reconcileDate" className="block text-xs font-semibold text-ink mb-1.5">
               Reconciliation Date <span className="text-brand">*</span>
@@ -373,25 +370,8 @@ export default function StartReconciliationModal({
           />
         </div>
 
-        {/* Footer */}
-        <div className="flex items-center justify-end gap-3 pt-4 border-t border-field-line">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-5 py-2 text-sm font-medium text-ink bg-surface border border-line rounded-lg hover:bg-workspace transition-colors"
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            disabled={isSubmitting || Boolean(existingPendingRec)}
-            title={existingPendingRec ? "Pending reconciliation already exists" : "Record Reconciliation"}
-            className="px-6 py-2 text-sm font-semibold text-white bg-[#1b3858] hover:bg-[#142c46] rounded-lg transition-colors shadow-xs disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {isSubmitting ? "Recording..." : "Record Reconciliation"}
-          </button>
         </div>
-      </form>
+      </ModalForm>
     </Modal>
   );
 }

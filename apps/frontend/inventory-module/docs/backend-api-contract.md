@@ -137,7 +137,22 @@
 ### 2.3 Warehouses
 #### `GET /warehouses`
 - **Status**: `CONFIRMED` (Matches Figma `warehouse-dashboard.png`)
-- **Success Response (200 OK)**: Array of warehouse locations with zone counts, occupancy %, and stock valuation.
+- **Query Parameters**: `search` (optional, string) — filter by name, code, or city
+- **Success Response (200 OK)**:
+```json
+{
+  "data": [ { "id": "wh-1", "code": "PUN-MAIN-01", "status": "Active", "capacityUtilization": 72, "stockValue": 45000000, "documentAttachment": null } ],
+  "total": 6,
+  "summary": {
+    "totalWarehouses": 6,
+    "activeWarehouses": 5,
+    "transitWarehouses": 1,
+    "combinedStockValue": 123500000,
+    "averageUtilization": 69,
+    "totalLocationRecords": 4467
+  }
+}
+```
 
 #### `GET /warehouses/:id`
 - **Status**: `CONFIRMED` (Matches Figma `warehouse-detail.png`)
@@ -146,7 +161,7 @@
 #### `POST /warehouses`
 - **Status**: `CONFIRMED` (Matches modal `Add Warehouse modal.png`)
 - **Headers**: `Idempotency-Key`
-- **Request Body**:
+- **Request Body (JSON)** — when no file is attached:
 ```json
 {
   "code": "NAG-SITE-01",
@@ -162,6 +177,25 @@
   "contactPhone": "+91 98224 88771"
 }
 ```
+- **Request Body (multipart/form-data)** — when a PDF is attached (production path):
+  - `data` (string, required): JSON string matching the schema above
+  - `document` (file, optional): PDF only, max **5 MB**
+- **Validation**:
+  - `document` MIME type must be `application/pdf`
+  - Duplicate `code` → `409 DUPLICATE_WAREHOUSE_CODE`
+- **Success Response (201 Created)**: Warehouse record including optional `documentAttachment`:
+```json
+{
+  "documentAttachment": {
+    "id": "wh-doc-uuid",
+    "fileName": "lease-deed.pdf",
+    "mimeType": "application/pdf",
+    "sizeBytes": 1048576,
+    "uploadedAt": "2026-09-12T10:00:00Z"
+  }
+}
+```
+- **Backend dependency**: Object storage (e.g. S3-compatible bucket) to persist the binary; API returns durable `storageKey` in a future revision when upload is implemented server-side.
 
 ---
 
@@ -186,16 +220,23 @@
   "lineItems": [
     {
       "itemId": "item-1",
+      "challanQuantity": 520,
       "quantity": 500,
-      "rate": 248
+      "rejectedQuantity": 20,
+      "rate": 248,
+      "remarks": "Two drums dented"
     }
   ]
 }
 ```
+- **Line validation**:
+  - `challanQuantity`, `quantity` (actual received), and `rejectedQuantity` are non-negative decimals.
+  - `challanQuantity` must equal `quantity + rejectedQuantity` per line.
+  - Stock posting uses **`quantity` (actual received)** only; rejected units do not increase inventory.
 - **Stock Posting Action**:
-  - Increments item quantity in `warehouse_balances`.
-  - Increments item `currentStock`.
-  - Generates immutable `stock_ledger` entry with `quantityIn: 500`.
+  - Increments item quantity in `warehouse_balances` by actual received `quantity`.
+  - Increments item `currentStock` by actual received `quantity`.
+  - Generates immutable `stock_ledger` entry with `quantityIn` equal to actual received.
 
 ---
 
@@ -477,3 +518,20 @@
 - **Headers**: `Idempotency-Key`
 - **Description**: Records goods issuance from a warehouse.
 - **Contract Rule**: The client does not hardcode outward status. If `status` is omitted in the request payload, the backend assigns the initial lifecycle status (`"Dispatched"` for direct issue, or `"Draft"` / `"Pending Approval"` when warehouse dispatch workflows are active).
+
+---
+
+## 3. Inventory Business Rules (Backend + Mock Parity)
+
+The mock API enforces these rules for development; production must enforce them inside database transactions.
+
+1. **Inward** increases stock using **actual received** `quantity` only (rejected units excluded).
+2. **Outward** decreases stock; requests exceeding available quantity return `400` / `409`.
+3. **Transfer** decreases source warehouse balance and increases destination balance; `fromWarehouseId` must not equal `toWarehouseId`.
+4. **Reconciliation** stores `systemQty`, `physicalQty`, and `variance = physicalQty - systemQty`.
+5. Every stock change produces a **`stock_ledger`** row with matching voucher reference.
+6. **Idempotency-Key** on `POST` mutations prevents duplicate movements (`409 DUPLICATE_IDEMPOTENCY_KEY`).
+7. Transaction dates must parse to a valid calendar date (reject gibberish strings).
+8. Inward line: `challanQuantity = quantity + rejectedQuantity`.
+9. Duplicate GRN / warehouse code rejected with `409`.
+10. Stock updates must be **atomic** in the backend (mock simulates sequential updates only; not production-grade isolation).

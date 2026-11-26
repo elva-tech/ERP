@@ -5,16 +5,21 @@ import { warehouseService } from "../features/warehouses/services/warehouseServi
 import { itemService } from "../features/items/services/itemService.js";
 import CreateTransferModal from "../features/transfers/components/CreateTransferModal.jsx";
 import DateRangeFilter from "../components/ui/DateRangeFilter.jsx";
-import Badge from "../components/ui/Badge.jsx";
+import ListFooter from "../components/ui/ListFooter.jsx";
+import { StatusBadge } from "../components/ui/Badge.jsx";
+import PrimaryActionButton from "../components/ui/PrimaryActionButton.jsx";
 import { isWithinDateRange } from "../lib/dateUtils.js";
+import { TRANSFER_STATUS_BADGES } from "../lib/inventoryStatusBadges.js";
+import { usePageSearch } from "../hooks/usePageSearch.jsx";
+import { useClientPagination } from "../hooks/useClientPagination.js";
 
 export default function StockTransferPage({ onShowToast }) {
+  const { search } = usePageSearch();
   const [transfers, setTransfers] = useState([]);
   const [warehouses, setWarehouses] = useState([]);
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [searchQuery, setSearchQuery] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("all");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
@@ -77,15 +82,22 @@ export default function StockTransferPage({ onShowToast }) {
   const filteredTransfers = useMemo(() => {
     return transfers.filter((t) => {
       const matchStatus = selectedStatus === "all" || t.status.toLowerCase() === selectedStatus.toLowerCase();
+      const q = search.trim().toLowerCase();
       const matchSearch =
-        (t.transferNo || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (t.fromWarehouseName || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (t.toWarehouseName || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (t.reason || "").toLowerCase().includes(searchQuery.toLowerCase());
+        !q ||
+        (t.transferNo || "").toLowerCase().includes(q) ||
+        (t.fromWarehouseName || "").toLowerCase().includes(q) ||
+        (t.toWarehouseName || "").toLowerCase().includes(q) ||
+        (t.reason || "").toLowerCase().includes(q);
       const matchDate = isWithinDateRange(t.date, startDate, endDate);
       return matchStatus && matchSearch && matchDate;
     });
-  }, [transfers, selectedStatus, searchQuery, startDate, endDate]);
+  }, [transfers, selectedStatus, search, startDate, endDate]);
+
+  const { slice: pagedTransfers, pagination, setPage } = useClientPagination(filteredTransfers, {
+    pageSize: 10,
+    resetKey: `${search}|${selectedStatus}|${startDate}|${endDate}`,
+  });
 
   const kpis = useMemo(() => {
     const inTransit = transfers.filter((t) => t.status === "In Transit").length;
@@ -109,13 +121,9 @@ export default function StockTransferPage({ onShowToast }) {
             Inter-warehouse stock movements, transit tracking, and replenishment
           </p>
         </div>
-        <button
-          onClick={() => setIsModalOpen(true)}
-          className="inline-flex items-center gap-2 px-4 py-2.5 bg-brand text-white rounded-lg text-sm font-semibold hover:bg-brand-hover transition shadow-xs self-start sm:self-auto"
-        >
-          <Plus className="w-4 h-4" />
+        <PrimaryActionButton onClick={() => setIsModalOpen(true)} className="self-start sm:self-auto">
           New Transfer
-        </button>
+        </PrimaryActionButton>
       </div>
 
       {/* KPI Cards */}
@@ -161,18 +169,7 @@ export default function StockTransferPage({ onShowToast }) {
       </div>
 
       {/* Filter and Search Bar */}
-      <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3">
-        <div className="relative w-full sm:w-80">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-          <input
-            type="text"
-            placeholder="Search transfer no, warehouse, reason..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary"
-          />
-        </div>
-
+      <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs flex flex-col sm:flex-row items-center justify-end gap-3">
         <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
           <DateRangeFilter
             startDate={startDate}
@@ -231,7 +228,7 @@ export default function StockTransferPage({ onShowToast }) {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {filteredTransfers.map((t) => (
+                {pagedTransfers.map((t) => (
                   <tr key={t.id} className="hover:bg-slate-50/50 transition">
                     <td className="py-3 px-4 font-mono font-medium text-xs text-brand-primary">
                       {t.transferNo}
@@ -261,17 +258,7 @@ export default function StockTransferPage({ onShowToast }) {
                       {t.reason || "Inter-warehouse stock transfer"}
                     </td>
                     <td className="py-3 px-4">
-                      <Badge
-                        variant={
-                          t.status === "Received"
-                            ? "success"
-                            : t.status === "In Transit"
-                            ? "warning"
-                            : "default"
-                        }
-                      >
-                        {t.status}
-                      </Badge>
+                      <StatusBadge status={t.status} statusMap={TRANSFER_STATUS_BADGES} />
                     </td>
                     <td className="py-3 px-4 text-right">
                       {t.status === "In Transit" ? (
@@ -297,6 +284,9 @@ export default function StockTransferPage({ onShowToast }) {
             </table>
           </div>
         )}
+        <div className="px-4 pb-4">
+          <ListFooter pagination={pagination} itemCount={pagedTransfers.length} noun="transfers" onPageChange={setPage} />
+        </div>
       </div>
 
       {/* Modal */}

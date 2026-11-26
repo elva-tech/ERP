@@ -112,7 +112,7 @@ export default function StockAgingPage({ onShowToast }) {
           </select>
           <button
             onClick={handleExportCSV}
-            className="inline-flex items-center gap-2 px-3.5 py-2 bg-brand text-white rounded-lg text-sm font-semibold hover:bg-brand-hover transition shadow-xs"
+            className="inline-flex items-center gap-2 px-3.5 py-2 bg-navy text-white rounded-lg text-sm font-semibold hover:bg-sidebar transition shadow-xs"
           >
             <Download className="w-4 h-4" />
             Export Analysis

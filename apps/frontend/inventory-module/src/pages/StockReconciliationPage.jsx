@@ -5,16 +5,21 @@ import { warehouseService } from "../features/warehouses/services/warehouseServi
 import { itemService } from "../features/items/services/itemService.js";
 import StartReconciliationModal from "../features/reconciliation/components/StartReconciliationModal.jsx";
 import DateRangeFilter from "../components/ui/DateRangeFilter.jsx";
-import Badge from "../components/ui/Badge.jsx";
+import { StatusBadge } from "../components/ui/Badge.jsx";
+import PrimaryActionButton from "../components/ui/PrimaryActionButton.jsx";
+import ListFooter from "../components/ui/ListFooter.jsx";
 import { isWithinDateRange } from "../lib/dateUtils.js";
+import { RECONCILIATION_STATUS_BADGES } from "../lib/inventoryStatusBadges.js";
+import { usePageSearch } from "../hooks/usePageSearch.jsx";
+import { useClientPagination } from "../hooks/useClientPagination.js";
 
 export default function StockReconciliationPage({ onShowToast }) {
+  const { search } = usePageSearch();
   const [records, setRecords] = useState([]);
   const [warehouses, setWarehouses] = useState([]);
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [searchQuery, setSearchQuery] = useState("");
   const [selectedWarehouse, setSelectedWarehouse] = useState("all");
   const [selectedStatus, setSelectedStatus] = useState("all");
   const [startDate, setStartDate] = useState("");
@@ -100,14 +105,21 @@ export default function StockReconciliationPage({ onShowToast }) {
     return records.filter((r) => {
       const matchStatus =
         selectedStatus === "all" || r.status.toLowerCase() === selectedStatus.toLowerCase();
+      const q = search.trim().toLowerCase();
       const matchSearch =
-        (r.itemCode || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (r.itemName || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (r.warehouseName || "").toLowerCase().includes(searchQuery.toLowerCase());
+        !q ||
+        (r.itemCode || "").toLowerCase().includes(q) ||
+        (r.itemName || "").toLowerCase().includes(q) ||
+        (r.warehouseName || "").toLowerCase().includes(q);
       const matchDate = isWithinDateRange(r.reconciliationDate || r.date, startDate, endDate);
       return matchStatus && matchSearch && matchDate;
     });
-  }, [records, selectedStatus, searchQuery, startDate, endDate]);
+  }, [records, selectedStatus, search, startDate, endDate]);
+
+  const { slice: pagedRecords, pagination, setPage } = useClientPagination(filteredRecords, {
+    pageSize: 10,
+    resetKey: `${search}|${selectedStatus}|${selectedWarehouse}|${startDate}|${endDate}`,
+  });
 
   const kpis = useMemo(() => {
     const total = records.length;
@@ -132,13 +144,9 @@ export default function StockReconciliationPage({ onShowToast }) {
             Physical stock audit, cycle count comparison, and variance adjustment
           </p>
         </div>
-        <button
-          onClick={() => setIsModalOpen(true)}
-          className="inline-flex items-center gap-2 px-4 py-2.5 bg-brand text-white rounded-lg text-sm font-semibold hover:bg-brand-hover transition shadow-xs self-start sm:self-auto"
-        >
-          <Plus className="w-4 h-4" />
+        <PrimaryActionButton onClick={() => setIsModalOpen(true)} className="self-start sm:self-auto">
           Start Reconciliation
-        </button>
+        </PrimaryActionButton>
       </div>
 
       {/* KPI Cards */}
@@ -198,18 +206,7 @@ export default function StockReconciliationPage({ onShowToast }) {
       </div>
 
       {/* Filter and Search Bar */}
-      <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs flex flex-col md:flex-row items-center justify-between gap-3">
-        <div className="relative w-full md:w-72">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-          <input
-            type="text"
-            placeholder="Search items, code, or warehouse..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-brand/20 focus:border-brand"
-          />
-        </div>
-
+      <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs flex flex-col md:flex-row items-center justify-end gap-3">
         <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
           <DateRangeFilter
             startDate={startDate}
@@ -283,7 +280,7 @@ export default function StockReconciliationPage({ onShowToast }) {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {filteredRecords.map((r) => {
+                {pagedRecords.map((r) => {
                   const hasDiscrepancy = r.variance !== 0;
                   return (
                     <tr key={r.id} className="hover:bg-slate-50/50 transition">
@@ -314,24 +311,14 @@ export default function StockReconciliationPage({ onShowToast }) {
                         </span>
                       </td>
                       <td className="py-3 px-4">
-                        <Badge
-                          variant={
-                            r.status === "Matched"
-                              ? "success"
-                              : r.status === "Adjusted"
-                              ? "info"
-                              : "danger"
-                          }
-                        >
-                          {r.status}
-                        </Badge>
+                        <StatusBadge status={r.status} statusMap={RECONCILIATION_STATUS_BADGES} />
                       </td>
                       <td className="py-3 px-4 text-right">
                         {hasDiscrepancy && r.status !== "Adjusted" ? (
                           <button
                             disabled={submittingAdjustId === r.id}
                             onClick={() => handleAdjustStock(r)}
-                            className="px-2.5 py-1 text-xs font-medium bg-brand text-white hover:bg-brand-hover rounded-md transition shadow-2xs disabled:opacity-50"
+                            className="px-2.5 py-1 text-xs font-medium bg-navy text-white hover:bg-sidebar rounded-md transition shadow-2xs disabled:opacity-50"
                           >
                             {submittingAdjustId === r.id ? "Adjusting..." : "Adjust Stock"}
                           </button>
@@ -346,6 +333,9 @@ export default function StockReconciliationPage({ onShowToast }) {
             </table>
           </div>
         )}
+        <div className="px-4 pb-4">
+          <ListFooter pagination={pagination} itemCount={pagedRecords.length} noun="records" onPageChange={setPage} />
+        </div>
       </div>
 
       {/* Modal */}

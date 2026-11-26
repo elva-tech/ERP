@@ -6,10 +6,14 @@ import FilterSelect from "../components/ui/FilterSelect.jsx";
 import ListFooter from "../components/ui/ListFooter.jsx";
 import Panel from "../components/ui/Panel.jsx";
 import PrimaryActionButton from "../components/ui/PrimaryActionButton.jsx";
-import SearchInput from "../components/ui/SearchInput.jsx";
 import AddItemModal from "../features/items/components/AddItemModal.jsx";
 import { itemService } from "../features/items/services/itemService.js";
 import { warehouseService } from "../features/warehouses/services/warehouseService.js";
+import { useListQuery } from "../hooks/useListQuery.js";
+import { usePageSearch } from "../hooks/usePageSearch.jsx";
+
+const PAGE_SIZE = 20;
+const fetchItems = (params) => itemService.getItems(params);
 
 const CATEGORY_OPTIONS = [
   { value: "", label: "All" },
@@ -74,74 +78,70 @@ const ITEM_COLUMNS = [
 ];
 
 export default function ItemMasterPage({ onShowToast }) {
-  const [items, setItems] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [search, setSearch] = useState("");
+  const { search } = usePageSearch();
   const [category, setCategory] = useState("");
   const [status, setStatus] = useState("");
-  const [warehouses, setWarehouses] = useState([]);
   const [selectedWarehouse, setSelectedWarehouse] = useState("");
+  const [warehouses, setWarehouses] = useState([]);
+  const [page, setPage] = useState(1);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  const fetchItems = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const res = await itemService.getItems({
-        search,
-        category,
-        status,
-        warehouseId: selectedWarehouse || undefined,
-      });
-      setItems(res.data || []);
-    } catch (err) {
-      setError(err.message || "Failed to load inventory items");
-    } finally {
-      setLoading(false);
-    }
+  const query = useListQuery(fetchItems, {
+    search,
+    category,
+    status,
+    warehouseId: selectedWarehouse || undefined,
+    page,
+    limit: PAGE_SIZE,
+  });
+
+  const items = query.data ?? [];
+  const { response, reload, status: queryStatus, error } = query;
+
+  const pagination = useMemo(() => {
+    const pageSize = response?.pagination?.limit ?? response?.pagination?.pageSize ?? PAGE_SIZE;
+    const totalItems = response?.pagination?.totalItems ?? response?.pagination?.total ?? response?.total;
+    if (!Number.isFinite(totalItems)) return null;
+    return {
+      page: response?.pagination?.page ?? page,
+      pageSize,
+      totalItems,
+      totalPages: response?.pagination?.totalPages ?? Math.max(1, Math.ceil(totalItems / pageSize)),
+    };
+  }, [response, page]);
+
+  useEffect(() => {
+    setPage(1);
   }, [search, category, status, selectedWarehouse]);
 
   useEffect(() => {
-    let isCancelled = false;
-    warehouseService
-      .getWarehouses()
-      .then((res) => {
-        if (!isCancelled) setWarehouses(res?.data || []);
-      })
-      .catch(() => {});
+    let mounted = true;
+    warehouseService.getWarehouses().then((res) => {
+      if (mounted) setWarehouses(res?.data || []);
+    });
     return () => {
-      isCancelled = true;
+      mounted = false;
     };
   }, []);
 
   const warehouseOptions = useMemo(
     () => [{ value: "", label: "All Warehouses" }, ...warehouses.map((w) => ({ value: w.id, label: w.name }))],
-    [warehouses]
+    [warehouses],
   );
 
   useEffect(() => {
-    fetchItems();
-  }, [fetchItems]);
-
-  // Real-time stock refresh on inventory movement operations across modules
-  useEffect(() => {
-    const handleStockUpdate = () => {
-      fetchItems();
-    };
+    const handleStockUpdate = () => reload();
     window.addEventListener("inventory:stock-updated", handleStockUpdate);
-    return () => {
-      window.removeEventListener("inventory:stock-updated", handleStockUpdate);
-    };
-  }, [fetchItems]);
+    return () => window.removeEventListener("inventory:stock-updated", handleStockUpdate);
+  }, [reload]);
 
   const listResource = useMemo(
     () => ({
-      status: loading ? "loading" : error ? "error" : "success",
+      status: queryStatus,
       error,
-      reload: fetchItems,
+      reload,
     }),
-    [loading, error, fetchItems],
+    [queryStatus, error, reload],
   );
 
   function handleItemCreated(created) {
@@ -149,7 +149,7 @@ export default function ItemMasterPage({ onShowToast }) {
     const code = created?.itemCode ?? created?.data?.itemCode;
     onShowToast?.(code ? `Item ${code} created successfully!` : "Item created successfully!", "success");
     window.dispatchEvent(new CustomEvent("inventory:stock-updated"));
-    fetchItems();
+    reload();
   }
 
   return (
@@ -158,13 +158,6 @@ export default function ItemMasterPage({ onShowToast }) {
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-3">
-          <SearchInput
-            value={search}
-            onSearch={setSearch}
-            placeholder="Search item code, name or HSN…"
-            label="Search items"
-            className="min-w-[220px] flex-1 sm:max-w-[320px]"
-          />
           <FilterSelect label="Category" value={category} options={CATEGORY_OPTIONS} onChange={setCategory} />
           <FilterSelect label="Warehouse" value={selectedWarehouse} options={warehouseOptions} onChange={setSelectedWarehouse} />
           <FilterSelect label="Status" value={status} options={STATUS_OPTIONS} onChange={setStatus} />
@@ -172,16 +165,16 @@ export default function ItemMasterPage({ onShowToast }) {
         <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={fetchItems}
-            disabled={loading}
-            title="Refresh current stock from authoritative server"
+            onClick={reload}
+            disabled={queryStatus === "loading"}
+            title="Refresh current stock"
             aria-label="Refresh stock"
-            className="inline-flex h-[31px] shrink-0 items-center gap-1.5 rounded-md border border-line bg-surface px-3 text-[12px] font-semibold text-ink-soft transition-colors hover:bg-workspace hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex h-[31px] shrink-0 items-center gap-1.5 rounded-md border border-line bg-surface px-3 text-[12px] font-semibold text-ink-soft transition-colors hover:bg-workspace hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy disabled:cursor-not-allowed disabled:opacity-60"
           >
-            <RefreshCw size={13} className={loading ? "animate-spin" : ""} aria-hidden="true" />
+            <RefreshCw size={13} className={queryStatus === "loading" ? "animate-spin" : ""} aria-hidden="true" />
             Refresh
           </button>
-          <PrimaryActionButton onClick={() => setIsModalOpen(true)}>+ Add Item</PrimaryActionButton>
+          <PrimaryActionButton onClick={() => setIsModalOpen(true)}>Add Item</PrimaryActionButton>
         </div>
       </div>
 
@@ -196,7 +189,12 @@ export default function ItemMasterPage({ onShowToast }) {
           emptyTitle="No items found"
           emptyMessage="Try adjusting your search or filters."
         />
-        <ListFooter itemCount={items.length} noun="items" />
+        <ListFooter
+          pagination={pagination}
+          itemCount={items.length}
+          noun="items"
+          onPageChange={setPage}
+        />
       </Panel>
 
       <AddItemModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onCreated={handleItemCreated} />

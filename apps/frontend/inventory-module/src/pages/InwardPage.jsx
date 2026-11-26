@@ -11,6 +11,9 @@ import { inwardService } from "../features/inward/services/inwardService.js";
 import { itemService } from "../features/items/services/itemService.js";
 import { warehouseService } from "../features/warehouses/services/warehouseService.js";
 import { isWithinDateRange } from "../lib/dateUtils.js";
+import { usePageSearch } from "../hooks/usePageSearch.jsx";
+import { matchesSearch } from "../lib/search.js";
+import { useClientPagination } from "../hooks/useClientPagination.js";
 
 const INWARD_STATUS_BADGES = {
   Received: { label: "Received", tone: "success" },
@@ -44,6 +47,7 @@ const COLUMNS = [
 ];
 
 export default function InwardPage({ onShowToast }) {
+  const { search } = usePageSearch();
   const [entries, setEntries] = useState([]);
   const [warehouses, setWarehouses] = useState([]);
   const [items, setItems] = useState([]);
@@ -69,6 +73,7 @@ export default function InwardPage({ onShowToast }) {
           warehouseId: selectedWarehouse || undefined,
           startDate: startDate || undefined,
           endDate: endDate || undefined,
+          search: search || undefined,
         }),
         warehouseService.getWarehouses(),
         itemService.getItems(),
@@ -81,7 +86,7 @@ export default function InwardPage({ onShowToast }) {
     } finally {
       setLoading(false);
     }
-  }, [selectedWarehouse, startDate, endDate]);
+  }, [selectedWarehouse, startDate, endDate, search]);
 
   useEffect(() => {
     fetchData();
@@ -89,8 +94,19 @@ export default function InwardPage({ onShowToast }) {
 
   // Client-side date filtering safety fallback
   const displayedEntries = useMemo(() => {
-    return entries.filter((row) => isWithinDateRange(row.date, startDate, endDate));
-  }, [entries, startDate, endDate]);
+    return entries.filter((row) => {
+      const inRange = isWithinDateRange(row.date, startDate, endDate);
+      const matches =
+        !search.trim() ||
+        matchesSearch(search, row.grnNo, row.supplier, row.warehouseName, row.status);
+      return inRange && matches;
+    });
+  }, [entries, startDate, endDate, search]);
+
+  const { slice: pagedEntries, pagination, setPage } = useClientPagination(displayedEntries, {
+    pageSize: 15,
+    resetKey: `${search}|${selectedWarehouse}|${startDate}|${endDate}`,
+  });
 
   const listResource = useMemo(
     () => ({
@@ -175,14 +191,14 @@ export default function InwardPage({ onShowToast }) {
             ],
             [handleEditEntry]
           )}
-          rows={displayedEntries}
+          rows={pagedEntries}
           getRowKey={(row) => row.id}
           resource={listResource}
           minWidth={880}
           emptyTitle="No inward entries"
           emptyMessage="Record a goods receipt with Add New Inward or adjust filters."
         />
-        <ListFooter itemCount={displayedEntries.length} noun="entries" />
+        <ListFooter pagination={pagination} itemCount={pagedEntries.length} noun="entries" onPageChange={setPage} />
       </Panel>
 
       <AddInwardModal

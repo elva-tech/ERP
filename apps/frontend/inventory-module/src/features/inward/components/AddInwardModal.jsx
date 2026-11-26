@@ -7,12 +7,13 @@ import FormField from "../../../components/ui/FormField.jsx";
 import { SelectField, TextAreaField, TextField } from "../../../components/ui/FormFields.jsx";
 import { INPUT_CLASS } from "../../../components/ui/formStyles.js";
 import { useFormSubmission } from "../../../hooks/useFormSubmission.js";
-import { isBlank, isPositiveDecimal } from "../../../lib/validation.js";
+import { isValidTransactionDate } from "../../../lib/dateUtils.js";
+import { isBlank, isNonNegativeDecimal, isPositiveDecimal } from "../../../lib/validation.js";
 import { inwardService } from "../services/inwardService.js";
 import { supplierService } from "../../suppliers/services/supplierService.js";
 
 const ID_PREFIX = "inward";
-const EMPTY_LINE = { itemId: "", quantity: "", rate: "" };
+const EMPTY_LINE = { itemId: "", challanQuantity: "", quantity: "", rejectedQuantity: "", rate: "", remarks: "" };
 
 function formatAmount(item) {
   const quantity = Number(item.quantity) || 0;
@@ -31,6 +32,8 @@ function validate(values) {
   }
   if (isBlank(values.date)) {
     errors.date = "Enter the receipt date.";
+  } else if (!isValidTransactionDate(values.date)) {
+    errors.date = "Enter a valid receipt date.";
   }
 
   // Validate GRN when manual entry is selected
@@ -44,8 +47,25 @@ function validate(values) {
 
   values.lineItems.forEach((line, index) => {
     if (isBlank(line.itemId)) errors[`lineItems.${index}.itemId`] = "Select an item.";
-    if (isBlank(line.quantity)) errors[`lineItems.${index}.quantity`] = "Enter quantity.";
-    else if (!isPositiveDecimal(line.quantity)) errors[`lineItems.${index}.quantity`] = "Quantity must be greater than zero.";
+    if (isBlank(line.challanQuantity)) errors[`lineItems.${index}.challanQuantity`] = "Enter challan quantity.";
+    else if (!isNonNegativeDecimal(line.challanQuantity)) errors[`lineItems.${index}.challanQuantity`] = "Enter a non-negative number.";
+    if (isBlank(line.quantity)) errors[`lineItems.${index}.quantity`] = "Enter actual received quantity.";
+    else if (!isNonNegativeDecimal(line.quantity)) errors[`lineItems.${index}.quantity`] = "Enter a non-negative number.";
+    if (isBlank(line.rejectedQuantity)) errors[`lineItems.${index}.rejectedQuantity`] = "Enter rejected quantity.";
+    else if (!isNonNegativeDecimal(line.rejectedQuantity)) errors[`lineItems.${index}.rejectedQuantity`] = "Enter a non-negative number.";
+
+    const challan = Number(line.challanQuantity);
+    const received = Number(line.quantity);
+    const rejected = Number(line.rejectedQuantity);
+    if (
+      !Number.isNaN(challan) &&
+      !Number.isNaN(received) &&
+      !Number.isNaN(rejected) &&
+      Math.abs(challan - (received + rejected)) > 1e-6
+    ) {
+      errors[`lineItems.${index}.challanQuantity`] = "Challan quantity must equal received plus rejected.";
+    }
+
     if (isBlank(line.rate)) errors[`lineItems.${index}.rate`] = "Enter rate.";
     else if (!isPositiveDecimal(line.rate)) errors[`lineItems.${index}.rate`] = "Rate must be greater than zero.";
   });
@@ -112,8 +132,15 @@ function AddInwardModal({ isOpen, onClose, onCreated, warehouses = [], items = [
       manualGrn: editEntry?.grnNo || "",
       remarks: editEntry?.remarks || "",
       lineItems: editEntry?.lineItems?.length
-        ? editEntry.lineItems.map((l) => ({ itemId: l.itemId, quantity: String(l.quantity), rate: String(l.rate) }))
-        : [{ ...EMPTY_LINE, itemId: defaultItem, quantity: "100", rate: "250" }],
+        ? editEntry.lineItems.map((l) => ({
+            itemId: l.itemId,
+            challanQuantity: String(l.challanQuantity ?? l.quantity ?? ""),
+            quantity: String(l.quantity ?? ""),
+            rejectedQuantity: String(l.rejectedQuantity ?? "0"),
+            rate: String(l.rate),
+            remarks: l.remarks ?? "",
+          }))
+        : [{ ...EMPTY_LINE, itemId: defaultItem, challanQuantity: "100", quantity: "100", rejectedQuantity: "0", rate: "250" }],
     },
     validate,
     submit: async (values, context) => {
@@ -123,13 +150,15 @@ function AddInwardModal({ isOpen, onClose, onCreated, warehouses = [], items = [
         warehouseId: values.warehouseId,
         date: values.date,
         remarks: values.remarks,
-        status: "Received",
         isManualGrn: editEntry ? Boolean(editEntry.isManualGrn) : values.grnMode === "manual",
         grnNo: editEntry ? editEntry.grnNo : (values.grnMode === "manual" ? values.manualGrn.trim() : undefined),
         lineItems: values.lineItems.map((line) => ({
           itemId: line.itemId,
+          challanQuantity: Number(line.challanQuantity),
           quantity: Number(line.quantity),
+          rejectedQuantity: Number(line.rejectedQuantity),
           rate: Number(line.rate),
+          remarks: line.remarks,
         })),
       };
       if (editEntry) {
@@ -156,8 +185,15 @@ function AddInwardModal({ isOpen, onClose, onCreated, warehouses = [], items = [
         manualGrn: editEntry?.grnNo || "",
         remarks: editEntry?.remarks || "",
         lineItems: editEntry?.lineItems?.length
-          ? editEntry.lineItems.map((l) => ({ itemId: l.itemId, quantity: String(l.quantity), rate: String(l.rate) }))
-          : [{ ...EMPTY_LINE, itemId: defaultItem, quantity: "100", rate: "250" }],
+          ? editEntry.lineItems.map((l) => ({
+              itemId: l.itemId,
+              challanQuantity: String(l.challanQuantity ?? l.quantity ?? ""),
+              quantity: String(l.quantity ?? ""),
+              rejectedQuantity: String(l.rejectedQuantity ?? "0"),
+              rate: String(l.rate),
+              remarks: l.remarks ?? "",
+            }))
+          : [{ ...EMPTY_LINE, itemId: defaultItem, challanQuantity: "100", quantity: "100", rejectedQuantity: "0", rate: "250" }],
       });
       setSupplierSearch("");
       setIsSupplierDropdownOpen(false);
@@ -452,9 +488,12 @@ function AddInwardModal({ isOpen, onClose, onCreated, warehouses = [], items = [
                   placeholder: "Select item",
                   lookup: itemLookup,
                 },
-                { key: "quantity", label: "Qty", width: "96px", kind: "quantity", placeholder: "0" },
-                { key: "rate", label: "Rate", width: "110px", kind: "decimal", placeholder: "0" },
-                { key: "amount", label: "Amount", width: "120px", kind: "computed", compute: formatAmount },
+                { key: "challanQuantity", label: "As per Challan", width: "110px", kind: "quantity", placeholder: "0" },
+                { key: "quantity", label: "Actual Received", width: "110px", kind: "quantity", placeholder: "0" },
+                { key: "rejectedQuantity", label: "Rejected", width: "96px", kind: "quantity", placeholder: "0" },
+                { key: "rate", label: "Rate", width: "90px", kind: "decimal", placeholder: "0" },
+                { key: "amount", label: "Amount", width: "110px", kind: "computed", compute: formatAmount },
+                { key: "remarks", label: "Remarks", width: "140px", kind: "text", placeholder: "Optional" },
               ]}
             />
           </div>

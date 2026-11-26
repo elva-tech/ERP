@@ -10,6 +10,9 @@ import { itemService } from "../features/items/services/itemService.js";
 import { outwardService } from "../features/outward/services/outwardService.js";
 import { warehouseService } from "../features/warehouses/services/warehouseService.js";
 import { isWithinDateRange } from "../lib/dateUtils.js";
+import { usePageSearch } from "../hooks/usePageSearch.jsx";
+import { matchesSearch } from "../lib/search.js";
+import { useClientPagination } from "../hooks/useClientPagination.js";
 
 const COLUMNS = [
   { key: "date", header: "Date", width: "100px", render: (row) => row.date },
@@ -24,14 +27,15 @@ const COLUMNS = [
   {
     key: "totalItems",
     header: "Items",
-    width: "80px",
+    width: "96px",
     align: "right",
     render: (row) => `${row.totalItems} items`,
   },
-  { key: "warehouseName", header: "Warehouse", width: "140px", render: (row) => row.warehouseName },
+  { key: "warehouseName", header: "Warehouse", width: "168px", render: (row) => row.warehouseName },
 ];
 
 export default function OutwardPage({ onShowToast }) {
+  const { search } = usePageSearch();
   const [entries, setEntries] = useState([]);
   const [warehouses, setWarehouses] = useState([]);
   const [items, setItems] = useState([]);
@@ -56,6 +60,7 @@ export default function OutwardPage({ onShowToast }) {
           warehouseId: selectedWarehouse || undefined,
           startDate: startDate || undefined,
           endDate: endDate || undefined,
+          search: search || undefined,
         }),
         warehouseService.getWarehouses(),
         itemService.getItems(),
@@ -68,15 +73,26 @@ export default function OutwardPage({ onShowToast }) {
     } finally {
       setLoading(false);
     }
-  }, [selectedWarehouse, startDate, endDate]);
+  }, [selectedWarehouse, startDate, endDate, search]);
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
 
   const displayedEntries = useMemo(() => {
-    return entries.filter((row) => isWithinDateRange(row.date, startDate, endDate));
-  }, [entries, startDate, endDate]);
+    return entries.filter((row) => {
+      const inRange = isWithinDateRange(row.date, startDate, endDate);
+      const matches =
+        !search.trim() ||
+        matchesSearch(search, row.deliveryNoteNo, row.destination, row.warehouseName, row.purpose);
+      return inRange && matches;
+    });
+  }, [entries, startDate, endDate, search]);
+
+  const { slice: pagedEntries, pagination, setPage } = useClientPagination(displayedEntries, {
+    pageSize: 15,
+    resetKey: `${search}|${selectedWarehouse}|${startDate}|${endDate}`,
+  });
 
   const listResource = useMemo(
     () => ({
@@ -126,14 +142,19 @@ export default function OutwardPage({ onShowToast }) {
         <DataTable
           caption="Recent outward entries"
           columns={COLUMNS}
-          rows={displayedEntries}
+          rows={pagedEntries}
           getRowKey={(row) => row.id}
           resource={listResource}
           minWidth={880}
           emptyTitle="No outward entries"
           emptyMessage="Record a dispatch with Add New Outward or adjust filters."
         />
-        <ListFooter itemCount={displayedEntries.length} noun="entries" />
+        <ListFooter
+          pagination={pagination}
+          itemCount={pagedEntries.length}
+          noun="entries"
+          onPageChange={setPage}
+        />
       </Panel>
 
       <AddOutwardModal

@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback, useMemo } from "react";
-import { Plus, Search, Eye, FileText, ExternalLink, ShieldAlert, CheckCircle, Clock, AlertCircle } from "lucide-react";
+import { Search, Eye, FileText, ExternalLink, ShieldAlert, CheckCircle, Clock, AlertCircle } from "lucide-react";
+import PrimaryActionButton from "../components/ui/PrimaryActionButton.jsx";
 import { invoiceService } from "../features/invoices/services/invoiceService.js";
 import { itemService } from "../features/items/services/itemService.js";
 import CreateInvoiceModal from "../features/invoices/components/CreateInvoiceModal.jsx";
@@ -81,13 +82,9 @@ export default function SalesInvoicesPage({ onShowToast }) {
             Reference invoice register linked to dispatch orders and billing verification
           </p>
         </div>
-        <button
-          onClick={() => setIsModalOpen(true)}
-          className="inline-flex items-center gap-2 px-4 py-2.5 bg-brand text-white rounded-lg text-sm font-semibold hover:bg-brand-hover transition shadow-xs self-start sm:self-auto"
-        >
-          <Plus className="w-4 h-4" />
+        <PrimaryActionButton onClick={() => setIsModalOpen(true)} className="self-start sm:self-auto">
           Create Invoice
-        </button>
+        </PrimaryActionButton>
       </div>
 
       {/* Finance Module Domain Boundary Warning */}

@@ -56,6 +56,9 @@ export default function WarehouseDetailPage({ warehouseId, onNavigate }) {
 
   const { warehouse, itemsStored, recentActivity, categoryDistribution } = data;
 
+  const statusTone =
+    warehouse.status === "Active" ? "success" : warehouse.status === "Maintenance" ? "warning" : "muted";
+
   return (
     <div className="flex flex-1 flex-col gap-4">
       <h2 className="sr-only">{warehouse.name}</h2>
@@ -82,7 +85,7 @@ export default function WarehouseDetailPage({ warehouseId, onNavigate }) {
               <div>
                 <div className="flex items-center gap-2">
                   <h3 className="text-lg font-bold text-ink">{warehouse.name}</h3>
-                  <Badge tone="success">Active</Badge>
+                  <Badge tone={statusTone}>{warehouse.status || "Unknown"}</Badge>
                 </div>
                 <p className="text-xs text-muted mt-0.5">
                   {warehouse.streetAddress}, {warehouse.city}, {warehouse.state} {warehouse.pinCode}

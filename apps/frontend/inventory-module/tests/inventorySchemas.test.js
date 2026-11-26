@@ -99,26 +99,26 @@ describe("Inventory Zod Runtime Validation Schemas", () => {
   });
 
   describe("Inward and Outward Schemas", () => {
-    it("should validate inward entry with positive quantities", () => {
+    it("should validate inward entry with challan, received, and rejected quantities", () => {
       const validInward = {
         supplier: "Polycab India Ltd",
         warehouseId: "wh-1",
         date: "11 Sep 2026",
         lineItems: [
-          { itemId: "item-1", quantity: 500, rate: 248 },
-          { itemId: "item-2", quantity: 50, rate: 1800 },
+          { itemId: "item-1", challanQuantity: 500, quantity: 480, rejectedQuantity: 20, rate: 248 },
+          { itemId: "item-2", challanQuantity: 50, quantity: 50, rejectedQuantity: 0, rate: 1800 },
         ],
       };
       const result = CreateInwardInputSchema.safeParse(validInward);
       expect(result.success).toBe(true);
     });
 
-    it("should reject inward entry with negative or zero quantity", () => {
+    it("should reject inward lines when challan does not equal received plus rejected", () => {
       const invalidInward = {
         supplier: "Polycab India Ltd",
         warehouseId: "wh-1",
         date: "11 Sep 2026",
-        lineItems: [{ itemId: "item-1", quantity: -10, rate: 248 }],
+        lineItems: [{ itemId: "item-1", challanQuantity: 100, quantity: 50, rejectedQuantity: 10, rate: 248 }],
       };
       const result = CreateInwardInputSchema.safeParse(invalidInward);
       expect(result.success).toBe(false);

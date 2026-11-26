@@ -1,8 +1,10 @@
 import { isWithinDateRange } from "../lib/dateUtils.js";
+import { paginateList } from "../lib/paginateList.js";
 import { ApiError } from "../lib/apiClient.js";
 import {
   CreateItemInputSchema,
   CreateWarehouseInputSchema,
+  WarehouseDocumentAttachmentSchema,
   CreateInwardInputSchema,
   CreateOutwardInputSchema,
   CreateTransferInputSchema,
@@ -234,21 +236,6 @@ export const mockApiAdapter = {
   async listItems(query = {}) {
     let result = [...mockDb.items];
 
-    if (query.search) {
-      const q = String(query.search).toLowerCase();
-      result = result.filter(
-        (i) =>
-          i.itemCode.toLowerCase().includes(q) ||
-          i.itemName.toLowerCase().includes(q) ||
-          i.hsnCode.includes(q)
-      );
-    }
-    if (query.category && query.category !== "all" && query.category !== "All Categories") {
-      result = result.filter((i) => i.category.toLowerCase() === String(query.category).toLowerCase());
-    }
-    if (query.status && query.status !== "all" && query.status !== "All Status") {
-      result = result.filter((i) => i.status.toLowerCase() === String(query.status).toLowerCase());
-    }
     if (query.warehouseId && query.warehouseId !== "all" && query.warehouseId !== "All Warehouses") {
       result = result.map((i) => {
         const wb = mockDb.warehouseBalances.find((b) => b.warehouseId === query.warehouseId && b.itemId === i.id);
@@ -260,22 +247,23 @@ export const mockApiAdapter = {
         };
       });
     }
+    if (query.category && query.category !== "all" && query.category !== "All Categories") {
+      result = result.filter((i) => i.category.toLowerCase() === String(query.category).toLowerCase());
+    }
+    if (query.status && query.status !== "all" && query.status !== "All Status") {
+      result = result.filter((i) => i.status.toLowerCase() === String(query.status).toLowerCase());
+    }
+    if (query.search) {
+      const q = String(query.search).toLowerCase();
+      result = result.filter(
+        (i) =>
+          i.itemCode.toLowerCase().includes(q) ||
+          i.itemName.toLowerCase().includes(q) ||
+          String(i.hsnCode).toLowerCase().includes(q)
+      );
+    }
 
-    const page = Number(query.page) || 1;
-    const limit = Number(query.limit) || 20;
-    const total = result.length;
-    const start = (page - 1) * limit;
-    const data = result.slice(start, start + limit);
-
-    return {
-      data,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit) || 1,
-      },
-    };
+    return paginateList(result, query, 20);
   },
 
   async getItemById(id) {
@@ -375,7 +363,19 @@ export const mockApiAdapter = {
       const q = String(query.search).toLowerCase();
       result = result.filter((w) => w.name.toLowerCase().includes(q) || w.code.toLowerCase().includes(q) || w.city.toLowerCase().includes(q));
     }
-    return { data: result, total: result.length };
+    const summary = {
+      totalWarehouses: result.length,
+      activeWarehouses: result.filter((w) => w.status === "Active").length,
+      transitWarehouses: result.filter((w) => w.type === "Transit").length,
+      combinedStockValue: result.reduce((sum, w) => sum + (Number(w.stockValue) || 0), 0),
+      averageUtilization:
+        result.length === 0
+          ? 0
+          : Math.round(result.reduce((sum, w) => sum + (Number(w.capacityUtilization) || 0), 0) / result.length),
+      totalLocationRecords: result.reduce((sum, w) => sum + (Number(w.totalItems) || 0), 0),
+    };
+
+    return { data: result, total: result.length, summary };
   },
 
   async getWarehouseById(id) {
@@ -429,7 +429,19 @@ export const mockApiAdapter = {
       });
     }
 
-    const input = parsed.data;
+    const { documentAttachment: rawAttachment, ...input } = parsed.data;
+
+    let documentAttachment;
+    if (rawAttachment) {
+      const attachmentParsed = WarehouseDocumentAttachmentSchema.safeParse(rawAttachment);
+      if (!attachmentParsed.success) {
+        throw new ApiError("validation", "Warehouse document attachment is invalid.", {
+          status: 400,
+          fieldErrors: { documentAttachment: ["Invalid PDF attachment metadata."] },
+        });
+      }
+      documentAttachment = attachmentParsed.data;
+    }
 
     // Check duplicate code
     const duplicate = mockDb.warehouses.find(
@@ -460,6 +472,7 @@ export const mockApiAdapter = {
       contactPerson: input.contactPerson,
       contactPhone: input.contactPhone,
       status: "Active",
+      ...(documentAttachment ? { documentAttachment } : {}),
     };
 
     mockDb.warehouses.push(newWarehouse);
@@ -474,7 +487,16 @@ export const mockApiAdapter = {
     if (query.status && query.status !== "all") {
       result = result.filter((e) => e.status.toLowerCase() === String(query.status).toLowerCase());
     }
-    return { data: result, total: result.length };
+    if (query.search) {
+      const q = String(query.search).toLowerCase();
+      result = result.filter(
+        (e) =>
+          String(e.grnNo || "").toLowerCase().includes(q) ||
+          String(e.supplier || "").toLowerCase().includes(q) ||
+          String(e.warehouseName || "").toLowerCase().includes(q)
+      );
+    }
+    return paginateList(result, query, 15);
   },
 
   async getInwardById(id) {
@@ -535,9 +557,11 @@ export const mockApiAdapter = {
         throw new ApiError("not_found", `Item "${line.itemId}" not found in catalogue.`, { status: 404 });
       }
 
-      const qty = Number(line.quantity);
+      const receivedQty = Number(line.quantity);
+      const challanQty = Number(line.challanQuantity ?? line.quantity);
+      const rejectedQty = Number(line.rejectedQuantity ?? 0);
       const rate = Number(line.rate) || 0;
-      const amount = qty * rate;
+      const amount = receivedQty * rate;
       totalAmount += amount;
 
       resolvedLines.push({
@@ -545,21 +569,26 @@ export const mockApiAdapter = {
         itemCode: item.itemCode,
         itemName: item.itemName,
         unit: item.unit,
-        quantity: qty,
+        challanQuantity: challanQty,
+        quantity: receivedQty,
+        rejectedQuantity: rejectedQty,
         rate,
         amount,
+        remarks: line.remarks || "",
       });
 
-      // Update warehouse stock
+      if (receivedQty <= 0) continue;
+
+      // Update warehouse stock (actual received quantity only)
       let wb = mockDb.warehouseBalances.find((b) => b.warehouseId === wh.id && b.itemId === item.id);
       if (!wb) {
         wb = { warehouseId: wh.id, itemId: item.id, quantity: 0 };
         mockDb.warehouseBalances.push(wb);
       }
-      wb.quantity += qty;
+      wb.quantity += receivedQty;
 
       // Update total item stock
-      item.currentStock += qty;
+      item.currentStock += receivedQty;
       item.status = item.currentStock <= item.reorderLevel ? "Low Stock" : "In Stock";
 
       // Append stock ledger entry
@@ -574,7 +603,7 @@ export const mockApiAdapter = {
         unit: item.unit,
         warehouseId: wh.id,
         warehouseName: wh.name,
-        quantityIn: qty,
+        quantityIn: receivedQty,
         quantityOut: 0,
         balance: item.currentStock,
         reference: `Supplier Inward • ${input.supplier}`,
@@ -689,7 +718,16 @@ export const mockApiAdapter = {
     if (query.status && query.status !== "all") {
       result = result.filter((e) => e.status.toLowerCase() === String(query.status).toLowerCase());
     }
-    return { data: result, total: result.length };
+    if (query.search) {
+      const q = String(query.search).toLowerCase();
+      result = result.filter(
+        (e) =>
+          String(e.deliveryNoteNo || "").toLowerCase().includes(q) ||
+          String(e.destination || "").toLowerCase().includes(q) ||
+          String(e.warehouseName || "").toLowerCase().includes(q)
+      );
+    }
+    return paginateList(result, query, 15);
   },
 
   async getOutwardById(id) {
@@ -1194,7 +1232,16 @@ export const mockApiAdapter = {
     if (query.status && query.status !== "all") {
       result = result.filter((d) => d.status.toLowerCase() === String(query.status).toLowerCase());
     }
-    return { data: result, total: result.length };
+    if (query.search) {
+      const q = String(query.search).toLowerCase();
+      result = result.filter(
+        (d) =>
+          String(d.dnNo || "").toLowerCase().includes(q) ||
+          String(d.customer || "").toLowerCase().includes(q) ||
+          String(d.salesInvoiceRef || "").toLowerCase().includes(q)
+      );
+    }
+    return paginateList(result, query, 10);
   },
 
   async createDeliveryNote(rawBody) {

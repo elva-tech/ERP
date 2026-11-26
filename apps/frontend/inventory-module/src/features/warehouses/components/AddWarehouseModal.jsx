@@ -1,11 +1,16 @@
+import { useEffect, useRef, useState } from "react";
 import Modal from "../../../components/ui/Modal.jsx";
 import ModalForm from "../../../components/ui/ModalForm.jsx";
+import FormField from "../../../components/ui/FormField.jsx";
 import { SelectField, TextField } from "../../../components/ui/FormFields.jsx";
+import { INPUT_CLASS } from "../../../components/ui/formStyles.js";
 import { useFormSubmission } from "../../../hooks/useFormSubmission.js";
 import { CreateWarehouseInputSchema } from "../../../schemas/inventorySchemas.js";
+import { isPdfFile, validateWarehousePdfFile } from "../warehouseDocument.js";
 import { warehouseService } from "../services/warehouseService.js";
 
 const ID_PREFIX = "warehouse";
+const DOCUMENT_FIELD_ID = `${ID_PREFIX}-document`;
 
 const STATE_OPTIONS = [
   "Maharashtra",
@@ -55,19 +60,71 @@ function validate(values) {
 }
 
 function AddWarehouseModal({ isOpen, onClose, onCreated }) {
+  const fileInputRef = useRef(null);
+  const [warehouseDocument, setWarehouseDocument] = useState(null);
+  const [documentError, setDocumentError] = useState("");
+
   const form = useFormSubmission({
     initialValues: INITIAL_VALUES,
     validate,
     submit: async (values, context) => {
+      if (warehouseDocument) {
+        const fileError = validateWarehousePdfFile(warehouseDocument);
+        if (fileError) {
+          setDocumentError(fileError);
+          throw { kind: "validation", message: fileError };
+        }
+      }
+
       const parsed = parsePayload(values);
       if (!parsed.success) {
         throw { kind: "validation", message: "Please review the highlighted fields." };
       }
-      return warehouseService.createWarehouse(parsed.data, context);
+
+      return warehouseService.createWarehouse(parsed.data, {
+        ...context,
+        document: warehouseDocument ?? undefined,
+      });
     },
     onSuccess: (result) => onCreated?.(result?.data ?? result),
   });
   const field = { form, idPrefix: ID_PREFIX };
+
+  useEffect(() => {
+    if (isOpen) return;
+    setWarehouseDocument(null);
+    setDocumentError("");
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }, [isOpen]);
+
+  function clearWarehouseDocument() {
+    setWarehouseDocument(null);
+    setDocumentError("");
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
+  function handleDocumentChange(event) {
+    const nextFile = event.target.files?.[0];
+    event.target.value = "";
+    if (!nextFile) return;
+    if (!isPdfFile(nextFile)) {
+      setWarehouseDocument(null);
+      setDocumentError("Select a PDF file. Other file types are not allowed.");
+      return;
+    }
+    const sizeError = validateWarehousePdfFile(nextFile);
+    if (sizeError) {
+      setWarehouseDocument(null);
+      setDocumentError(sizeError);
+      return;
+    }
+    setDocumentError("");
+    setWarehouseDocument(nextFile);
+  }
+
+  function openDocumentPicker() {
+    fileInputRef.current?.click();
+  }
 
   if (!isOpen) return null;
 
@@ -128,6 +185,47 @@ function AddWarehouseModal({ isOpen, onClose, onCreated }) {
             required
             autoComplete="tel"
           />
+          <FormField
+            label="Warehouse Document (PDF)"
+            htmlFor={DOCUMENT_FIELD_ID}
+            error={documentError}
+            className="sm:col-span-2"
+          >
+            <input
+              ref={fileInputRef}
+              id={DOCUMENT_FIELD_ID}
+              type="file"
+              accept="application/pdf,.pdf"
+              tabIndex={-1}
+              className="sr-only"
+              onChange={handleDocumentChange}
+            />
+            {warehouseDocument ? (
+              <div className={`${INPUT_CLASS} flex items-center gap-2 pr-2`}>
+                <span className="min-w-0 flex-1 truncate text-ink" title={warehouseDocument.name}>
+                  {warehouseDocument.name}
+                </span>
+                <button
+                  type="button"
+                  onClick={clearWarehouseDocument}
+                  disabled={form.isSubmitting}
+                  aria-label={`Remove ${warehouseDocument.name}`}
+                  className="shrink-0 text-[12px] font-semibold text-muted hover:text-danger focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  Remove
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={openDocumentPicker}
+                disabled={form.isSubmitting}
+                className={`${INPUT_CLASS} text-left text-placeholder disabled:cursor-not-allowed`}
+              >
+                Choose PDF File (optional)
+              </button>
+            )}
+          </FormField>
         </div>
       </ModalForm>
     </Modal>

@@ -6,9 +6,9 @@ import {
   payrollPayslipsPath,
 } from "../../services/payroll";
 import { LOGO_SRC } from "../../shell";
+import { useModuleAccess } from "../../permissions/useModuleAccess";
 import {
   MONTH_NAMES,
-  canManage,
   compactInputClass,
   formatMoney,
   linkButton,
@@ -208,19 +208,21 @@ function PayslipStatement({ companyName, period, employee, bankAccounts, payslip
   );
 }
 
-export function Payslips({ companyId, role, companyName, employees = [] }) {
-  const manager = canManage(role);
+export function Payslips({ companyId, role: _role, companyName, employees = [] }) {
+  const { payroll } = useModuleAccess();
+  const viewAllEmployees =
+    payroll.exportPayslips || payroll.manageProcessing;
   const payslips = useApi(
     payrollPayslipsPath({ companyId }),
   );
   const runs = useApi(
-    manager ? payrollRunsPath(companyId) : null,
+    viewAllEmployees ? payrollRunsPath(companyId) : null,
   );
   const [employeeId, setEmployeeId] = useState("");
   const [period, setPeriod] = useState("");
   const [notice, setNotice] = useState(null);
   const rows = payslips.data?.payslips || [];
-  const people = manager ? employees : [];
+  const people = viewAllEmployees ? employees : [];
   const chosenEmployee = people.some((employee) => String(employee.id) === employeeId)
     ? employeeId
     : people[0] ? String(people[0].id) : "";
@@ -246,7 +248,7 @@ export function Payslips({ companyId, role, companyName, employees = [] }) {
     : monthOptions.some((month) => month.key === period) ? period : monthOptions[0].key;
   const [year, month] = chosenPeriod ? chosenPeriod.split("-").map(Number) : [null, null];
   const selected = rows.find((slip) => (
-    (!manager || String(slip.employee_id) === chosenEmployee) &&
+    (!viewAllEmployees || String(slip.employee_id) === chosenEmployee) &&
     slip.pay_period_year === year &&
     slip.pay_period_month === month
   )) || null;
@@ -283,7 +285,7 @@ export function Payslips({ companyId, role, companyName, employees = [] }) {
 
       <div className="flex flex-wrap items-end justify-between gap-4 rounded-lg border border-line bg-surface p-4 print:hidden">
         <div className="flex flex-wrap items-end gap-3">
-          {manager && (
+          {viewAllEmployees && (
             <Field label="Employee">
               <select value={chosenEmployee} onChange={(event) => { setEmployeeId(event.target.value); setNotice(null); }} className={`${compactInputClass} min-w-56`}>
                 {people.length === 0 && <option value="">No employees yet</option>}

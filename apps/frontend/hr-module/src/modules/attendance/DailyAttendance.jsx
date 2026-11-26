@@ -7,7 +7,6 @@ import {
   processAttendancePunches,
 } from "../../services/attendance";
 import {
-  canManage,
   formatDate,
   formatMinutes,
   inputClass,
@@ -30,6 +29,7 @@ import {
   StatusBadge,
 } from "../ui";
 import { summarize } from "./shared";
+import { useModuleAccess } from "../../permissions/useModuleAccess";
 
 const STATUSES = [
   "Present",
@@ -328,7 +328,8 @@ export function DailyAttendance({
   const shifts = useApi(
     attendancePath("shifts", { companyId }),
   );
-  const manager = canManage(role);
+  const { attendance: attendanceAccess } = useModuleAccess();
+  const manager = attendanceAccess.manageDaily;
   const action = useAction();
 
   async function processPunches() {

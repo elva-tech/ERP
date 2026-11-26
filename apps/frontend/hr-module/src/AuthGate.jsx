@@ -77,6 +77,7 @@ export default function AuthGate() {
   const [platformView, setPlatformView] = useState(false);
   const [inviteToken, setInviteToken] = useState(readInviteToken);
   const [registerView, setRegisterView] = useState(false);
+  const [accessRefreshing, setAccessRefreshing] = useState(false);
 
   useEffect(() => {
     const onHashChange = () => {
@@ -206,13 +207,40 @@ export default function AuthGate() {
     }
   }
 
-  function handleSwitchCompany(companyId) {
+  async function refreshCompanyAccess(companyId) {
+    const response = await apiRequest(
+      `/api/access/context?companyId=${encodeURIComponent(companyId)}`,
+    );
+
+    setMemberships((current) =>
+      current.map((item) =>
+        String(item.companyId) === String(companyId)
+          ? { ...item, access: response.access }
+          : item,
+      ),
+    );
+  }
+
+  async function handleSwitchCompany(companyId) {
     const membership = memberships.find(
-      (item) => String(item.companyId) === companyId
+      (item) => String(item.companyId) === companyId,
     );
     if (!membership) return;
+
     localStorage.setItem("elvaActiveCompanyId", companyId);
     setSelectedCompanyId(companyId);
+    setError("");
+    setAccessRefreshing(true);
+    try {
+      await refreshCompanyAccess(companyId);
+    } catch (requestError) {
+      setError(
+        requestError.message ||
+          "Unable to refresh permissions for the selected company.",
+      );
+    } finally {
+      setAccessRefreshing(false);
+    }
   }
 
   function handleCompanyContinue(event) {
@@ -451,6 +479,8 @@ export default function AuthGate() {
       companyName={activeMembership?.companyName || ""}
       ownEmployeeId={activeMembership?.employeeId || null}
       isApprovalDelegate={Boolean(activeMembership?.isApprovalDelegate)}
+      access={activeMembership?.access || null}
+      accessRefreshing={accessRefreshing}
       session={{
         user,
         memberships,

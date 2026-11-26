@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { connection } from "next/server";
 import { getAuthenticatedUser } from "@/lib/session";
 import { pool } from "@/lib/db";
+import { buildMembershipAccessContext } from "@/lib/hrms-access";
 
 export async function GET() {
   await connection();
@@ -49,15 +50,27 @@ export async function GET() {
         fullName: user.full_name,
         platformRole: user.platform_role,
       },
-      memberships: membershipsResult.rows.map((m) => ({
-        id: m.id,
-        companyId: m.company_id,
-        companyName: m.company_name,
-        role: m.role,
-        status: m.status,
-        employeeId: m.employee_id ? String(m.employee_id) : null,
-        isApprovalDelegate: m.is_approval_delegate,
-      })),
+      memberships: membershipsResult.rows.map((m) => {
+        const employeeId = m.employee_id ? String(m.employee_id) : null;
+        const isApprovalDelegate = m.is_approval_delegate;
+
+        return {
+          id: m.id,
+          companyId: m.company_id,
+          companyName: m.company_name,
+          role: m.role,
+          status: m.status,
+          employeeId,
+          isApprovalDelegate,
+          access: buildMembershipAccessContext({
+            companyId: m.company_id,
+            companyName: m.company_name,
+            role: m.role,
+            employeeId,
+            isApprovalDelegate,
+          }),
+        };
+      }),
     });
   } catch (error) {
     console.error("Session check failed:", error.message);

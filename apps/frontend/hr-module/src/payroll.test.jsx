@@ -20,6 +20,35 @@ vi.mock("./modules/helpers", async (importOriginal) => {
   };
 });
 
+vi.mock("./permissions/AccessProvider", () => ({
+  AccessProvider: ({ children }) => children,
+  useAccess: () => ({
+    permissionCodes: [
+      "hr.payroll.salary_structure.view",
+      "hr.payroll.salary_structure.manage",
+    ],
+    canPerform: () => true,
+    hasPermission: () => true,
+    canApproveInbox: () => false,
+    canMutateWorkspace: () => true,
+  }),
+}));
+
+vi.mock("./permissions/useModuleAccess", () => ({
+  useModuleAccess: () => ({
+    payroll: {
+      manageStructure: true,
+      manageProcessing: false,
+      finalizeRun: false,
+      cancelRun: false,
+      managePolicy: false,
+      createAdvance: false,
+      exportPayslips: false,
+      viewRuns: false,
+    },
+  }),
+}));
+
 vi.mock("./modules/useConfirm", () => ({
   useConfirm: () => ({
     confirm: vi.fn(),

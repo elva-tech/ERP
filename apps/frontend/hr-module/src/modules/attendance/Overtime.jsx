@@ -7,7 +7,6 @@ import {
 } from "../../services/attendance";
 import { policyPath } from "../../services/policy";
 import {
-  canManage,
   compactInputClass,
   currentMonth,
   formatMinutes,
@@ -28,6 +27,7 @@ import {
   StatusBadge,
 } from "../ui";
 import { useConfirm } from "../useConfirm";
+import { useModuleAccess } from "../../permissions/useModuleAccess";
 
 const overtimeDecision =
   "inline-flex h-10 w-full items-center justify-center rounded-md text-sm font-semibold text-surface transition-colors disabled:cursor-not-allowed disabled:opacity-60";
@@ -93,10 +93,11 @@ function clockLabel(value) {
 
 export function Overtime({
   companyId,
-  role,
+  role: _role,
   employees = [],
   departments = [],
 }) {
+  const { attendance: attendanceAccess } = useModuleAccess();
   const initial = monthBounds(currentMonth());
 
   const [from, setFrom] = useState(initial.from);
@@ -120,7 +121,7 @@ export function Overtime({
       : null,
   );
   const policy = useApi(
-    canManage(role) ? policyPath({ companyId }) : null,
+    attendanceAccess.manageOvertime ? policyPath({ companyId }) : null,
   );
 
   const action = useAction();

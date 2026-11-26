@@ -46,6 +46,20 @@ npm run dev
 | `npm run build` | Create a production build |
 | `npm run preview` | Preview the production build |
 
+## Dynamic access (permissions)
+
+Menus, routes, and key actions are driven by `permissionCodes` returned on each company membership from `GET /api/auth/me`. When users switch companies, the app calls `GET /api/access/context?companyId=` to refresh permissions.
+
+Reusable UI pieces live under `src/permissions/` (`AccessProvider`, `Can`, `AccessDenied`). See [docs/dynamic-ui-access-compatibility.md](./docs/dynamic-ui-access-compatibility.md) for the IAM integration checklist.
+
+**walkthrough (E2E flow + Angular-style tags):** open [docs/TL-HR-Frontend-Flow-Guide.html](./docs/TL-HR-Frontend-Flow-Guide.html) in a browser → Print → Save as PDF.
+
+**Permission variables (TL pattern):** Each capability uses a stable string constant in `src/permissions/catalog.js` (for example `hr.employees.directory.create`), not hardcoded role names in screens. UI checks `useAccess().canPerform("<code>")` or wraps controls in `<Can permission="..." />`. Route IDs map to view codes via `ROUTE_VIEW_PERMISSION` in the same catalog. Adding users or IAM-assigned codes does not require new `if (role === …)` branches in navigation.
+
+**Future-proofing:** New memberships only need an updated `permissionCodes` list from IAM (or the interim backend payload). Menus, routes, and screen actions use `useModuleAccess()` / `Can` with `HR.*` permission variables (not role checks). Point the access loader at IAM when it is available.
+
+**TL role division v1.0:** HR ADMIN = `company_admin`, HR = `hr_manager`, EMPLOYEE = `employee`. Templates live in `apps/backend/hr-module/lib/hrms-permission-catalog.js` (`HR_MANAGER_PERMISSIONS`, `EMPLOYEE_PERMISSIONS`).
+
 ## Authentication and API
 
 - API requests use session cookies through `credentials: include`.

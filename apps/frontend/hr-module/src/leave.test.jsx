@@ -18,6 +18,12 @@ vi.mock("./modules/helpers", async (importOriginal) => {
   };
 });
 
+vi.mock("./permissions/useModuleAccess", () => ({
+  useModuleAccess: () => ({
+    leave: { manageTypes: false, createRequest: true, approve: false, viewApprovals: false, manageCarryForward: false },
+  }),
+}));
+
 vi.mock("./modules/useConfirm", () => ({
   useConfirm: () => ({
     confirm: vi.fn(),

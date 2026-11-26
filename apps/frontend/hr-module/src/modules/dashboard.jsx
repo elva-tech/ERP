@@ -1,7 +1,9 @@
 import { CalendarDays } from "lucide-react";
 import { attendancePath } from "../services/attendance";
 import { leaveRequestsPath } from "../services/leave";
-import { canManage, formatDate, todayLocal, useApi } from "./helpers";
+import { formatDate, todayLocal, useApi } from "./helpers";
+import { HR } from "../permissions/catalog";
+import { useAccess } from "../permissions/AccessProvider";
 import { DataTable, Notice, PageHeader, Panel, StatGrid, StatusBadge } from "./ui";
 
 const MONTH_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -110,8 +112,11 @@ function AttendanceRateChart({ summary, manager }) {
   );
 }
 
-export function Dashboard({ companyId, role, employees, departments, onNavigate }) {
-  const manager = canManage(role);
+export function Dashboard({ companyId, role: _role, employees, departments, onNavigate }) {
+  const access = useAccess();
+  const manager =
+    access.canPerform(HR.leave.approvals.view) ||
+    access.canPerform(HR.attendance.daily.manage);
   const today = todayLocal();
   const attendance = useApi(
     attendancePath("records", {

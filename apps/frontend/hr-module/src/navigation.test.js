@@ -100,6 +100,24 @@ describe("canAccess", () => {
   });
 });
 
+describe("permission-aware navigation sections", () => {
+  it("filters menus using backend permission codes", () => {
+    const employeeMenus = visibleSectionsFor({
+      permissionCodes: [
+        "hr.main.dashboard.view",
+        "hr.employees.directory.view",
+        "hr.leave.requests.view",
+      ],
+      role: "employee",
+      ownEmployeeId: 42,
+      isApprovalDelegate: false,
+    }).flatMap((section) => section.items.map((item) => item.id));
+
+    expect(employeeMenus).toContain("dashboard");
+    expect(employeeMenus).not.toContain("departments");
+  });
+});
+
 describe("navigation sections", () => {
   const context = {
     role: "employee",

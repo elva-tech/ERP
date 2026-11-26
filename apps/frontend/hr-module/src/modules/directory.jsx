@@ -5,6 +5,7 @@ import { ROLE_LABELS, inputClass, primaryButton, submitButton, secondaryButton }
 import { toEmployeeRecord, upsertById } from "./records";
 import { Avatar, DataTable, EmployeeSelect, Field, FormError, Modal, PageHeader, Panel, SearchField, StatusBadge } from "./ui";
 import { useConfirm } from "./useConfirm";
+import { useModuleAccess } from "../permissions/useModuleAccess";
 
 const rowIconButton = "inline-flex size-7 items-center justify-center rounded-md text-ink-soft transition-colors hover:bg-line-soft";
 
@@ -46,7 +47,21 @@ const EMPLOYMENT_TYPES = ["Full-time", "Part-time", "Contract", "Intern", "Consu
  * Employee records live in App so the shell search and other pages share them.
  * onError/onSuccess show the page-level banners in App ("" clears them).
  */
-export function EmployeeDirectory({ companyId, canWrite, employees, setEmployees, departments, designations, members, refresh, onOpenProfile, onError, onSuccess }) {
+export function EmployeeDirectory({
+  companyId,
+  employees,
+  setEmployees,
+  departments,
+  designations,
+  members,
+  refresh,
+  onOpenProfile,
+  onError,
+  onSuccess,
+}) {
+  const { employees: employeeAccess } = useModuleAccess();
+  const canCreateEmployees = employeeAccess.create;
+  const canEditEmployees = employeeAccess.edit;
   const confirm = useConfirm();
   const [search, setSearch] = useState("");
   const [departmentFilter, setDepartmentFilter] = useState("All");
@@ -221,7 +236,7 @@ export function EmployeeDirectory({ companyId, canWrite, employees, setEmployees
             >
               View
             </button>
-            {canWrite && (
+            {canEditEmployees && (
               <>
                 <button type="button" onClick={() => openForm(employee)} title="Edit employee" aria-label={`Edit ${employee.name}`} className={rowIconButton}>
                   <Pencil size={15} />
@@ -265,7 +280,7 @@ export function EmployeeDirectory({ companyId, canWrite, employees, setEmployees
           </FilterPill>
           <SearchField label="Search employees" value={search} onChange={setSearch} placeholder="Search name, ID, email…" className="w-full sm:w-60" />
         </div>
-        {canWrite && (
+        {canCreateEmployees && (
           <button type="button" onClick={() => openForm()} className={primaryButton}>
             <Plus size={16} aria-hidden="true" />
             Add Employee

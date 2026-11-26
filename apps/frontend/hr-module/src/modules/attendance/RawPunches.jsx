@@ -1,9 +1,9 @@
 
 import { useState } from "react";
+import { useModuleAccess } from "../../permissions/useModuleAccess";
 import { attendancePath } from "../../services/attendance";
 import { Download, Printer, ShieldCheck } from "lucide-react";
 import {
-  canManage,
   downloadCsv,
   formatDate,
   inputClass,
@@ -54,7 +54,8 @@ export function RawPunches({ companyId, role, employees = [] }) {
   const [syncStatus, setSyncStatus] = useState("");
   const [exportNotice, setExportNotice] = useState(null);
 
-  const manager = canManage(role);
+  const { attendance: attendanceAccess } = useModuleAccess();
+  const manager = attendanceAccess.viewPunches;
 
   const punches = useApi(
     manager

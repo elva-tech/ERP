@@ -9,6 +9,7 @@ import {
 import { iconButton, inputClass, linkButton, primaryButton, submitButton, secondaryButton } from "./helpers";
 import { toDepartmentRecord, toDesignationRecord, upsertById } from "./records";
 import { DataTable, Field, FormError, Modal, PageHeader, Panel, SearchField, StatGrid, StatusBadge } from "./ui";
+import { useModuleAccess } from "../permissions/useModuleAccess";
 
 const emptyDepartmentForm = { name: "", description: "", status: "Active" };
 const emptyDesignationForm = { title: "", departmentIds: [], description: "", status: "Active" };
@@ -16,7 +17,10 @@ const emptyDesignationForm = { title: "", departmentIds: [], description: "", st
 
 
 /** onError shows the page-level banner in App ("" clears it). */
-export function Departments({ companyId, canWrite, departments, setDepartments, refresh, onError }) {
+export function Departments({ companyId, departments, setDepartments, refresh, onError }) {
+  const {
+    organization: { manageDepartments: canWrite },
+  } = useModuleAccess();
   const [search, setSearch] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -212,7 +216,10 @@ export function Departments({ companyId, canWrite, departments, setDepartments, 
 }
 
 /** onError shows the page-level banner in App ("" clears it). */
-export function Designations({ companyId, canWrite, designations, setDesignations, departments, refresh, onError }) {
+export function Designations({ companyId, designations, setDesignations, departments, refresh, onError }) {
+  const {
+    organization: { manageDesignations: canWrite },
+  } = useModuleAccess();
   const [search, setSearch] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);

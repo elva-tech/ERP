@@ -4,6 +4,22 @@ import "@testing-library/jest-dom/vitest";
 import { PayrollProcessing } from "./modules/payroll/PayrollProcessing";
 import { LeaveBalance } from "./modules/leave";
 
+vi.mock("./permissions/AccessProvider", () => ({
+  AccessProvider: ({ children }) => children,
+  useAccess: () => ({
+    permissionCodes: [
+      "hr.payroll.processing.view",
+      "hr.payroll.processing.manage",
+      "hr.leave.balance.view",
+      "hr.leave.types.manage",
+    ],
+    canPerform: () => true,
+    hasPermission: () => true,
+    canApproveInbox: () => false,
+    canMutateWorkspace: () => true,
+  }),
+}));
+
 function jsonResponse(data, status = 200) {
   return {
     ok: status >= 200 && status < 300,

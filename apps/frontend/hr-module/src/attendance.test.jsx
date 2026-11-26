@@ -20,6 +20,22 @@ vi.mock("./modules/helpers", async (importOriginal) => {
   };
 });
 
+vi.mock("./permissions/useModuleAccess", () => ({
+  useModuleAccess: () => ({
+    attendance: {
+      manageDaily: true,
+      manageMonthly: false,
+      manageDevices: false,
+      manageExceptions: false,
+      manageShifts: false,
+      manageRoster: false,
+      manageOvertime: false,
+      createRegularization: false,
+      viewPunches: false,
+    },
+  }),
+}));
+
 vi.mock("./modules/useConfirm", () => ({
   useConfirm: () => ({
     confirm: vi.fn(),

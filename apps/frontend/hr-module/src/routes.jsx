@@ -184,7 +184,6 @@ export const routeSections = [
         render: (ctx) => (
           <Departments
             companyId={ctx.companyId}
-            canWrite={ctx.canWrite}
             departments={ctx.departments}
             setDepartments={ctx.setDepartments}
             refresh={ctx.refreshCompanyRecords}
@@ -200,7 +199,6 @@ export const routeSections = [
         render: (ctx) => (
           <EmployeeDirectory
             companyId={ctx.companyId}
-            canWrite={ctx.canWrite}
             employees={ctx.employees}
             setEmployees={ctx.setEmployees}
             departments={ctx.departments}
@@ -221,7 +219,6 @@ export const routeSections = [
         render: (ctx) => (
           <Designations
             companyId={ctx.companyId}
-            canWrite={ctx.canWrite}
             designations={ctx.designations}
             setDesignations={ctx.setDesignations}
             departments={ctx.departments}

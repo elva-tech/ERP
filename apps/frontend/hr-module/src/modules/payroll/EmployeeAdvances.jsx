@@ -5,7 +5,6 @@ import {
   updateEmployeeAdvance,
 } from "../../services/payroll";
 import {
-  canManage,
   compactInputClass,
   employeesInDepartment,
   formatDate,
@@ -33,13 +32,16 @@ import {
   StatusBadge,
 } from "../ui";
 import { useConfirm } from "../useConfirm";
+import { useModuleAccess } from "../../permissions/useModuleAccess";
 const emptyAdvanceForm = { department: "", employeeId: "", months: "", purpose: "" };
 const ADVANCE_MONTHS = [1, 2, 3];
 const monthsLabel = (months) => (months ? `${months} month${months > 1 ? "s" : ""}` : "â€”");
 const advanceLabel = (row) => (row.amount != null ? formatMoney(row.amount) : `${monthsLabel(row.requested_months)} request`);
 
-export function EmployeeAdvances({ companyId, role, employees, departments, ownEmployeeId }) {
-  const manager = canManage(role);
+export function EmployeeAdvances({ companyId, role: _role, employees, departments, ownEmployeeId }) {
+  const { payroll } = useModuleAccess();
+  const canReview = payroll.manageProcessing;
+  const canRequest = payroll.createAdvance;
   const [status, setStatus] = useState("");
   const [department, setDepartment] = useState("");
   const [showForm, setShowForm] = useState(false);
@@ -56,7 +58,12 @@ export function EmployeeAdvances({ companyId, role, employees, departments, ownE
   async function submit(event) {
     event.preventDefault();
     const result = await action.run(() =>
-      createEmployeeAdvance({ companyId, employeeId: manager ? form.employeeId : undefined, months: Number(form.months), purpose: form.purpose })
+      createEmployeeAdvance({
+        companyId,
+        employeeId: canReview ? form.employeeId : undefined,
+        months: Number(form.months),
+        purpose: form.purpose,
+      })
     );
     if (result) { setShowForm(false); setForm(emptyAdvanceForm); advances.reload(); }
   }
@@ -98,12 +105,14 @@ export function EmployeeAdvances({ companyId, role, employees, departments, ownE
   return (
     <section className="space-y-5">
       <PageHeader title="Employee Advances" subtitle="Salary advances recovered through monthly payroll EMI">
-        {manager && <DepartmentFilter departments={departments} value={department} onChange={setDepartment} />}
+        {canReview && <DepartmentFilter departments={departments} value={department} onChange={setDepartment} />}
         <select value={status} onChange={(e) => setStatus(e.target.value)} aria-label="Filter by status" className={compactInputClass}>
           <option value="">All statuses</option>
           {["Pending", "Active", "Closed", "Rejected"].map((s) => <option key={s}>{s}</option>)}
         </select>
-        <button type="button" onClick={() => setShowForm(true)} className={primaryButton}>+ Request Advance</button>
+        {canRequest && (
+          <button type="button" onClick={() => setShowForm(true)} className={primaryButton}>+ Request Advance</button>
+        )}
       </PageHeader>
       <Notice notice={action.notice} onClose={() => action.setNotice(null)} />
       <StatGrid stats={[
@@ -128,7 +137,7 @@ export function EmployeeAdvances({ companyId, role, employees, departments, ownE
             { key: "emi_amount", label: "EMI", render: (r) => formatMoney(r.emi_amount) },
             { key: "balance", label: "Balance", render: (r) => formatMoney(r.balance) },
             { key: "status", label: "Status", render: (r) => <StatusBadge status={r.status} /> },
-            ...(manager ? [{
+            ...(canReview ? [{
               key: "actions", label: "Actions", render: (r) => (
                 <span className="flex gap-3">
                   {r.status === "Pending" && ownEmployeeId && String(r.employee_id) === String(ownEmployeeId) && <AwaitingApprover />}
@@ -151,7 +160,7 @@ export function EmployeeAdvances({ companyId, role, employees, departments, ownE
           <form onSubmit={submit} className="space-y-4">
             <Notice notice={action.notice} />
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              {manager && (
+              {canReview && (
                 <>
                   <Field label="Department">
                     <DepartmentSelect

@@ -1,8 +1,8 @@
 
 import { useState } from "react";
 import { attendanceRecordsPath } from "../../services/attendance";
+import { useModuleAccess } from "../../permissions/useModuleAccess";
 import {
-  canManage,
   compactInputClass,
   currentMonth,
   monthBounds,
@@ -31,7 +31,8 @@ export function MonthlyAttendance({ companyId, role, employees }) {
     ]),
   );
 
-  const people = canManage(role)
+  const { attendance: attendanceAccess } = useModuleAccess();
+  const people = attendanceAccess.manageMonthly
     ? employees.filter(
         (employee) =>
           employee.status === "Active" ||

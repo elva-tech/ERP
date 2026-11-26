@@ -11,7 +11,6 @@ import {
 } from "../../services/payroll";
 import MasterCrud from "../MasterCrud";
 import {
-  canManage,
   employeesInDepartment,
   formatDate,
   formatMoney,
@@ -32,6 +31,8 @@ import {
   StatusBadge,
 } from "../ui";
 import { ManagerOnly } from "./shared";
+import { HR } from "../../permissions/catalog";
+import { useModuleAccess } from "../../permissions/useModuleAccess";
 import { PAYROLL_RULES_NOTE } from "./constants";
 function StructureEditor({ companyId, structure, onClose }) {
   const lines = useApi(
@@ -150,17 +151,18 @@ function designationsForDepartment(designations, departmentId, currentId) {
   );
 }
 
-export function SalaryStructure({ companyId, role, employees, departments = [], designations = [] }) {
+export function SalaryStructure({ companyId, role: _role, employees, departments = [], designations = [] }) {
+  const { payroll } = useModuleAccess();
   const [tab, setTab] = useState("Structures");
   const [configuring, setConfiguring] = useState(null);
   const structures = useApi(
-    canManage(role) ? payrollStructuresPath(companyId) : null,
+    payroll.manageStructure ? payrollStructuresPath(companyId) : null,
   );
   const activeStructures = (structures.data?.structures || []).filter((s) => s.status === "Active");
   const activeDepartments = (currentId) => departments.filter((d) => d.status === "Active" || String(d.id) === String(currentId));
 
   return (
-    <ManagerOnly role={role}>
+    <ManagerOnly permission={HR.payroll.salaryStructure.view}>
       <section className="space-y-5">
         <Notice notice={{ type: "info", message: PAYROLL_RULES_NOTE }} />
         <div className="flex gap-2">
@@ -173,7 +175,8 @@ export function SalaryStructure({ companyId, role, employees, departments = [], 
             title="Salary Components"
             subtitle="Earnings, deductions and employer contributions used in structures"
             companyId={companyId}
-            role={role}
+            canMutate={payroll.manageStructure}
+            canDelete={payroll.manageStructure}
             path={PAYROLL_COMPONENTS_ENDPOINT}
             listKey="components"
             itemKey="component"
@@ -209,7 +212,8 @@ export function SalaryStructure({ companyId, role, employees, departments = [], 
             title="Salary Structures"
             subtitle="Templates combining components; assign them to employees with an annual CTC"
             companyId={companyId}
-            role={role}
+            canMutate={payroll.manageStructure}
+            canDelete={payroll.manageStructure}
             path={PAYROLL_STRUCTURES_ENDPOINT}
             listKey="structures"
             itemKey="structure"
@@ -263,11 +267,11 @@ export function SalaryStructure({ companyId, role, employees, departments = [], 
             title="Salary Assignments"
             subtitle="Which structure and annual CTC applies to each employee, by effective date"
             companyId={companyId}
-            role={role}
+            canMutate={payroll.manageStructure}
+            canDelete={payroll.manageStructure}
             path={PAYROLL_ASSIGNMENTS_ENDPOINT}
             listKey="assignments"
             itemKey="assignment"
-            deleteRoleCheck={canManage}
             columns={[
               { key: "employee_name", label: "Employee", className: "font-semibold" },
               { key: "employee_code", label: "Code" },

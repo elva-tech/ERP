@@ -1,0 +1,792 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>ELVA HR — Frontend flow &amp; permission tags (for TL)</title>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js" defer></script>
+  <style>
+    body { font-family:Segoe UI,system-ui,sans-serif; max-width:900px; margin:2rem auto; padding:0 1.5rem; line-height:1.55; color:#1a1a1a; }
+    h1 { font-size:1.6rem; border-bottom:2px solid #2563eb; padding-bottom:0.4rem; }
+    h2 { font-size:1.25rem; margin-top:2rem; color:#1e40af; }
+    h3 { font-size:1.05rem; margin-top:1.25rem; }
+    table { border-collapse:collapse; width:100%; font-size:0.92rem; margin:1rem 0; }
+    th, td { border:1px solid #ccc; padding:0.45rem 0.6rem; text-align:left; vertical-align:top; }
+    th { background:#eff6ff; }
+    code { background:#f3f4f6; padding:0.1rem 0.35rem; border-radius:3px; font-size:0.88em; }
+    pre { background:#f8fafc; border:1px solid #e2e8f0; padding:1rem; overflow-x:auto; font-size:0.85rem; }
+    .box { background:#f0fdf4; border:1px solid #86efac; padding:1rem; margin:1rem 0; border-radius:6px; }
+    .warn { background:#fffbeb; border-color:#fcd34d; }
+    .diagram { margin:1.5rem 0; }
+    @media print { body { max-width:100%; } .no-print { display:none; } }
+    .no-print { background:#2563eb;color:#fff;padding:0.6rem 1rem;border-radius:6px;margin-bottom:1rem; }
+    .filetag { display:block;font-size:0.78rem;color:#475569;margin-bottom:0.35rem;font-weight:600; }
+    pre.repo { font-size:0.8rem;line-height:1.45; }
+    nav.toc { background:#f8fafc;border:1px solid #cbd5e1;padding:1rem 1.25rem;border-radius:8px;margin:1.25rem 0 2rem; }
+    nav.toc ul { margin:0.5rem 0 0;padding-left:1.25rem;columns:2;column-gap:2rem; }
+    nav.toc a { color:#1d4ed8;text-decoration:none; }
+    nav.toc a:hover { text-decoration:underline; }
+    .jump-banner { background:#dbeafe;border:1px solid #93c5fd;padding:0.75rem 1rem;border-radius:6px;margin:1.5rem 0;font-weight:600; }
+    .hero-example { background:#fff7ed;border:3px solid #ea580c;padding:1.25rem 1.5rem;border-radius:10px;margin:2rem 0; }
+    .hero-example h2 { color:#c2410c;border-bottom-color:#fdba74;margin-top:0; }
+    pre.ascii { background:#1e293b;color:#e2e8f0;border:none;font-family:Consolas,monospace;font-size:0.78rem;line-height:1.35; }
+    .highlight { background:#eff6ff;border-left:4px solid #2563eb;padding:1rem 1.15rem;margin:1.25rem 0;border-radius:0 6px 6px 0; }
+    .page-section { margin-top:2.5rem;padding-top:0.5rem;border-top:2px solid #e2e8f0; }
+    .page-section h2 { margin-top:0.5rem; }
+    .file-detail th { width:18%; }
+    @media print { .page-section { page-break-before:always; } .page-section:first-of-type { page-break-before:avoid; } }
+  </style>
+</head>
+<body>
+  <p class="no-print" style="background:#ecfdf5;border:2px solid #10b981;padding:0.75rem;"><strong>Page loaded?</strong> Green box OK. <strong>Easier read first:</strong> open <code>TL-ONE-COMPONENT-EXAMPLE.html</code> (both examples + diagrams, plain words).</p>
+  <div class="no-print box"><strong>Too long?</strong> Open <a href="TL-ONE-COMPONENT-EXAMPLE.html">TL-ONE-COMPONENT-EXAMPLE.html</a> first — both examples, ASCII diagrams, no jargon.</div>
+  <p class="no-print"><strong>To save as PDF:</strong> Ctrl+P → Save as PDF.</p>
+
+  <h1>ELVA HR — Frontend flow &amp; permission tags</h1>
+  <p><strong>Purpose:</strong> Explain every important file, how they talk to each other, and how this matches your TL’s <code>*ngIf="user_role==1"</code> idea.</p>
+  <p><strong>Single source of truth:</strong> Open in <strong>Chrome or Edge</strong> (double-click). Do not use Cursor HTML preview. Offline quick read: <strong>TL-ONE-COMPONENT-EXAMPLE.html</strong>.</p>
+
+  <p><strong>Worked examples (Payroll Processing + Leave Dashboard):</strong> <a href="#appendix">Appendix — real repo code</a>.</p>
+
+  <nav class="toc no-print" aria-label="Table of contents">
+    <strong>Document pages (for PDF export):</strong>
+    <ul>
+      <li><a href="#page-1">Page 1 — Overview &amp; permission architecture</a></li>
+      <li><a href="#page-2">Page 2 — Frontend vs backend catalog</a></li>
+      <li><a href="#page-3">Page 3 — Complete E2E file flow</a></li>
+      <li><a href="#page-4">Page 4 — Login to API (16 steps)</a></li>
+      <li><a href="#page-5">Page 5 — API &amp; backend touchpoints</a></li>
+      <li><a href="#page-6">Page 6 — Frontend file map</a></li>
+      <li><a href="#page-7">Page 7 — Angular vs React tags</a></li>
+      <li><a href="#page-8">Page 8 — TL demo file order</a></li>
+      <li><a href="#page-9">Page 9 — Other modules &amp; summary</a></li>
+      <li><a href="#appendix">Appendix — Worked examples (Payroll + Leave)</a></li>
+    </ul>
+  </nav>
+
+  <section class="page-section" id="page-1">
+  <h2 id="overview">Page 1 — Overview and permission architecture</h2>
+  <p>The HR frontend loads permissions <strong>once at login</strong> (or when the active company changes), then compares permission keys locally in React. See <a href="#page-5">Page 5</a> for why this is not repeated on every component.</p>
+  <pre class="diagram mermaid">
+flowchart LR
+  subgraph entry["1. Entry"]
+    MAIN[main.jsx]
+    GATE[AuthGate.jsx]
+  end
+  subgraph session["2. Session data"]
+    ME["GET /api/auth/me"]
+    CTX["GET /api/access/context"]
+  end
+  subgraph shell["3. App shell"]
+    APP[App.jsx]
+    AP[AccessProvider]
+    NAV[navigation.js]
+    ROUTES[routes.jsx registry]
+    SIDE[shell.jsx Sidebar]
+  end
+  subgraph pages["4. Screens"]
+    MOD[modules/*.jsx]
+    UMA[useModuleAccess.js]
+    CAN[Can.jsx / PermissionOnly]
+  end
+  MAIN --> GATE
+  GATE --> ME
+  ME --> APP
+  CTX --> GATE
+  APP --> AP
+  ROUTES --> NAV
+  AP --> NAV
+  NAV --> SIDE
+  AP --> MOD
+  UMA --> MOD
+  CAN --> MOD
+  </pre>
+
+  <h3>Four layers explained</h3>
+  <table>
+    <tr><th>Layer</th><th>What it is</th><th>Main files</th></tr>
+    <tr><td><strong>1. Entry</strong></td><td>Starts React; checks session; loads user and access from backend.</td><td><code>main.jsx</code>, <code>AuthGate.jsx</code>, <code>api.js</code> → <code>GET /api/auth/me</code></td></tr>
+    <tr><td><strong>2. Session &amp; permission data</strong></td><td>Backend reads membership <code>role</code>; catalog builds <code>permissionCodes[]</code>; response includes <code>memberships[].access</code>.</td><td>Backend <code>auth/me/route.js</code>, <code>hrms-permission-catalog.js</code></td></tr>
+    <tr><td><strong>3. Application shell</strong></td><td>Stores permissions in context; filters menu; renders sidebar and routes.</td><td><code>App.jsx</code>, <code>AccessProvider.jsx</code>, <code>navigation.js</code>, <code>routes.jsx</code>, <code>shell.jsx</code></td></tr>
+    <tr><td><strong>4. Screens &amp; actions</strong></td><td>Modules show/hide UI; services call APIs; backend validates again.</td><td><code>useModuleAccess.js</code>, <code>Can.jsx</code>, <code>PermissionOnly</code>, <code>modules/*</code>, <code>services/*</code>, <code>api.js</code></td></tr>
+  </table>
+
+  <div class="highlight">
+    <strong>How permission tags work:</strong> The backend sends allowed permission keys to the frontend at login. The frontend compares each component’s permission key against this list. If the key exists, the component is displayed; if not, it is hidden. This comparison happens <strong>locally in React</strong> and does <strong>not</strong> call the backend for every component. Hiding UI is not security — backend APIs still enforce authorization (see <a href="#page-5">Page 5</a>).
+  </div>
+  </section>
+
+  <section class="page-section" id="page-2">
+  <h2 id="part-1">Page 2 — Why catalog.js contains only HR permissions</h2>
+
+  <div class="box">
+    <strong>Short answer:</strong> <code>catalog.js</code> is the <strong>menu of all possible actions</strong> in the HR app (like a master list). 
+    <strong>Manager and Employee are not separate lists in the frontend.</strong> 
+    The <strong>backend</strong> picks which items from that master list each person gets, based on <code>membership.role</code> (company_admin / hr_manager / employee).
+  </div>
+
+  <table>
+    <tr><th>TL name</th><th>Stored in DB as <code>role</code></th><th>Who builds their list?</th></tr>
+    <tr><td>HR ADMIN</td><td><code>company_admin</code></td><td>Backend: almost all <code>hr.*</code> codes</td></tr>
+    <tr><td>HR (manager)</td><td><code>hr_manager</code></td><td>Backend: smaller list (TL doc v1.0)</td></tr>
+    <tr><td>EMPLOYEE</td><td><code>employee</code></td><td>Backend: self-service codes only</td></tr>
+  </table>
+
+  <p><strong>Same frontend code for everyone.</strong> Two users open the same React app. User A’s API response has 80 codes; User B has 15. Sidebar and buttons only check: “Is my code in <em>my</em> list?”</p>
+
+  <pre class="diagram mermaid">
+flowchart TB
+  subgraph catalog["catalog.js — ONE dictionary for entire HR app"]
+    HR["HR.main.dashboard.view\nHR.payroll.processing.view\n… all hr.* strings"]
+  end
+  subgraph backend["Backend — different ANSWER SHEET per role"]
+    ADMIN["company_admin → many codes"]
+    MGR["hr_manager → medium list"]
+    EMP["employee → small list"]
+  end
+  subgraph user["Same React app"]
+    LIST["permissionCodes[] in AccessProvider"]
+    CHECK["Does list contain HR.xxx ?"]
+  end
+  HR --> CHECK
+  ADMIN --> LIST
+  MGR --> LIST
+  EMP --> LIST
+  LIST --> CHECK
+  </pre>
+
+  <h3>Two catalogs — do not confuse them</h3>
+  <table>
+    <tr><th></th><th>Frontend <code>src/permissions/catalog.js</code></th><th>Backend <code>lib/hrms-permission-catalog.js</code></th></tr>
+    <tr><td>Purpose</td><td>Dictionary of permission <strong>keys</strong> components and routes can reference (e.g. <code>HR.payroll.processing.view</code>).</td><td>Decides which keys each <strong>role</strong> receives in <code>permissionCodes[]</code>.</td></tr>
+    <tr><td>Decides role access?</td><td><strong>No</strong></td><td><strong>Yes</strong> (<code>company_admin</code>, <code>hr_manager</code>, <code>employee</code> templates)</td></tr>
+  </table>
+
+  <h3>Example (same string both sides)</h3>
+  <pre class="light" style="background:#f8fafc;color:#1e293b;border:1px solid #e2e8f0;padding:1rem;">Frontend defines:  HR.payroll.processing.view  →  "hr.payroll.processing.view"
+Backend sends:   permissionCodes: ["hr.payroll.processing.view", "..."]
+Frontend checks: permissionCodes.includes("hr.payroll.processing.view")  →  show or hide
+
+<strong>Note:</strong> Both sides must use exactly matching strings. A typo breaks the check.</pre>
+
+  <p><strong>Same React app for all roles.</strong> Only the list returned in <code>/api/auth/me</code> differs. Backend file: <code>apps/backend/hr-module/lib/hrms-permission-catalog.js</code> (<code>HR_MANAGER_PERMISSIONS</code>, <code>EMPLOYEE_PERMISSIONS</code>, etc.).</p>
+  </section>
+
+  <section class="page-section" id="page-3">
+  <h2 id="part-2">Page 3 — Complete frontend E2E: every important file</h2>
+  <p>For each file: what it is, what it receives, what it does, what it passes next, and what it talks to.</p>
+
+  <table class="file-detail">
+    <tr><th>File</th><th>Responsibility and connection</th></tr>
+    <tr><td><code>index.html</code></td><td>HTML shell and <code>#root</code> mount point. → <code>main.jsx</code></td></tr>
+    <tr><td><code>main.jsx</code></td><td><strong>Receives:</strong> nothing (entry). <strong>Does:</strong> mounts React. <strong>Passes to:</strong> <code>AuthGate.jsx</code>.</td></tr>
+    <tr><td><code>AuthGate.jsx</code></td><td><strong>Receives:</strong> JSON from <code>/api/auth/me</code> via <code>api.js</code> (user, memberships, <code>access</code>). <strong>Does:</strong> login UI, company selection. <strong>Passes to:</strong> <code>App.jsx</code> (<code>access</code>, <code>role</code>, <code>companyId</code>).</td></tr>
+    <tr><td><code>api.js</code></td><td><strong>Receives:</strong> URLs and options from callers. <strong>Does:</strong> HTTP with cookies, 401 handling. <strong>Talks to:</strong> all backend <code>/api/*</code> routes.</td></tr>
+    <tr><td>Backend <code>auth/me/route.js</code></td><td><strong>Receives:</strong> session cookie. <strong>Does:</strong> load user + memberships. <strong>Calls:</strong> <code>buildMembershipAccessContext</code>. <strong>Returns:</strong> <code>access.permissionCodes</code>.</td></tr>
+    <tr><td>Backend <code>hrms-permission-catalog.js</code></td><td><strong>Receives:</strong> <code>role</code>, <code>employeeId</code>, delegate flags. <strong>Returns:</strong> permission code array for that membership.</td></tr>
+    <tr><td><code>App.jsx</code></td><td><strong>Receives:</strong> <code>access</code> from AuthGate. <strong>Does:</strong> layout, routing, data loads. <strong>Wraps:</strong> <code>AccessProvider</code>. <strong>Uses:</strong> <code>navigation.js</code>, <code>routes.jsx</code>, <code>shell.jsx</code>.</td></tr>
+    <tr><td><code>AccessProvider.jsx</code></td><td><strong>Receives:</strong> <code>access</code> payload. <strong>Does:</strong> React Context with <code>permissionCodes</code>, <code>canPerform</code>, <code>canViewRoute</code>. <strong>Used by:</strong> all children via <code>useAccess()</code>.</td></tr>
+    <tr><td><code>permissions/catalog.js</code></td><td>Defines <code>HR.*</code> constants and <code>ROUTE_VIEW_PERMISSION</code>. Used by navigation, modules, <code>Can</code>, <code>useModuleAccess</code>.</td></tr>
+    <tr><td><code>permissions/access.js</code></td><td>Pure helpers: <code>hasPermission</code>, <code>canViewRoute</code>. <strong>Receives:</strong> code list + key. Used by <code>AccessProvider</code> and <code>navigation.js</code>.</td></tr>
+    <tr><td><code>navigation.js</code></td><td><strong>Receives:</strong> <code>permissionCodes</code> + <code>routeSections</code> from <code>routes.jsx</code>. <strong>Returns:</strong> filtered sections for sidebar.</td></tr>
+    <tr><td><code>routes.jsx</code></td><td>Master list of routes (id, label, icon, page component). Does not filter by user.</td></tr>
+    <tr><td><code>shell.jsx</code> / Sidebar</td><td><strong>Receives:</strong> filtered <code>sections</code> from App. <strong>Does:</strong> render menu; click → <code>navigate(routeId)</code> in App.</td></tr>
+    <tr><td><code>useModuleAccess.js</code></td><td><strong>Receives:</strong> context from <code>useAccess()</code>. <strong>Returns:</strong> flags (e.g. <code>payroll.manageProcessing</code>) for modules.</td></tr>
+    <tr><td><code>Can.jsx</code></td><td><strong>Receives:</strong> <code>permission</code> prop from parent. <strong>Does:</strong> show children only if code is in list. (Repository: uses <code>hasPermission</code>.)</td></tr>
+    <tr><td><code>modules/payroll/shared.jsx</code></td><td><code>PermissionOnly</code> — same idea as <code>Can</code>, shows Notice when denied. Used by payroll pages.</td></tr>
+    <tr><td><code>modules/*.jsx</code></td><td>HR screens. Use flags / wrappers; call <code>services/*</code> for data.</td></tr>
+    <tr><td><code>services/*</code></td><td>Feature API functions (payroll, employees, etc.). Call <code>api.js</code>.</td></tr>
+    <tr><td>Backend APIs</td><td><strong>Receives:</strong> session cookie (not full permission array). <strong>Does:</strong> authorize and return data or 403.</td></tr>
+  </table>
+
+  <h3>Connected flow (permission list loaded at login, not per component)</h3>
+  <pre class="ascii">index.html → main.jsx → AuthGate.jsx → api.js → GET /api/auth/me
+  → hrms-permission-catalog.js → permissionCodes[] returned
+  → AuthGate.jsx → App.jsx → AccessProvider.jsx
+  → navigation.js + routes.jsx → shell.jsx Sidebar
+  → modules → useModuleAccess / Can / PermissionOnly
+  → services → api.js → Backend APIs (re-validate access)</pre>
+
+  <pre class="diagram mermaid">
+sequenceDiagram
+  participant main as main.jsx
+  participant gate as AuthGate.jsx
+  participant api as api.js
+  participant be as Backend /api/auth/me
+  participant app as App.jsx
+  participant ap as AccessProvider
+  participant shell as shell Sidebar
+
+  main->>gate: render
+  gate->>api: apiRequest /api/auth/me
+  api->>be: cookie
+  be-->>api: memberships + access.permissionCodes
+  api-->>gate: JSON
+  gate->>app: access, role, companyId
+  app->>ap: wrap children
+  ap->>shell: visibleSections from navigation.js
+  </pre>
+
+  <h3>2.2 Sidebar (what you see on the left)</h3>
+  <table>
+    <tr><th>File</th><th>Role</th><th>Input → Output</th></tr>
+    <tr><td><code>routes.jsx</code></td><td><strong>Master menu list</strong> (all sections, labels, icons, page components)</td><td>Defines every possible menu item</td></tr>
+    <tr><td><code>permissions/catalog.js</code></td><td>Maps route id → required view code</td><td>e.g. <code>departments</code> → <code>hr.organization.departments.view</code></td></tr>
+    <tr><td><code>permissions/access.js</code></td><td><code>canViewRoute(codes, routeId)</code></td><td>true/false</td></tr>
+    <tr><td><code>navigation.js</code></td><td>Filters <code>routes.jsx</code> by user’s codes</td><td><code>visibleSectionsFor()</code></td></tr>
+    <tr><td><code>App.jsx</code></td><td>Calls <code>visibleSectionsFor</code></td><td><code>sections=…</code></td></tr>
+    <tr><td><code>shell.jsx</code> → <code>Sidebar</code></td><td>Draws HTML for menu</td><td>User clicks → <code>navigate(routeId)</code></td></tr>
+  </table>
+
+  <h3>2.3 Open a page + buttons inside page</h3>
+  <table>
+    <tr><th>File</th><th>Role</th></tr>
+    <tr><td><code>App.jsx</code></td><td>Hash URL → <code>findRoute(activePage)</code> from <code>routes.jsx</code>; if not allowed → <code>AccessDenied.jsx</code></td></tr>
+    <tr><td><code>routes.jsx</code> item <code>render</code></td><td>Loads module e.g. <code>DailyAttendance.jsx</code></td></tr>
+    <tr><td><code>useModuleAccess.js</code></td><td>Reads <code>useAccess()</code>; exposes flags like <code>attendance.manageDaily</code> using <code>HR.*</code> codes</td></tr>
+    <tr><td><code>Can.jsx</code> or <code>payroll/shared.jsx</code> <code>PermissionOnly</code></td><td>Angular-like: show child only if code in list</td></tr>
+    <tr><td><code>modules/*.jsx</code></td><td>User actions → <code>apiRequest</code> → backend enforces again</td></tr>
+  </table>
+
+  </section>
+
+  <section class="page-section" id="page-4">
+  <h2 id="login-flow">Page 4 — Complete step-by-step login to API flow</h2>
+  <p>Steps <strong>11–15</strong> read the permission list already stored in React context after login. They do <strong>not</strong> call the backend again to ask “can I show this?”</p>
+  <table>
+    <tr><th>Step</th><th>Where</th><th>What happens</th></tr>
+    <tr><td>1</td><td><code>main.jsx</code></td><td>Starts the React application and mounts the tree.</td></tr>
+    <tr><td>2</td><td><code>AuthGate.jsx</code></td><td>On load, checks whether there is a valid session (shows login UI if not).</td></tr>
+    <tr><td>3</td><td><code>api.js</code></td><td>Sends <code>GET /api/auth/me</code> with the session cookie.</td></tr>
+    <tr><td>4</td><td>Backend <code>auth/me/route.js</code></td><td>Authenticates the user from the session.</td></tr>
+    <tr><td>5</td><td>Backend + DB</td><td>Loads company memberships, <code>role</code>, linked employee records.</td></tr>
+    <tr><td>6</td><td><code>hrms-permission-catalog.js</code></td><td>Maps each membership <code>role</code> → <code>permissionCodes[]</code>.</td></tr>
+    <tr><td>7</td><td>HTTP response</td><td>Returns user, memberships, employee info, and <code>access.permissionCodes</code> per membership.</td></tr>
+    <tr><td>8</td><td><code>AuthGate.jsx</code></td><td>Stores the response; picks active company (picker or saved id).</td></tr>
+    <tr><td>9</td><td><code>AuthGate.jsx</code> → <code>App.jsx</code></td><td>Passes selected membership <code>access</code>, <code>role</code>, <code>companyId</code>.</td></tr>
+    <tr><td>10</td><td><code>App.jsx</code></td><td>Wraps the shell in <code>AccessProvider</code> with that <code>access</code> payload.</td></tr>
+    <tr><td>11</td><td><code>AccessProvider.jsx</code></td><td>Exposes <code>permissionCodes</code>, <code>canPerform</code>, <code>canViewRoute</code>, <code>hasPermission</code> via context.</td></tr>
+    <tr><td>12</td><td><code>navigation.js</code></td><td>Filters <code>routes.jsx</code> sections using the context permission list.</td></tr>
+    <tr><td>13</td><td><code>shell.jsx</code> Sidebar</td><td>Renders only the filtered menu sections.</td></tr>
+    <tr><td>14</td><td><code>App.jsx</code></td><td>On navigation, checks route access and renders the module from <code>routes.jsx</code> (or <code>AccessDenied</code>).</td></tr>
+    <tr><td>15</td><td><code>Can.jsx</code> / <code>PermissionOnly</code> / <code>useModuleAccess.js</code></td><td>Control buttons and sections inside the module using the same in-memory list.</td></tr>
+    <tr><td>16</td><td><code>services/*</code> → <code>api.js</code> → Backend</td><td>User action triggers a feature API call; the backend validates authorization again before changing data.</td></tr>
+  </table>
+  <p><em>Company switch (same pattern as login for access):</em> <code>AuthGate</code> → <code>GET /api/access/context?companyId=…</code> → refresh <code>access</code> → <code>App</code> remounts with new codes (see <a href="#page-5">Page 5</a>).</p>
+  </section>
+
+  <section class="page-section" id="page-5">
+  <h2 id="api-touchpoints">Page 5 — API connection and backend touchpoints</h2>
+
+  <h3>Three layers of HTTP from the UI</h3>
+  <table>
+    <tr><th>Layer</th><th>File</th><th>Responsibility</th></tr>
+    <tr><td><strong>HTTP helper</strong></td><td><code>src/api.js</code></td><td>Shared <code>fetch</code> wrapper: sends cookies, parses JSON, surfaces 401 to the app. All services use this — modules should not duplicate raw fetch logic.</td></tr>
+    <tr><td><strong>Feature services</strong></td><td><code>src/services/*</code></td><td>One function per domain action (e.g. list employees, create payroll run). Calls <code>api.js</code> with the right path and body.</td></tr>
+    <tr><td><strong>Backend APIs</strong></td><td><code>apps/backend/hr-module/app/api/**</code></td><td>Reads session, checks company membership and required permissions, returns data or 401/403.</td></tr>
+  </table>
+
+  <div class="highlight">
+    The browser does <strong>not</strong> send the full <code>permissionCodes</code> array on every feature request. The <strong>session cookie</strong> identifies the user; the backend loads membership and permissions again (or equivalent checks) on each protected route.
+  </div>
+
+  <h3>Endpoint roles</h3>
+  <table>
+    <tr><th>Endpoint</th><th>Purpose</th></tr>
+    <tr><td><code>GET /api/auth/me</code></td><td>Initial session: user profile, all memberships, and <code>access.permissionCodes</code> for each.</td></tr>
+    <tr><td><code>GET /api/access/context?companyId=…</code></td><td>Refresh <code>access</code> when the user switches active company.</td></tr>
+    <tr><td>Feature APIs (<code>/api/payroll/…</code>, <code>/api/leave/…</code>, etc.)</td><td>Read or mutate HR data; authorize independently of what the UI chose to show.</td></tr>
+  </table>
+
+  <h3>Company switching</h3>
+  <pre class="ascii">AuthGate.jsx → GET /api/access/context?companyId=...
+  → Backend hrms-permission-catalog.js for that membership role
+  → Frontend updates membership.access.permissionCodes
+  → App remounts / AccessProvider gets new list
+  → navigation.js, routes, Can / PermissionOnly all re-evaluate locally</pre>
+
+  <h3>Backend touchpoints (diagram)</h3>
+  <pre class="diagram mermaid">
+sequenceDiagram
+  participant UI as AuthGate / App
+  participant API as HR Backend API
+  participant DB as PostgreSQL
+  participant CAT as hrms-permission-catalog.js
+  UI->>API: GET /api/auth/me cookie
+  API->>DB: membership.role
+  DB-->>API: role employee_id company
+  API->>CAT: buildMembershipAccessContext
+  CAT-->>API: permissionCodes[]
+  API-->>UI: memberships[].access
+  Note over UI: AccessProvider stores permissionCodes
+  UI->>API: GET /api/employees?companyId=
+  API->>DB: requireCompanyAccess
+  API-->>UI: data or 403
+  </pre>
+  </section>
+
+  <section class="page-section" id="page-6">
+  <h2 id="file-map">Page 6 — Complete frontend file map</h2>
+  <p>The diagram below is unchanged from the original guide. Read it together with the connection notes under it.</p>
+  <pre class="diagram mermaid">
+flowchart TB
+  main[main.jsx]
+  gate[AuthGate.jsx]
+  api[api.js]
+  app[App.jsx]
+  ap[AccessProvider.jsx]
+  acc[access.js]
+  cat[catalog.js HR.*]
+  nav[navigation.js]
+  rt[routes.jsx]
+  sh[shell.jsx Sidebar / TopBar]
+  mod[modules/*.jsx]
+  uma[useModuleAccess.js]
+  can[Can.jsx / PermissionOnly]
+
+  main --> gate
+  gate --> api
+  gate --> app
+  app --> ap
+  ap --> acc
+  cat --> nav
+  cat --> uma
+  cat --> can
+  acc --> ap
+  rt --> nav
+  nav --> app
+  app --> sh
+  ap --> mod
+  uma --> mod
+  can --> mod
+  mod --> api
+  </pre>
+
+  <h3>How the files relate (not just a file list)</h3>
+  <ul>
+    <li><code>main.jsx</code> boots the app and hands control to <code>AuthGate.jsx</code>, which is the only place that loads session + membership access from the backend.</li>
+    <li><code>api.js</code> is the shared pipe to backend auth and data routes; <code>AuthGate</code> and all <code>services/*</code> depend on it.</li>
+    <li><code>App.jsx</code> owns layout and routing: it consumes <code>access</code> from AuthGate, provides it to <code>AccessProvider</code>, asks <code>navigation.js</code> for a filtered menu, and passes that menu to <code>shell.jsx</code>.</li>
+    <li><code>catalog.js</code> supplies stable <code>HR.*</code> strings to <code>navigation.js</code>, <code>useModuleAccess.js</code>, and permission wrappers; <code>access.js</code> implements the actual set membership checks used by <code>AccessProvider</code>.</li>
+    <li><code>routes.jsx</code> is the full route registry; <code>navigation.js</code> intersects it with the user’s codes. Modules never talk to the sidebar directly.</li>
+    <li><code>useModuleAccess.js</code>, <code>Can.jsx</code>, and <code>PermissionOnly</code> read the same context list; modules call services, and services call <code>api.js</code> again for real data.</li>
+  </ul>
+  </section>
+
+  <section class="page-section" id="page-7">
+  <h2 id="angular-react">Page 7 — Angular <code>*ngIf</code> vs React permission tags</h2>
+
+  <h3>Side-by-side</h3>
+<pre>&lt;!-- Angular --&gt;
+&lt;h1 *ngIf="user_role == 1"&gt;Payroll Processing&lt;/h1&gt;
+
+&lt;!-- React (ELVA HR) --&gt;
+&lt;Can permission={HR.payroll.processing.view}&gt;
+  &lt;h1&gt;Payroll Processing&lt;/h1&gt;
+&lt;/Can&gt;</pre>
+
+  <h3>What happens on each render (8 steps)</h3>
+  <ol>
+    <li>Frontend defines the permission key in <code>catalog.js</code> (e.g. <code>HR.payroll.processing.view</code> → <code>"hr.payroll.processing.view"</code>).</li>
+    <li>Backend decides whether this user’s role should receive that key (<code>hrms-permission-catalog.js</code>).</li>
+    <li>At login, backend sends the allowed list in <code>memberships[].access.permissionCodes</code>.</li>
+    <li><code>AccessProvider</code> stores that list in React context.</li>
+    <li><code>Can.jsx</code> calls <code>useAccess()</code> (in the repo: <code>hasPermission(permission)</code> — see verified snippet in <a href="#appendix-can">Appendix</a>).</li>
+    <li><code>Can</code> checks whether the supplied key exists in the list.</li>
+    <li>If yes → render children; if no → render <code>fallback</code> (default: nothing).</li>
+    <li>Clicking a visible button still runs a separate API call, validated on the server.</li>
+  </ol>
+
+  <h3>Simplified examples (illustrative)</h3>
+  <p>The real <code>Can.jsx</code> also supports <code>anyOf</code> / <code>allOf</code> and uses <code>hasPermission</code>, not <code>canPerform</code>, for the single-code case.</p>
+<pre>function Can({ permission, children }) {
+  const { hasPermission } = useAccess();
+  return hasPermission(permission) ? children : null;
+}
+
+function hasPermission(permissionCodes, code) {
+  return new Set(permissionCodes).has(code);
+}</pre>
+
+  <div class="highlight">
+    <strong>Critical:</strong> The permission tag does <strong>not</strong> call the backend to verify each component. It compares its key against the list already received from <code>/api/auth/me</code> (or <code>/api/access/context</code> after a company switch).
+  </div>
+
+  <h3>Visibility vs action</h3>
+<pre>&lt;Can permission={HR.payroll.processing.view}&gt;
+  &lt;button onClick={handleProcessPayroll}&gt;Process Payroll&lt;/button&gt;
+&lt;/Can&gt;</pre>
+  <p>The tag only controls whether the button appears. <code>handleProcessPayroll</code> → payroll service → <code>api.js</code> → backend enforces the operation.</p>
+
+  <table>
+    <tr><th>Topic</th><th>Frontend (React)</th><th>Backend (API)</th></tr>
+    <tr><td>Purpose</td><td>UX: hide menu items, routes, buttons</td><td>Security: authorize reads and mutations</td></tr>
+    <tr><td>When it runs</td><td>After login / company switch (in-memory list)</td><td>Every protected HTTP request</td></tr>
+    <tr><td>Hiding UI enough?</td><td><strong>No</strong> — users can still craft requests</td><td><strong>Yes</strong> — must return 403 when unauthorized</td></tr>
+  </table>
+
+  <table>
+    <tr><th>Requirement</th><th>Status in HR module</th></tr>
+    <tr><td>Stable variable per capability</td><td>Yes — <code>catalog.js</code> <code>HR.*</code></td></tr>
+    <tr><td>Backend sends allowed list</td><td>Yes — <code>membership.access.permissionCodes</code></td></tr>
+    <tr><td>Show UI only if match</td><td>Yes — <code>Can</code>, <code>PermissionOnly</code>, <code>useModuleAccess</code>, <code>navigation.js</code></td></tr>
+    <tr><td>Matching strings FE + BE</td><td>Required — keep <code>catalog.js</code> and <code>hrms-permission-catalog.js</code> in sync</td></tr>
+  </table>
+  </section>
+
+  <section class="page-section" id="page-8">
+  <h2 id="tl-demo">Page 8 — Where to find each file (TL demo order)</h2>
+  <p>Follow this order to mirror the real data flow from backend role → frontend UI.</p>
+  <ol>
+    <li><strong>Backend</strong> <code>app/api/auth/me/route.js</code> — session lookup and membership payload.</li>
+    <li><strong>Backend</strong> <code>lib/hrms-permission-catalog.js</code> — how <code>role</code> becomes <code>permissionCodes[]</code>.</li>
+    <li><strong>Frontend</strong> <code>AuthGate.jsx</code> — calls <code>/api/auth/me</code> via <code>api.js</code>; passes <code>access</code> into <code>App</code>.</li>
+    <li><strong>Frontend</strong> <code>permissions/catalog.js</code> — the permission key constant used on components and routes.</li>
+    <li><strong>Frontend</strong> <code>permissions/AccessProvider.jsx</code> — context that exposes the list and helpers.</li>
+    <li><strong>Frontend</strong> <code>permissions/Can.jsx</code> (and payroll <code>PermissionOnly</code>) — local compare against the list.</li>
+    <li><strong>Frontend</strong> <code>navigation.js</code> + <code>routes.jsx</code> — sidebar filtering and page registry.</li>
+    <li><strong>Browser</strong> DevTools → Network → <code>/api/auth/me</code> — compare <code>permissionCodes</code> for admin vs employee vs HR manager.</li>
+    <li>Click an authorized action → show the <strong>separate</strong> feature API request and server response (200 vs 403).</li>
+  </ol>
+  <p>File cheat sheet paths (repo root relative):</p>
+  <table>
+    <tr><th>Area</th><th>Path</th></tr>
+    <tr><td>Auth API</td><td><code>apps/backend/hr-module/app/api/auth/me/route.js</code></td></tr>
+    <tr><td>Access refresh</td><td><code>apps/backend/hr-module/app/api/access/context/route.js</code></td></tr>
+    <tr><td>Role catalog</td><td><code>apps/backend/hr-module/lib/hrms-permission-catalog.js</code></td></tr>
+    <tr><td>Gate + App</td><td><code>apps/frontend/hr-module/src/AuthGate.jsx</code>, <code>App.jsx</code></td></tr>
+    <tr><td>Permissions</td><td><code>apps/frontend/hr-module/src/permissions/</code> (<code>catalog.js</code>, <code>AccessProvider.jsx</code>, <code>Can.jsx</code>, <code>access.js</code>, <code>useModuleAccess.js</code>)</td></tr>
+    <tr><td>Shell</td><td><code>navigation.js</code>, <code>routes.jsx</code>, <code>shell.jsx</code></td></tr>
+  </table>
+  </section>
+
+  <section class="page-section" id="page-9">
+  <h2 id="other-modules">Page 9 — Other ERP modules and final summary</h2>
+  <table>
+    <tr><th>Module</th><th>Menu / navigation</th><th>Access model today</th></tr>
+    <tr><td><strong>HR</strong> (this doc)</td><td><code>routes.jsx</code> + <code>navigation.js</code></td><td><code>permissionCodes</code> and <code>HR.*</code> catalog strings</td></tr>
+    <tr><td><strong>Procurement</strong></td><td><code>config/navigation.js</code></td><td><code>session.navigation</code> keys — <em>not</em> the same <code>hr.*</code> / <code>AccessProvider</code> pattern as HR</td></tr>
+  </table>
+  <p>There is currently <strong>no</strong> single shared sidebar implementation across all ERP frontend apps.</p>
+
+  <h3>How the entire permission system works</h3>
+  <p>The backend determines permissions from the user’s <strong>company membership role</strong>. At login, <code>GET /api/auth/me</code> returns an array of allowed permission strings. The frontend keeps its own <code>catalog.js</code> of keys used in components. <code>AccessProvider</code> stores the array from the server.</p>
+  <p>When JSX uses <code>&lt;Can permission={HR.payroll.processing.view}&gt;</code>, React checks whether that exact string is in the list. The same list drives <code>navigation.js</code> (sidebar) and <code>App.jsx</code> (route guard). On button click, a service calls the backend, which validates access again.</p>
+
+  <div class="highlight">
+    <strong>Remember these four pieces:</strong><br>
+    1. <code>catalog.js</code> — defines frontend permission keys.<br>
+    2. <code>hrms-permission-catalog.js</code> — backend decides which keys each role gets.<br>
+    3. <code>AccessProvider</code> + <code>Can.jsx</code> / <code>PermissionOnly</code> — compare keys and control UI visibility.<br>
+    4. Backend APIs — enforce authorization on data and operations.
+  </div>
+  </section>
+
+  <section class="page-section hero-example" id="appendix">
+  <h2 id="appendix-title">Appendix — Worked examples and repo code</h2>
+  <p class="jump-banner">Payroll + Leave walkthroughs, verified snippets from the repository. Shorter offline version: <a href="TL-ONE-COMPONENT-EXAMPLE.html">TL-ONE-COMPONENT-EXAMPLE.html</a>.</p>
+
+  <h3>Quick example A — <code>PayrollProcessing</code></h3>
+  <p><code>ManagerOnly permission={HR.payroll.processing.view}</code> on <code>src/modules/payroll/PayrollProcessing.jsx</code>. Admin sees sidebar + page; HR manager and employee do not get <code>hr.payroll.processing.view</code> in TL v1.0. Details in <a href="#part-9">Example A</a> below.</p>
+  <h3>Quick example B — <code>LeaveDashboard</code></h3>
+  <p>All roles share <code>hr.leave.dashboard.view</code>; buttons use <code>useModuleAccess()</code>. Details in <a href="#part-10">Example B</a> below.</p>
+
+  <h2 id="part-8">Why <code>Can.jsx</code> has no <code>HR.payroll…</code> inside</h2>
+  <div class="box">
+    <code>Can.jsx</code> is a <strong>generic switch</strong> (like Angular’s <code>*ngIf</code> directive itself). It does <strong>not</strong> hard-code any permission.<br><br>
+    The <strong>variable</strong> is passed <strong>from the parent</strong>: <code>permission={HR.payroll.processing.view}</code>.<br><br>
+    In our repo today, most pages use <strong><code>PermissionOnly</code></strong> / <strong><code>ManagerOnly</code></strong> in <code>payroll/shared.jsx</code> (same logic as <code>Can</code>, but shows a notice when denied).<br><br>
+    <strong>Three wrappers, one idea:</strong> parent passes catalog variable → child calls <code>useAccess()</code> → compare to list from login.
+  </div>
+
+  <table>
+    <tr><th>Component</th><th>File</th><th>If user lacks code</th><th>Used in repo?</th></tr>
+    <tr><td><code>Can</code></td><td><code>permissions/Can.jsx</code></td><td>Renders <code>fallback</code> (default: nothing)</td><td>Rarely (ready for buttons)</td></tr>
+    <tr><td><code>PermissionOnly</code></td><td><code>modules/payroll/shared.jsx</code></td><td>Shows info <code>Notice</code></td><td><strong>Yes</strong> (payroll pages)</td></tr>
+    <tr><td><code>ManagerOnly</code></td><td>same</td><td>Wrapper → <code>PermissionOnly</code></td><td><strong>Yes</strong> — see below</td></tr>
+    <tr><td><code>useModuleAccess()</code></td><td><code>permissions/useModuleAccess.js</code></td><td>Boolean flags e.g. <code>leave.createRequest</code></td><td><strong>Yes</strong> (most modules)</td></tr>
+  </table>
+
+  <h3 id="appendix-can">8.1 Real code — <code>Can.jsx</code> (generic only)</h3>
+  <span class="filetag">apps/frontend/hr-module/src/permissions/Can.jsx</span>
+<pre class="repo">export function Can({ permission, anyOf, allOf, fallback = null, children }) {
+  const access = useAccess();
+  let allowed = true;
+  if (permission) {
+    allowed = access.hasPermission(permission);
+  } else if (anyOf?.length) {
+    allowed = access.hasAnyPermission(anyOf);
+  } ...
+  if (!allowed) return fallback;
+  return children;
+}</pre>
+  <p>Notice: no <code>HR.</code> import. Parent supplies <code>permission</code>.</p>
+
+  <h3>8.2 Real code — where the variable <em>is</em> on the tag (Payroll Processing)</h3>
+  <span class="filetag">apps/frontend/hr-module/src/modules/payroll/PayrollProcessing.jsx</span>
+<pre class="repo">import { HR } from "../../permissions/catalog";
+import { useModuleAccess } from "../../permissions/useModuleAccess";
+import { ManagerOnly } from "./shared";
+
+export function PayrollProcessing({ companyId, role: _role, departments = [] }) {
+  const { payroll } = useModuleAccess();
+  ...
+  return (
+    &lt;ManagerOnly permission={HR.payroll.processing.view}&gt;
+      &lt;section&gt;
+        ...
+        {payroll.manageProcessing && (
+          &lt;button onClick={createRun}&gt;+ Create run&lt;/button&gt;
+        )}
+      &lt;/section&gt;
+    &lt;/ManagerOnly&gt;
+  );
+}</pre>
+
+  <span class="filetag">apps/frontend/hr-module/src/modules/payroll/shared.jsx</span>
+<pre class="repo">export function PermissionOnly({ permission, children, message }) {
+  const access = useAccess();
+  if (!access.canPerform(permission)) {
+    return &lt;Notice notice={{ type: "info", message: "You do not have permission..." }} /&gt;;
+  }
+  return children;
+}
+
+export function ManagerOnly({ permission = HR.payroll.processing.view, children, ... }) {
+  return &lt;PermissionOnly permission={permission}&gt;{children}&lt;/PermissionOnly&gt;;
+}</pre>
+  <p><strong>Equivalent Angular-style tag using <code>Can</code> directly:</strong></p>
+<pre class="repo">&lt;Can permission={HR.payroll.processing.view}&gt;
+  &lt;section&gt;... entire Payroll Processing page ...&lt;/section&gt;
+&lt;/Can&gt;</pre>
+
+  <h3>8.3 How the variable string is defined</h3>
+  <span class="filetag">apps/frontend/hr-module/src/permissions/catalog.js</span>
+<pre class="repo">export const HR = {
+  ...
+  payroll: {
+    processing: {
+      view: "hr.payroll.processing.view",
+      manage: "hr.payroll.processing.manage",
+      finalize: "hr.payroll.processing.finalize",
+      ...
+    },
+  },
+};
+export const ROUTE_VIEW_PERMISSION = {
+  "payroll-processing": HR.payroll.processing.view,
+  "leave-dashboard": HR.leave.dashboard.view,
+  ...
+};</pre>
+
+  <h3>8.4 How login list is checked</h3>
+  <span class="filetag">apps/frontend/hr-module/src/permissions/access.js</span>
+<pre class="repo">export function hasPermission(permissionCodes, code) {
+  return new Set(permissionCodes).has(code);
+}</pre>
+  <span class="filetag">apps/frontend/hr-module/src/permissions/AccessProvider.jsx</span>
+<pre class="repo">hasPermission: (code) => hasPermission(normalized.permissionCodes, code),
+canPerform: (code) => canPerformAction(normalized.permissionCodes, code),</pre>
+
+  <h3>8.5 Backend attaches list at login</h3>
+  <span class="filetag">apps/backend/hr-module/app/api/auth/me/route.js</span>
+<pre class="repo">access: buildMembershipAccessContext({
+  role: m.role,
+  employeeId,
+  isApprovalDelegate,
+}),</pre>
+  <span class="filetag">apps/backend/hr-module/lib/hrms-permission-catalog.js</span>
+<pre class="repo">const ROLE_TEMPLATE_PERMISSIONS = {
+  company_admin: ALL_PERMISSION_CODES,
+  hr_manager: HR_MANAGER_PERMISSIONS,
+  employee: EMPLOYEE_PERMISSIONS,
+};</pre>
+
+  <h2 id="part-9">Part 9 — Worked example A: “Payroll Processing” (admin vs HR vs employee)</h2>
+  <p>Route id: <code>payroll-processing</code>. Required view code: <code>hr.payroll.processing.view</code>.</p>
+
+  <table>
+    <tr><th>Role (TL)</th><th><code>membership.role</code></th><th>Has <code>hr.payroll.processing.view</code>?</th><th>Sidebar item?</th><th>If open URL anyway</th></tr>
+    <tr><td>HR ADMIN</td><td><code>company_admin</code></td><td>Yes</td><td>Shown</td><td>Page + Create run if <code>.manage</code> too</td></tr>
+    <tr><td>HR</td><td><code>hr_manager</code></td><td><strong>No</strong> (TL v1.0)</td><td>Hidden</td><td><code>AccessDenied</code> in App</td></tr>
+    <tr><td>Employee</td><td><code>employee</code></td><td>No</td><td>Hidden</td><td><code>AccessDenied</code></td></tr>
+  </table>
+
+  <pre class="diagram mermaid">
+flowchart TB
+  subgraph login["Login"]
+    ME["/api/auth/me"]
+    LIST["permissionCodes[]"]
+    ME --> LIST
+  end
+  subgraph menu["Sidebar chain"]
+    R["routes.jsx id: payroll-processing"]
+    C["catalog ROUTE_VIEW_PERMISSION → hr.payroll.processing.view"]
+    N["navigation.js canViewRoute"]
+    S["shell Sidebar"]
+    R --> C --> N
+    LIST --> N
+    N -->|admin only| S
+  end
+  subgraph pgOpen["Open page"]
+    A["App.jsx pageAllowed"]
+    P["PayrollProcessing.jsx"]
+    M["ManagerOnly + HR code"]
+    B["Create run if manage code"]
+    A --> P --> M
+    LIST --> M
+    LIST --> B
+  end
+  </pre>
+
+  <h3>9.1 File chain (click Payroll Processing as admin)</h3>
+  <ol>
+    <li><code>AuthGate</code> already put <code>access</code> on <code>App</code>.</li>
+    <li><code>AccessProvider</code> → <code>permissionCodes</code> includes <code>hr.payroll.processing.view</code>.</li>
+    <li><code>navigation.js</code> → <code>canViewRoute(codes, "payroll-processing")</code> → true → sidebar shows item.</li>
+    <li>User clicks → <code>App.jsx</code> sets <code>activePage</code> → <code>routes.jsx</code> renders <code>PayrollProcessing</code>.</li>
+    <li><code>ManagerOnly</code> → <code>PermissionOnly</code> → <code>canPerform(HR.payroll.processing.view)</code> → renders page.</li>
+    <li>“+ Create run” only if <code>useModuleAccess().payroll.manageProcessing</code> (<code>hr.payroll.processing.manage</code>).</li>
+    <li><code>createPayrollRun()</code> → backend API → server checks manager/admin again.</li>
+  </ol>
+
+  <span class="filetag">apps/frontend/hr-module/src/navigation.js</span>
+<pre class="repo">if (Array.isArray(permissionCodes) && permissionCodes.length > 0) {
+  return canViewRoute(permissionCodes, item.id);
+}</pre>
+  <span class="filetag">apps/frontend/hr-module/src/routes.jsx</span>
+<pre class="repo">{ id: "payroll-processing", label: "Payroll Processing", ... render: renderModule(PayrollProcessing) }</pre>
+
+  <h2 id="part-10">Part 10 — Worked example B: Leave Dashboard (simple story)</h2>
+  <div class="box">
+    <strong>Story:</strong> Admin, HR, and Employee all open the <strong>same page</strong>. The sidebar link is the same because all three have <code>hr.leave.dashboard.view</code>. Inside the page, React checks <strong>two more codes</strong> for buttons — employee is missing the approvals code, so one button never appears.
+  </div>
+  <p>Route id: <code>leave-dashboard</code> · Menu code: <code>hr.leave.dashboard.view</code> · File: <code>leave.jsx</code> → <code>LeaveDashboard</code></p>
+
+  <h3>10.0 Diagram (no internet needed — ASCII)</h3>
+  <pre class="ascii">LOGIN LIST (from /api/auth/me)
+  |
+  |-- hr.leave.dashboard.view     (admin, HR, employee)  --> SIDEBAR: show menu
+  |-- hr.leave.requests.create    (all 3)                --> BUTTON: Apply Leave
+  |-- hr.leave.approvals.view     (admin, HR only)       --> BUTTON: Open approvals
+  v
+LeaveDashboard renders
+  stats + tables for everyone
+  buttons only if flag true</pre>
+
+  <h3>10.1 What you see on screen (three logins)</h3>
+  <table>
+    <tr><th>Role</th><th>Sidebar</th><th>On Leave Dashboard page</th></tr>
+    <tr><td>Admin</td><td>Leave Dashboard ✓</td><td>Stats panels + <strong>Apply Leave</strong> + <strong>Open approvals</strong></td></tr>
+    <tr><td>HR</td><td>Leave Dashboard ✓</td><td>Same as admin</td></tr>
+    <tr><td>Employee</td><td>Leave Dashboard ✓</td><td>Stats panels + <strong>Apply Leave only</strong> (no approvals link)</td></tr>
+  </table>
+
+  <table>
+    <tr><th>Permission string</th><th>Admin</th><th>HR</th><th>Employee</th></tr>
+    <tr><td><code>hr.leave.dashboard.view</code></td><td>✓</td><td>✓</td><td>✓</td></tr>
+    <tr><td><code>hr.leave.requests.create</code></td><td>✓</td><td>✓</td><td>✓</td></tr>
+    <tr><td><code>hr.leave.approvals.view</code></td><td>✓</td><td>✓</td><td>✗</td></tr>
+  </table>
+
+  <span class="filetag">apps/frontend/hr-module/src/modules/leave.jsx — LeaveDashboard</span>
+<pre class="repo">export function LeaveDashboard({ companyId, ... }) {
+  const { leave } = useModuleAccess();
+  return (
+    &lt;section&gt;
+      &lt;PageHeader title="Leave Dashboard"&gt;
+        {leave.createRequest && (
+          &lt;button onClick={() =&gt; setApplying(true)}&gt;+ Apply Leave&lt;/button&gt;
+        )}
+      &lt;/PageHeader&gt;
+      ...
+      &lt;Panel title="Pending requests"
+        actions={leave.viewApprovals && (
+          &lt;button onClick={() =&gt; onNavigate("leave-approvals")}&gt;Open approvals&lt;/button&gt;
+        )} /&gt;
+    &lt;/section&gt;
+  );
+}</pre>
+
+  <span class="filetag">apps/frontend/hr-module/src/permissions/useModuleAccess.js</span>
+<pre class="repo">leave: {
+  createRequest: access.canPerform(HR.leave.requests.create),
+  viewApprovals: access.hasPermission(HR.leave.approvals.view),
+  ...
+},</pre>
+
+  <pre class="diagram mermaid">
+sequenceDiagram
+  participant User
+  participant App
+  participant Leave as leave.jsx
+  participant UMA as useModuleAccess
+  participant AP as AccessProvider
+  participant API as /api/leave/...
+
+  User->>App: Open leave-dashboard
+  App->>Leave: render LeaveDashboard
+  Leave->>UMA: leave.createRequest?
+  UMA->>AP: canPerform(hr.leave.requests.create)
+  AP-->>Leave: true/false
+  alt employee: create yes, approvals no
+    Leave->>User: Apply button only
+  else hr_manager: both true
+    Leave->>User: Apply + Open approvals
+  end
+  User->>API: Submit leave
+  API-->>User: 403 if not allowed on server
+  </pre>
+
+  <h3>10.2 File chain (employee opens Leave Dashboard)</h3>
+  <ol>
+    <li><code>/api/auth/me</code> → employee list has dashboard + create, not approvals view.</li>
+    <li><code>navigation.js</code> → <code>canViewRoute</code> for <code>leave-dashboard</code> → <strong>true</strong> → menu shown.</li>
+    <li><code>routes.jsx</code> → renders <code>LeaveDashboard</code> (no <code>ManagerOnly</code> wrapper).</li>
+    <li><code>useModuleAccess()</code> → <code>leave.createRequest === true</code>, <code>leave.viewApprovals === false</code>.</li>
+    <li>React renders Apply button; skips Open approvals button entirely.</li>
+    <li>Submit leave → API validates on server.</li>
+  </ol>
+
+  <h3>10.3 Compare Example 1 vs Example 2</h3>
+  <table>
+    <tr><th></th><th>Payroll Processing</th><th>Leave Dashboard</th></tr>
+    <tr><td>Gate whole page?</td><td>Yes — <code>ManagerOnly</code></td><td>No — page open if menu allowed</td></tr>
+    <tr><td>Gate buttons?</td><td><code>payroll.manageProcessing</code></td><td><code>leave.createRequest</code>, <code>leave.viewApprovals</code></td></tr>
+    <tr><td>Employee sees menu?</td><td>No</td><td>Yes</td></tr>
+  </table>
+
+  <h2 id="part-11">Part 11 — Quick reference: who calls whom</h2>
+  <pre class="diagram mermaid">
+flowchart LR
+  catalog["catalog.js HR.*"]
+  authme["/api/auth/me permissionCodes"]
+  AP["AccessProvider"]
+  Can["Can.jsx / PermissionOnly"]
+  UMA["useModuleAccess"]
+  Nav["navigation.js"]
+  Mod["modules/*.jsx"]
+
+  authme --> AP
+  catalog --> Can
+  catalog --> UMA
+  catalog --> Nav
+  AP --> Can
+  AP --> UMA
+  AP --> Nav
+  Can --> Mod
+  UMA --> Mod
+  Nav --> AppSidebar["App Sidebar"]
+  </pre>
+  </section>
+
+  <p style="margin-top:2rem;font-size:0.9rem;color:#64748b;">ELVA HR module — open in Chrome/Edge and use Print → Save as PDF (Ctrl+P).</p>
+
+  <script>
+    window.addEventListener("DOMContentLoaded", function () {
+      if (typeof mermaid !== "undefined") {
+        try { mermaid.initialize({ startOnLoad: true, theme: "neutral" }); } catch (e) { /* diagrams optional */ }
+      }
+    });
+  </script>
+</body>
+</html>

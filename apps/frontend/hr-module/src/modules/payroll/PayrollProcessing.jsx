@@ -8,17 +8,17 @@ import {
   updatePayrollRun,
 } from "../../services/payroll";
 import {
-  canManage,
   compactInputClass,
   currentMonth,
   formatMoney,
-  isAdmin,
   linkButton,
   primaryButton,
   secondaryButton,
   useAction,
   useApi,
 } from "../helpers";
+import { HR } from "../../permissions/catalog";
+import { useModuleAccess } from "../../permissions/useModuleAccess";
 import {
   DataTable,
   DepartmentSelect,
@@ -46,8 +46,11 @@ const payslipColumns = [
   { key: "net_salary", label: "Net", className: "font-semibold text-navy", render: (r) => formatMoney(r.net_salary) },
 ];
 
-export function PayrollProcessing({ companyId, role, departments = [] }) {
-  const runs = useApi(canManage(role) ? payrollRunsPath(companyId) : null);
+export function PayrollProcessing({ companyId, role: _role, departments = [] }) {
+  const { payroll } = useModuleAccess();
+  const runs = useApi(
+    payroll.viewRuns ? payrollRunsPath(companyId) : null,
+  );
   const [selectedId, setSelectedId] = useState("");
   const [department, setDepartment] = useState("");
   const [period, setPeriod] = useState(currentMonth());
@@ -98,11 +101,13 @@ export function PayrollProcessing({ companyId, role, departments = [] }) {
   }
 
   return (
-    <ManagerOnly role={role}>
+    <ManagerOnly permission={HR.payroll.processing.view}>
       <section className="space-y-5">
         <PageHeader title="Payroll Processing" subtitle="Create a monthly run, generate draft payslips, review, then finalize">
           <input type="month" value={period} onChange={(e) => e.target.value && setPeriod(e.target.value)} className={compactInputClass} />
-          <button type="button" disabled={action.busy} onClick={createRun} className={primaryButton}>+ Create run</button>
+          {payroll.manageProcessing && (
+            <button type="button" disabled={action.busy} onClick={createRun} className={primaryButton}>+ Create run</button>
+          )}
         </PageHeader>
         <Notice notice={{ type: "info", message: PAYROLL_RULES_NOTE }} />
         <Notice notice={action.notice} onClose={() => action.setNotice(null)} />
@@ -131,9 +136,15 @@ export function PayrollProcessing({ companyId, role, departments = [] }) {
             subtitle={selected.status === "Draft" ? "Processing regenerates draft payslips from current salary assignments and active advances." : undefined}
             actions={selected.status === "Draft" && (
               <>
-                <button type="button" disabled={action.busy} onClick={() => act("process")} className={primaryButton}>{selected.payslip_count ? "Reprocess" : "Process payroll"}</button>
-                {isAdmin(role) && <button type="button" disabled={action.busy || !selected.payslip_count} onClick={() => act("finalize")} className={secondaryButton}>Finalize</button>}
-                {isAdmin(role) && <button type="button" disabled={action.busy} onClick={() => act("cancel")} className={`${secondaryButton} text-danger`}>Cancel run</button>}
+                {payroll.manageProcessing && (
+                  <button type="button" disabled={action.busy} onClick={() => act("process")} className={primaryButton}>{selected.payslip_count ? "Reprocess" : "Process payroll"}</button>
+                )}
+                {payroll.finalizeRun && (
+                  <button type="button" disabled={action.busy || !selected.payslip_count} onClick={() => act("finalize")} className={secondaryButton}>Finalize</button>
+                )}
+                {payroll.cancelRun && (
+                  <button type="button" disabled={action.busy} onClick={() => act("cancel")} className={`${secondaryButton} text-danger`}>Cancel run</button>
+                )}
               </>
             )}
             padded={false}

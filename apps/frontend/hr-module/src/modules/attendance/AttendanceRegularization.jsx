@@ -1,12 +1,12 @@
 
 import { useState } from "react";
+import { useModuleAccess } from "../../permissions/useModuleAccess";
 import {
   attendancePath,
   createAttendanceRegularization,
   reviewAttendanceRegularization,
 } from "../../services/attendance";
 import {
-  canManage,
   compactInputClass,
   employeesInDepartment,
   formatDate,
@@ -52,7 +52,8 @@ export function AttendanceRegularization({
   departments = [],
   ownEmployeeId,
 }) {
-  const manager = canManage(role);
+  const { attendance: attendanceAccess } = useModuleAccess();
+  const manager = attendanceAccess.manageExceptions;
   const [status, setStatus] = useState("Pending");
   const [showForm, setShowForm] = useState(false);
   const [department, setDepartment] = useState("");

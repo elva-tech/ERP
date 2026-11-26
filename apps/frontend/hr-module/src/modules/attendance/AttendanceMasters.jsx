@@ -1,6 +1,5 @@
 import { attendancePath } from "../../services/attendance";
 import {
-  canManage,
   employeesInDepartment,
   formatDate,
   inputClass,
@@ -15,16 +14,19 @@ import {
   StatusBadge,
 } from "../ui";
 import MasterCrud from "../MasterCrud";
+import { useModuleAccess } from "../../permissions/useModuleAccess";
 
 const time = (value) => (value ? String(value).slice(0, 5) : "—");
 
-export function ShiftManagement({ companyId, role }) {
+export function ShiftManagement({ companyId, role: _role }) {
+  const { attendance } = useModuleAccess();
   return (
     <MasterCrud
       title="Shift Management"
       subtitle="Shift timings, grace period and overtime threshold used for attendance calculation"
       companyId={companyId}
-      role={role}
+      canMutate={attendance.manageShifts}
+      canDelete={attendance.manageShifts}
       path={attendancePath("shifts")}
       listKey="shifts"
       itemKey="shift"
@@ -199,8 +201,9 @@ export function ShiftManagement({ companyId, role }) {
   );
 }
 
-export function BiometricDevices({ companyId, role }) {
-  if (!canManage(role)) {
+export function BiometricDevices({ companyId, role: _role }) {
+  const { attendance } = useModuleAccess();
+  if (!attendance.manageDevices) {
     return (
       <Notice
         notice={{
@@ -217,7 +220,8 @@ export function BiometricDevices({ companyId, role }) {
       title="Biometric Devices"
       subtitle="Registered attendance devices. Punch data is imported from the Raw Punches page."
       companyId={companyId}
-      role={role}
+      canMutate={attendance.manageDevices}
+      canDelete={attendance.manageDevices}
       path={attendancePath("devices")}
       listKey="devices"
       itemKey="device"
@@ -364,10 +368,11 @@ export function BiometricDevices({ companyId, role }) {
 
 export function RosterManagement({
   companyId,
-  role,
+  role: _role,
   employees,
   departments,
 }) {
+  const { attendance } = useModuleAccess();
   const shifts = useApi(
     attendancePath("shifts", { companyId }),
   );
@@ -381,11 +386,11 @@ export function RosterManagement({
       title="Roster Management"
       subtitle="Assign employees to shifts for a date range. The effective roster drives late/overtime calculation."
       companyId={companyId}
-      role={role}
+      canMutate={attendance.manageRoster}
+      canDelete={attendance.manageRoster}
       path={attendancePath("rosters")}
       listKey="rosters"
       itemKey="roster"
-      deleteRoleCheck={canManage}
       columns={[
         {
           key: "employee_name",

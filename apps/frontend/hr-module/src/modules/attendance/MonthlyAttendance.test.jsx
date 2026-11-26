@@ -5,6 +5,16 @@ import { MonthlyAttendance } from "./MonthlyAttendance";
 
 const mockUseApi = vi.fn();
 
+vi.mock("../../permissions/AccessProvider", () => ({
+  useAccess: () => ({
+    permissionCodes: ["hr.attendance.monthly.view", "hr.attendance.monthly.manage"],
+    canPerform: () => true,
+    hasPermission: () => true,
+    canApproveInbox: () => false,
+    canMutateWorkspace: () => true,
+  }),
+}));
+
 vi.mock("../helpers", () => ({
   canManage: (role) => role === "admin" || role === "hr",
   compactInputClass: "month-input",

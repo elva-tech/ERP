@@ -6,7 +6,6 @@ import {
 import { Download, Eye, Printer } from "lucide-react";
 import { downloadCsv } from "../helpers";
 import {
-  canManage,
   compactInputClass,
   formatMoney,
   iconButton,
@@ -21,6 +20,8 @@ import {
   Panel,
 } from "../ui";
 import { ManagerOnly } from "./shared";
+import { HR } from "../../permissions/catalog";
+import { useModuleAccess } from "../../permissions/useModuleAccess";
 import { periodLabel } from "./constants";
 const STATUTORY_VIEWS = {
   PF: {
@@ -58,10 +59,17 @@ function reportColumns(kind) {
   ];
 }
 
-export function StatutoryReport({ companyId, role, employees = [], departments = [], onNavigate, kind = "ALL" }) {
+export function StatutoryReport({ companyId, role: _role, employees = [], departments = [], onNavigate, kind = "ALL" }) {
+  const { payroll, statutory } = useModuleAccess();
+  const viewPermission =
+    kind === "PF"
+      ? HR.statutory.pf.view
+      : kind === "ESIC"
+        ? HR.statutory.esic.view
+        : HR.statutory.reports.view;
   const view = STATUTORY_VIEWS[kind];
   const runs = useApi(
-    canManage(role) ? payrollRunsPath(companyId) : null,
+    payroll.viewRuns ? payrollRunsPath(companyId) : null,
   );
   const [runId, setRunId] = useState("");
   const [department, setDepartment] = useState("");
@@ -77,15 +85,17 @@ export function StatutoryReport({ companyId, role, employees = [], departments =
   const rows = department ? allRows.filter((r) => departmentOf.get(String(r.employee_id)) === department) : allRows;
   const columns = reportColumns(kind);
   const runLabel = report.data?.run ? periodLabel(report.data.run) : "";
+  const canExportCurrent = statutory.export(kind);
 
   function exportCsv(reportKind) {
+    if (!statutory.export(reportKind)) return;
     const title = STATUTORY_VIEWS[reportKind].title.replace(/\s+/g, "-").toLowerCase();
     const cols = reportColumns(reportKind).map((c) => ({ key: c.key, label: c.label }));
     downloadCsv(`${title}-${effectiveRunId}${department ? `-${department.replace(/\s+/g, "-").toLowerCase()}` : ""}.csv`, cols, rows);
   }
 
   return (
-    <ManagerOnly role={role}>
+    <ManagerOnly permission={viewPermission}>
       <section className="space-y-5">
         <PageHeader title={view.title} subtitle={view.subtitle} />
 
@@ -101,17 +111,19 @@ export function StatutoryReport({ companyId, role, employees = [], departments =
               <DepartmentSelect departments={departments} value={department} onChange={setDepartment} />
             </Field>
           </div>
-          <div>
-            <p className="mb-1.5 text-xs font-semibold text-ink-soft">Export</p>
-            <div className="inline-flex overflow-hidden rounded-md border border-line" role="group" aria-label="Export report">
-              <button type="button" disabled={!rows.length} onClick={() => exportCsv(kind)} className="inline-flex h-9 items-center gap-1.5 bg-brand px-3 text-xs font-semibold text-surface hover:bg-brand-hover disabled:opacity-50">
-                <Download size={14} aria-hidden="true" /> CSV
-              </button>
-              <button type="button" disabled={!rows.length} onClick={() => window.print()} className="inline-flex h-9 items-center gap-1.5 bg-surface px-3 text-xs font-semibold text-ink hover:bg-workspace disabled:opacity-50">
-                <Printer size={14} aria-hidden="true" /> Print / PDF
-              </button>
+          {canExportCurrent && (
+            <div>
+              <p className="mb-1.5 text-xs font-semibold text-ink-soft">Export</p>
+              <div className="inline-flex overflow-hidden rounded-md border border-line" role="group" aria-label="Export report">
+                <button type="button" disabled={!rows.length} onClick={() => exportCsv(kind)} className="inline-flex h-9 items-center gap-1.5 bg-brand px-3 text-xs font-semibold text-surface hover:bg-brand-hover disabled:opacity-50">
+                  <Download size={14} aria-hidden="true" /> CSV
+                </button>
+                <button type="button" disabled={!rows.length} onClick={() => window.print()} className="inline-flex h-9 items-center gap-1.5 bg-surface px-3 text-xs font-semibold text-ink hover:bg-workspace disabled:opacity-50">
+                  <Printer size={14} aria-hidden="true" /> Print / PDF
+                </button>
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
         <Notice notice={{ type: "info", message: report.data?.note || "Amounts reflect company-configured salary components. Statutory rates, wage ceilings, eligibility and filing formats (ECR, ESIC challan) must be confirmed by the payroll accountant." }} />
@@ -136,9 +148,11 @@ export function StatutoryReport({ companyId, role, employees = [], departments =
                           <Eye size={14} />
                         </button>
                       )}
-                      <button type="button" disabled={!rows.length} onClick={() => exportCsv(r.kind)} title={`Download ${r.name} (CSV)`} aria-label={`Download ${r.name} as CSV`} className={iconButton}>
-                        <Download size={14} />
-                      </button>
+                      {statutory.export(r.kind) && (
+                        <button type="button" disabled={!rows.length} onClick={() => exportCsv(r.kind)} title={`Download ${r.name} (CSV)`} aria-label={`Download ${r.name} as CSV`} className={iconButton}>
+                          <Download size={14} />
+                        </button>
+                      )}
                     </span>
                   ),
                 },

@@ -14,7 +14,6 @@ import MasterCrud from "./MasterCrud";
 import {
   MONTH_NAMES,
   approveButton,
-  canManage,
   compactInputClass,
   downloadCsv,
   employeesInDepartment,
@@ -43,11 +42,13 @@ import {
   StatusBadge,
 } from "./ui";
 import { useConfirm } from "./useConfirm";
+import { useModuleAccess } from "../permissions/useModuleAccess";
+import { HR } from "../permissions/catalog";
 
 const LEAVE_RULES_NOTE =
   "Days are counted as calendar days between the dates (weekly offs and holidays are not excluded). Paid leave requires sufficient balance; requests cannot span two calendar years.";
 
-function requestColumns({ manager, onAction, busy, showEmployee = true, ownEmployeeId = null }) {
+function requestColumns({ canApproveLeave, onAction, busy, showEmployee = true, ownEmployeeId = null }) {
   const isOwn = (r) => ownEmployeeId && String(r.employee_id) === String(ownEmployeeId);
   return [
     ...(showEmployee
@@ -69,7 +70,7 @@ function requestColumns({ manager, onAction, busy, showEmployee = true, ownEmplo
           label: "Actions",
           render: (r) => (
             <span className="flex items-center gap-2">
-              {manager && r.status === "Pending" && (isOwn(r) ? <AwaitingApprover /> : (
+              {canApproveLeave && r.status === "Pending" && (isOwn(r) ? <AwaitingApprover /> : (
                 <>
                   <button type="button" disabled={busy} onClick={() => onAction(r, "approve")} aria-label={`Approve leave for ${r.employee_name || "employee"}`} className={approveButton}>Approve</button>
                   <button type="button" disabled={busy} onClick={() => onAction(r, "reject")} aria-label={`Reject leave for ${r.employee_name || "employee"}`} className={rejectButton}>Reject</button>
@@ -104,30 +105,35 @@ function useLeaveActions(companyId, reload) {
   return { ...action, onAction, dialog: confirm.dialog };
 }
 
-function ApplyLeaveModal({ companyId, role, employees, departments, onClose, onSaved }) {
-  const manager = canManage(role);
+function ApplyLeaveModal({ companyId, role: _role, employees, departments, ownEmployeeId, onClose, onSaved }) {
+  const { leave } = useModuleAccess();
+  const canPickEmployee = leave.approve;
   const types = useApi(leaveTypesPath({ companyId }));
   const [department, setDepartment] = useState("");
   const [form, setForm] = useState({ employeeId: "", leaveTypeId: "", fromDate: todayLocal(), toDate: todayLocal(), reason: "" });
   const departmentEmployees = employeesInDepartment(employees, department);
   const action = useAction();
   const activeTypes = (types.data?.leaveTypes || []).filter((t) => t.status === "Active");
-  const balanceEmployee = manager ? form.employeeId : "own";
+  const balanceEmployee = canPickEmployee ? form.employeeId : ownEmployeeId;
   const balances = useApi(
     balanceEmployee && form.leaveTypeId
       ? leaveBalancesPath({
-      companyId,
-      year: form.fromDate.slice(0, 4),
-      employeeId: manager ? form.employeeId : "",
-    })
-    : null
+          companyId,
+          year: form.fromDate.slice(0, 4),
+          employeeId: canPickEmployee ? form.employeeId : ownEmployeeId,
+        })
+      : null,
   );
   const balance = (balances.data?.balances || []).find((b) => String(b.leave_type_id) === String(form.leaveTypeId));
 
   async function submit(event) {
     event.preventDefault();
     const result = await action.run(() =>
-      submitLeaveRequest({ companyId, ...form, employeeId: manager ? form.employeeId : undefined })
+      submitLeaveRequest({
+        companyId,
+        ...form,
+        employeeId: canPickEmployee ? form.employeeId : undefined,
+      })
     );
     if (result) onSaved();
   }
@@ -137,7 +143,7 @@ function ApplyLeaveModal({ companyId, role, employees, departments, onClose, onS
       <form onSubmit={submit} className="space-y-4">
         <Notice notice={action.notice} />
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          {manager && (
+          {canPickEmployee && (
             <>
               <Field label="Department">
                 <DepartmentSelect
@@ -178,7 +184,8 @@ function ApplyLeaveModal({ companyId, role, employees, departments, onClose, onS
   );
 }
 
-export function LeaveDashboard({ companyId, role, employees, departments, onNavigate }) {
+export function LeaveDashboard({ companyId, role: _role, employees, departments, ownEmployeeId, onNavigate }) {
+  const { leave } = useModuleAccess();
   const today = todayLocal();
   const requests = useApi(leaveRequestsPath({ companyId }));
   const [applying, setApplying] = useState(false);
@@ -191,7 +198,9 @@ export function LeaveDashboard({ companyId, role, employees, departments, onNavi
   return (
     <section className="space-y-5">
       <PageHeader title="Leave Dashboard" subtitle="Leave activity across the company">
-        <button type="button" onClick={() => setApplying(true)} className={primaryButton}>+ Apply Leave</button>
+        {leave.createRequest && (
+          <button type="button" onClick={() => setApplying(true)} className={primaryButton}>+ Apply Leave</button>
+        )}
       </PageHeader>
       {requests.error && <Notice notice={{ type: "error", message: requests.error }} />}
       <StatGrid stats={[
@@ -204,17 +213,30 @@ export function LeaveDashboard({ companyId, role, employees, departments, onNavi
         <Panel title="On leave today" padded={false}>
           <DataTable rows={onLeaveToday} loading={requests.loading} empty="Nobody is on approved leave today." columns={requestColumns({}).slice(0, 5)} />
         </Panel>
-        <Panel title="Pending requests" actions={canManage(role) && <button type="button" onClick={() => onNavigate("leave-approvals")} className={secondaryButton}>Open approvals</button>} padded={false}>
+        <Panel title="Pending requests" actions={leave.viewApprovals && <button type="button" onClick={() => onNavigate("leave-approvals")} className={secondaryButton}>Open approvals</button>} padded={false}>
           <DataTable rows={pending.slice(0, 10)} loading={requests.loading} empty="No pending requests." columns={requestColumns({}).slice(0, 5)} />
         </Panel>
       </div>
-      {applying && <ApplyLeaveModal companyId={companyId} role={role} employees={employees} departments={departments} onClose={() => setApplying(false)} onSaved={() => { setApplying(false); requests.reload(); }} />}
+      {applying && (
+        <ApplyLeaveModal
+          companyId={companyId}
+          employees={employees}
+          departments={departments}
+          ownEmployeeId={ownEmployeeId}
+          onClose={() => setApplying(false)}
+          onSaved={() => {
+            setApplying(false);
+            requests.reload();
+          }}
+        />
+      )}
     </section>
   );
 }
 
-export function LeaveRequests({ companyId, role, employees, departments, ownEmployeeId }) {
-  const manager = canManage(role);
+export function LeaveRequests({ companyId, role: _role, employees, departments, ownEmployeeId }) {
+  const { leave } = useModuleAccess();
+  const viewAll = leave.viewApprovals;
   const [status, setStatus] = useState("");
   const [department, setDepartment] = useState("");
   const [applying, setApplying] = useState(false);
@@ -226,13 +248,15 @@ export function LeaveRequests({ companyId, role, employees, departments, ownEmpl
 
   return (
     <section className="space-y-5">
-      <PageHeader title="Leave Requests" subtitle={manager ? "All leave applications in the company" : "Your leave applications"}>
-        {manager && <DepartmentFilter departments={departments} value={department} onChange={setDepartment} />}
+      <PageHeader title="Leave Requests" subtitle={viewAll ? "All leave applications in the company" : "Your leave applications"}>
+        {viewAll && <DepartmentFilter departments={departments} value={department} onChange={setDepartment} />}
         <select value={status} onChange={(e) => setStatus(e.target.value)} aria-label="Filter by status" className={compactInputClass}>
           <option value="">All statuses</option>
           {["Pending", "Approved", "Rejected", "Cancelled"].map((s) => <option key={s}>{s}</option>)}
         </select>
-        <button type="button" onClick={() => setApplying(true)} className={primaryButton}>+ New Leave Request</button>
+        {leave.createRequest && (
+          <button type="button" onClick={() => setApplying(true)} className={primaryButton}>+ New Leave Request</button>
+        )}
       </PageHeader>
       <Notice notice={actions.notice} onClose={() => actions.setNotice(null)} />
       <StatGrid stats={[
@@ -242,9 +266,9 @@ export function LeaveRequests({ companyId, role, employees, departments, ownEmpl
         { label: "Rejected", value: count("Rejected"), tone: "text-danger" },
       ]} />
       <Panel title="Requests" padded={false}>
-        <DataTable loading={requests.loading} error={requests.error} rows={rows} empty="No leave requests." columns={requestColumns({ manager, onAction: actions.onAction, busy: actions.busy, ownEmployeeId })} />
+        <DataTable loading={requests.loading} error={requests.error} rows={rows} empty="No leave requests." columns={requestColumns({ canApproveLeave: leave.approve, onAction: actions.onAction, busy: actions.busy, ownEmployeeId })} />
       </Panel>
-      {applying && <ApplyLeaveModal companyId={companyId} role={role} employees={employees} departments={departments} onClose={() => setApplying(false)} onSaved={() => { setApplying(false); requests.reload(); }} />}
+      {applying && <ApplyLeaveModal companyId={companyId} employees={employees} departments={departments} ownEmployeeId={ownEmployeeId} onClose={() => setApplying(false)} onSaved={() => { setApplying(false); requests.reload(); }} />}
       {actions.dialog}
     </section>
   );
@@ -252,14 +276,15 @@ export function LeaveRequests({ companyId, role, employees, departments, ownEmpl
 
 const wideDecision = "inline-flex h-10 w-full items-center justify-center rounded-md text-sm font-semibold text-surface transition-colors disabled:cursor-not-allowed disabled:opacity-60";
 
-export function LeaveApprovals({ companyId, role, employees = [], departments = [] }) {
+export function LeaveApprovals({ companyId, role: _role, employees = [], departments = [] }) {
+  const { leave } = useModuleAccess();
   const [department, setDepartment] = useState("");
   const [location, setLocation] = useState("");
   const [status, setStatus] = useState("Pending");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [selectedId, setSelectedId] = useState("");
-  const requests = useApi(canManage(role) ? leaveRequestsPath({ companyId }) : null);
+  const requests = useApi(leave.viewApprovals ? leaveRequestsPath({ companyId }) : null);
   const actions = useLeaveActions(companyId, requests.reload);
 
   const employeeById = new Map(employees.map((employee) => [String(employee.id), employee]));
@@ -291,7 +316,16 @@ export function LeaveApprovals({ companyId, role, employees = [], departments = 
   );
   const balance = (balances.data?.balances || []).find((row) => String(row.leave_type_id) === String(selected?.leave_type_id));
 
-  if (!canManage(role)) return <Notice notice={{ type: "info", message: "Leave approvals are available to HR managers and company admins." }} />;
+  if (!leave.approve) {
+    return (
+      <Notice
+        notice={{
+          type: "info",
+          message: "You do not have permission to approve leave requests.",
+        }}
+      />
+    );
+  }
 
   return (
     <section className="space-y-4">
@@ -419,8 +453,9 @@ export function LeaveApprovals({ companyId, role, employees = [], departments = 
   );
 }
 
-export function LeaveBalance({ companyId, role }) {
-  const manager = canManage(role);
+export function LeaveBalance({ companyId, role: _role }) {
+  const { leave } = useModuleAccess();
+  const canAllocate = leave.manageTypes;
   const [year, setYear] = useState(new Date().getFullYear());
   const [editing, setEditing] = useState(null);
   const balances = useApi(
@@ -464,7 +499,7 @@ export function LeaveBalance({ companyId, role }) {
           rowKey={(r) => `${r.employee_id}-${r.leave_type_id}`}
           rows={rows}
           empty="No balances. Add active employees and leave types first."
-          columns={[...columns, ...(manager ? [{ key: "edit", label: "Action", render: (r) => <button type="button" onClick={() => setEditing({ ...r })} className={`${linkButton} text-link`}>Set allocation</button> }] : [])]}
+          columns={[...columns, ...(canAllocate ? [{ key: "edit", label: "Action", render: (r) => <button type="button" onClick={() => setEditing({ ...r })} className={`${linkButton} text-link`}>Set allocation</button> }] : [])]}
         />
       </Panel>
       {editing && (
@@ -487,13 +522,15 @@ export function LeaveBalance({ companyId, role }) {
   );
 }
 
-export function LeaveTypes({ companyId, role }) {
+export function LeaveTypes({ companyId, role: _role }) {
+  const { leave } = useModuleAccess();
   return (
     <MasterCrud
       title="Leave Types"
       subtitle="Leave policies: annual entitlement, carry forward and paid/unpaid"
       companyId={companyId}
-      role={role}
+      canMutate={leave.manageTypes}
+      canDelete={leave.manageTypes}
       path={LEAVE_TYPES_ENDPOINT}
       listKey="leaveTypes"
       itemKey="leave type"
@@ -565,14 +602,16 @@ export function HolidayCalendar({ companyId, role }) {
   );
 }
 
-function HolidayList({ companyId, role, year, onChanged }) {
+function HolidayList({ companyId, role: _role, year, onChanged }) {
+  const { leave } = useModuleAccess();
   return (
     <MasterCrud
       key={year}
       title="Holiday Calendar"
       subtitle="National, regional and company holidays for the selected year"
       companyId={companyId}
-      role={role}
+      canMutate={leave.manageTypes}
+      canDelete={leave.manageTypes}
       path={LEAVE_HOLIDAYS_ENDPOINT}
       query={{ year }}
       onChanged={onChanged}

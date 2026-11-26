@@ -12,7 +12,6 @@ import {
   employeesInDepartment,
   formatDate,
   inputClass,
-  isAdmin,
   linkButton,
   submitButton,
   secondaryButton,
@@ -21,6 +20,7 @@ import {
 } from "./helpers";
 import { DataTable, DepartmentSelect, Field, Notice, PageHeader, Panel, StatGrid, StatusBadge } from "./ui";
 import { useConfirm } from "./useConfirm";
+import { useModuleAccess } from "../permissions/useModuleAccess";
 
 const STATE_LABELS = { pending: "Pending", accepted: "Accepted", expired: "Expired", revoked: "Revoked" };
 const emptyInvite = { email: "", role: "employee", employeeId: "" };
@@ -30,8 +30,10 @@ const emptyInvite = { email: "", role: "employee", employeeId: "" };
  * and suspend or reactivate access in this company. The server enforces every
  * rule shown here (role limits, no self-changes, last active admin).
  */
-export function UsersAccess({ companyId, role, employees = [], departments = [], currentUserId }) {
-  const admin = isAdmin(role);
+export function UsersAccess({ companyId, role: _role, employees = [], departments = [], currentUserId }) {
+  const { settings } = useModuleAccess();
+  const admin = settings.grantAdminRoles;
+  const canManageUsers = settings.manageUsers;
   const members = useApi(membersPath(companyId));
   const invitations = useApi(invitationsPath(companyId));
   const [form, setForm] = useState(emptyInvite);
@@ -43,7 +45,11 @@ export function UsersAccess({ companyId, role, employees = [], departments = [],
 
   const memberRows = members.data?.members || [];
   const invitationRows = invitations.data?.invitations || [];
-  const grantableRoles = admin ? ["employee", "hr_manager", "company_admin"] : ["employee"];
+  const grantableRoles = admin
+    ? ["employee", "hr_manager", "company_admin"]
+    : canManageUsers
+      ? ["employee"]
+      : [];
   const assignableRoles = ["hr_manager", "company_admin"];
   const openInviteEmployeeIds = new Set(
     invitationRows.filter((i) => i.state === "pending" && i.employee_id).map((i) => i.employee_id)

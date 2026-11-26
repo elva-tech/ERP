@@ -1,8 +1,8 @@
 
 import { useState } from "react";
 import { attendancePath } from "../../services/attendance";
+import { useModuleAccess } from "../../permissions/useModuleAccess";
 import {
-  canManage,
   currentMonth,
   employeesInDepartment,
   formatMinutes,
@@ -28,7 +28,8 @@ export function EmployeeAttendance({
   employees,
   departments = [],
 }) {
-  const manager = canManage(role);
+  const { attendance: attendanceAccess } = useModuleAccess();
+  const manager = attendanceAccess.manageDaily;
   const [department, setDepartment] = useState("");
   const [employeeId, setEmployeeId] = useState("");
   const [month, setMonth] = useState(currentMonth());

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { apiRequest } from "../api";
 
 export const MANAGER_ROLES = ["company_admin", "hr_manager"];
+/** Legacy role check — prefer `useAccess().canPerform()` / `canMutateWorkspace()` for UI actions. */
 export const canManage = (role) => MANAGER_ROLES.includes(role);
 export const isAdmin = (role) => role === "company_admin";
 export const ROLE_LABELS = {

@@ -2,7 +2,8 @@
 import { Suspense, useEffect, useState } from "react";
 import { apiRequest } from "./api";
 import { getEmployees } from "./services/employees";
-import { canManage, primaryButton } from "./modules/helpers";
+import { primaryButton } from "./modules/helpers";
+import { HR } from "./permissions/catalog";
 import {
   toDepartmentRecord,
   toDesignationRecord,
@@ -10,6 +11,8 @@ import {
 } from "./modules/records";
 import { Notice } from "./modules/ui";
 import { accessibleSectionsFor, visibleSectionsFor } from "./navigation";
+import { AccessDenied } from "./permissions/AccessDenied";
+import { AccessProvider, useAccess } from "./permissions/AccessProvider";
 import { findRoute } from "./routes";
 import { createRouteHash, parseRouteHash } from "./routeLocation";
 import {
@@ -21,27 +24,35 @@ import {
 
 function UnavailablePage({ title, message, onBack }) {
   return (
-    <div className="rounded-lg border border-line bg-surface p-8">
-      <h3 className="text-xl font-bold text-ink">{title}</h3>
-      <p className="mt-2 text-[13px] text-muted">{message}</p>
-      <button
-        type="button"
-        onClick={onBack}
-        className={`${primaryButton} mt-5`}
-      >
-        Back to Dashboard
-      </button>
+    <AccessDenied
+      title={title || "Page unavailable"}
+      message={message || "This page is not available."}
+      onBack={onBack}
+    />
+  );
+}
+
+function PermissionsLoadingShell() {
+  return (
+    <div
+      className="flex min-h-screen items-center justify-center bg-workspace text-sm text-muted"
+      role="status"
+      aria-live="polite"
+    >
+      Loading your access permissions...
     </div>
   );
 }
 
-function App({
+function AppShell({
   companyId,
   role = "",
   companyName = "",
   ownEmployeeId = null,
   isApprovalDelegate = false,
   session = {},
+  access = null,
+  accessRefreshing = false,
 }) {
   // Store a stable route ID internally, not the displayed page label.
   const initialLocation = parseRouteHash(window.location.hash);
@@ -63,6 +74,7 @@ function App({
       ? { id: initialLocation.employeeId, name: "" }
       : null,
   );
+  const accessState = useAccess();
 
   const refreshCompanyRecords = () => {
     setDataVersion((version) => version + 1);
@@ -87,7 +99,7 @@ function App({
           getEmployees(companyId),
           apiRequest(`/api/departments${query}`),
           apiRequest(`/api/designations${query}`),
-          canManage(role)
+          accessState.canPerform(HR.settings.users.view)
             ? apiRequest(`/api/members${query}`)
             : Promise.resolve({ members: [] }),
         ]);
@@ -119,7 +131,7 @@ function App({
     return () => {
       cancelled = true;
     };
-  }, [companyId, dataVersion, role]);
+  }, [companyId, dataVersion, accessState.permissionCodes]);
 
   useEffect(() => {
     function syncFromHash() {
@@ -162,8 +174,13 @@ function App({
       window.location.hash = nextHash;
     }
   }, [activePage, selectedEmployee]);
-  const canWrite = canManage(role);
-  const accessContext = { role, ownEmployeeId, isApprovalDelegate };
+  const permissionCodes = accessState.permissionCodes;
+  const accessContext = {
+    role,
+    ownEmployeeId,
+    isApprovalDelegate,
+    permissionCodes,
+  };
 
   const visibleSections = visibleSectionsFor(accessContext);
   const accessibleSections = accessibleSectionsFor(accessContext);
@@ -191,7 +208,8 @@ function App({
     })),
   );
 
-  const showApprovals = canManage(role) || isApprovalDelegate;
+  const showApprovals =
+    accessState.canApproveInbox() || isApprovalDelegate;
 
   // Navigation accepts stable route IDs only; labels remain presentation text.
   function navigate(identifier) {
@@ -232,9 +250,9 @@ function App({
   function renderPage() {
     if (!pageAllowed) {
       return (
-        <UnavailablePage
+        <AccessDenied
           title={activeRoute?.label || activePage}
-          message="This page is not available for your role."
+          message="You do not have permission to view this page."
           onBack={() => navigate("dashboard")}
         />
       );
@@ -261,7 +279,6 @@ function App({
       designations,
       setDesignations,
       members,
-      canWrite,
       ownEmployeeId,
       selectedEmployee,
       refreshCompanyRecords,
@@ -284,6 +301,10 @@ function App({
     };
 
     return activeRoute.render(context);
+  }
+
+  if (accessRefreshing) {
+    return <PermissionsLoadingShell />;
   }
 
   return (
@@ -376,6 +397,18 @@ function App({
         </main>
       </div>
     </div>
+  );
+}
+
+function App(props) {
+  if (!props.access && props.accessRefreshing) {
+    return <PermissionsLoadingShell />;
+  }
+
+  return (
+    <AccessProvider access={props.access} permissionsReady={Boolean(props.access)}>
+      <AppShell {...props} />
+    </AccessProvider>
   );
 }
 

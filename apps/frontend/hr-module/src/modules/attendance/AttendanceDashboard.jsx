@@ -1,8 +1,8 @@
 
 import { useState } from "react";
 import { attendancePath } from "../../services/attendance";
+import { useModuleAccess } from "../../permissions/useModuleAccess";
 import {
-  canManage,
   compactInputClass,
   employeesInDepartment,
   formatDate,
@@ -32,7 +32,8 @@ export function AttendanceDashboard({
   const [date, setDate] = useState(todayLocal());
   const [department, setDepartment] = useState("");
 
-  const manager = canManage(role);
+  const { attendance: attendanceAccess } = useModuleAccess();
+  const manager = attendanceAccess.manageDaily;
 
   const records = useApi(
     attendancePath("records", {
@@ -214,7 +215,7 @@ export function AttendanceDashboard({
             label: "Pending regularizations",
             value: pending.data?.count ?? "—",
           },
-          ...(canManage(role)
+          ...(attendanceAccess.manageDaily
             ? [
                 {
                   label: "Devices online",
@@ -271,7 +272,7 @@ export function AttendanceDashboard({
               <strong>{pending.data?.count ?? "—"}</strong>
             </li>
 
-            {canManage(role) && (
+            {attendanceAccess.manageDaily && (
               <li className="flex justify-between">
                 <span className="text-muted">
                   Devices offline / maintenance

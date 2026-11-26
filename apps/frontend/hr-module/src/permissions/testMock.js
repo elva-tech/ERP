@@ -1,0 +1,42 @@
+/** Default access flags for unit tests (employee-like). */
+export const mockModuleAccessEmployee = {
+  can: () => false,
+  has: () => false,
+  canApproveInbox: () => false,
+  employees: { create: false, edit: false, export: false },
+  organization: { manageDepartments: false, manageDesignations: false },
+  attendance: {
+    manageDaily: false,
+    manageMonthly: false,
+    manageDevices: false,
+    manageExceptions: false,
+    manageShifts: false,
+    manageRoster: false,
+    manageOvertime: false,
+    createRegularization: true,
+    viewPunches: false,
+  },
+  leave: {
+    manageTypes: false,
+    createRequest: true,
+    approve: false,
+    viewApprovals: false,
+    manageCarryForward: false,
+  },
+  payroll: {
+    manageStructure: false,
+    manageProcessing: false,
+    finalizeRun: false,
+    cancelRun: false,
+    managePolicy: false,
+    createAdvance: true,
+    exportPayslips: false,
+    viewRuns: false,
+  },
+  statutory: { export: () => false },
+  settings: {
+    manageUsers: false,
+    manageDelegation: false,
+    grantAdminRoles: false,
+  },
+};

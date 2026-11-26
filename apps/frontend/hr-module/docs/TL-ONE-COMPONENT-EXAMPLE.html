@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>ELVA HR — Two component examples (simple)</title>
+  <style>
+    body { font-family: Segoe UI, system-ui, sans-serif; max-width: 860px; margin: 1.5rem auto; padding: 0 1.25rem; line-height: 1.6; color: #1e293b; }
+    h1 { color: #1e40af; font-size: 1.45rem; }
+    h2 { color: #c2410c; font-size: 1.2rem; margin-top: 2rem; border-bottom: 2px solid #fed7aa; padding-bottom: 0.25rem; }
+    h3 { font-size: 1rem; color: #334155; margin-top: 1.25rem; }
+    table { border-collapse: collapse; width: 100%; font-size: 0.88rem; margin: 0.75rem 0; }
+    th, td { border: 1px solid #cbd5e1; padding: 0.45rem 0.6rem; text-align: left; vertical-align: top; }
+    th { background: #eff6ff; }
+    code { background: #f1f5f9; padding: 0.1rem 0.3rem; border-radius: 3px; font-size: 0.9em; }
+    pre { background: #0f172a; color: #e2e8f0; padding: 1rem; overflow-x: auto; font-size: 0.8rem; line-height: 1.4; border-radius: 6px; }
+    pre.light { background: #f8fafc; color: #1e293b; border: 1px solid #cbd5e1; }
+    .ok { background: #ecfdf5; border: 2px solid #10b981; padding: 0.85rem; margin-bottom: 1.25rem; border-radius: 6px; }
+    .simple { background: #eff6ff; border: 1px solid #93c5fd; padding: 1rem; border-radius: 8px; margin: 1rem 0; }
+    .path { color: #64748b; font-size: 0.8rem; font-weight: 600; margin-top: 0.75rem; }
+    .screen { background: #fef3c7; border: 1px dashed #d97706; padding: 0.6rem 0.8rem; margin: 0.5rem 0; font-size: 0.9rem; }
+    hr { border: none; border-top: 2px solid #e2e8f0; margin: 2.5rem 0; }
+  </style>
+</head>
+<body>
+  <div class="ok"><strong>Green box = file works.</strong> No internet needed. Two real examples from the codebase.</div>
+
+  <h1>Start here — in plain words</h1>
+  <div class="simple">
+    <ol>
+      <li><strong>Backend</strong> saves your <strong>role</strong> (admin / HR / employee) in the database.</li>
+      <li>When you login, <strong>/api/auth/me</strong> sends a <strong>list of permission strings</strong> (like <code>"hr.leave.dashboard.view"</code>).</li>
+      <li><strong>catalog.js</strong> gives those strings friendly names: <code>HR.leave.dashboard.view</code>.</li>
+      <li>The UI asks: <strong>“Is this string in my list?”</strong> — if yes, show menu or button. (Same idea as Angular <code>*ngIf="user_role==1"</code>, but we use strings not numbers.)</li>
+      <li><strong>Can.jsx</strong> is empty of HR codes on purpose — the <strong>parent component</strong> passes <code>permission={HR...}</code>. We often use <strong>ManagerOnly</strong> or <strong>{flag && button}</strong> instead.</li>
+    </ol>
+  </div>
+
+  <h2>Example 1 — Payroll Processing (admin ONLY sees menu)</h2>
+  <p><strong>File:</strong> <code>src/modules/payroll/PayrollProcessing.jsx</code></p>
+  <p><strong>Menu needs:</strong> <code>hr.payroll.processing.view</code> · <strong>Create button needs:</strong> <code>hr.payroll.processing.manage</code></p>
+
+  <h3>Diagram — what happens when you login</h3>
+  <pre>
+   YOU login
+      |
+      v
+ +------------------+
+ |  /api/auth/me    |  reads role from DB
+ +------------------+
+      |
+      v
+ +------------------------------+
+ | hrms-permission-catalog.js   |  role → list of strings
+ +------------------------------+
+      |
+      |  company_admin: list HAS "hr.payroll.processing.view"
+      |  hr_manager:    list does NOT have it
+      |  employee:      list does NOT have it
+      v
+ +------------------+
+ | AccessProvider   |  saves list for whole app
+ +------------------+
+      |
+      +----> navigation.js ----> Sidebar hides "Payroll Processing" for HR & employee
+      |
+      +----> PayrollProcessing.jsx ----> ManagerOnly checks view code again on page
+      |
+      +----> {payroll.manageProcessing && button} ----> only admin sees "+ Create run"
+  </pre>
+
+  <h3>What each person sees on screen</h3>
+  <table>
+    <tr><th>Person</th><th>Sidebar</th><th>On the page</th></tr>
+    <tr><td><strong>Admin</strong></td><td class="screen">Payroll → <strong>Payroll Processing</strong> visible</td><td class="screen">Full page + <strong>+ Create run</strong></td></tr>
+    <tr><td><strong>HR</strong></td><td class="screen">No Payroll Processing link</td><td class="screen">If they type URL: <strong>Access denied</strong></td></tr>
+    <tr><td><strong>Employee</strong></td><td class="screen">No Payroll Processing link</td><td class="screen">Access denied</td></tr>
+  </table>
+
+  <h3>Code on the component (Angular-style variable on wrapper)</h3>
+  <p class="path">PayrollProcessing.jsx — the TAG is here, not inside Can.jsx</p>
+  <pre class="light">import { HR } from "../../permissions/catalog";
+import { useModuleAccess } from "../../permissions/useModuleAccess";
+import { ManagerOnly } from "./shared";
+
+export function PayrollProcessing(...) {
+  const { payroll } = useModuleAccess();
+
+  return (
+    &lt;ManagerOnly permission={HR.payroll.processing.view}&gt;   &lt;!-- like *ngIf with variable --&gt;
+      &lt;PageHeader title="Payroll Processing"&gt;
+        {payroll.manageProcessing && (                        &lt;!-- second check for button --&gt;
+          &lt;button onClick={createRun}&gt;+ Create run&lt;/button&gt;
+        )}
+      &lt;/PageHeader&gt;
+      ...
+    &lt;/ManagerOnly&gt;
+  );
+}</pre>
+
+  <p class="path">shared.jsx — ManagerOnly calls the same logic as Can.jsx</p>
+  <pre class="light">const access = useAccess();
+if (!access.canPerform(permission)) return &lt;Notice ...&gt;;
+return children;</pre>
+
+  <hr>
+
+  <h2>Example 2 — Leave Dashboard (all 3 see menu, different BUTTONS)</h2>
+  <p><strong>File:</strong> <code>src/modules/leave.jsx</code> → function <code>LeaveDashboard</code></p>
+  <p><strong>Menu needs:</strong> <code>hr.leave.dashboard.view</code> (all three roles get this)</p>
+  <p><strong>Apply Leave button:</strong> <code>hr.leave.requests.create</code> (all three)</p>
+  <p><strong>Open approvals button:</strong> <code>hr.leave.approvals.view</code> (admin + HR only, NOT employee)</p>
+
+  <h3>Diagram — same login list, different checks inside one page</h3>
+  <pre>
+   ALL THREE USERS have "hr.leave.dashboard.view" in list
+      |
+      v
+   navigation.js  →  Sidebar shows "Leave Dashboard" for everyone
+      |
+      v
+   routes.jsx  →  renders LeaveDashboard component
+      |
+      v
+ +-------------------------------------+
+ |  LeaveDashboard (leave.jsx)         |
+ |                                     |
+ |  useModuleAccess() → leave object   |
+ |                                     |
+ |  leave.createRequest ?              |--- YES for admin, HR, employee → show "+ Apply Leave"
+ |                                     |
+ |  leave.viewApprovals ?              |--- YES admin/HR → show "Open approvals"
+ |                                     |--- NO employee → button hidden (stats still visible)
+ +-------------------------------------+
+      |
+      v
+   User submits leave  →  POST /api/leave/...  →  backend checks again
+  </pre>
+
+  <h3>What each person sees on screen</h3>
+  <table>
+    <tr><th>Person</th><th>Sidebar</th><th>Buttons on Leave Dashboard</th><th>Data on screen</th></tr>
+    <tr><td><strong>Admin</strong></td><td class="screen">Leave Dashboard ✓</td><td class="screen"><strong>+ Apply Leave</strong> and <strong>Open approvals</strong></td><td>Company-wide stats & tables</td></tr>
+    <tr><td><strong>HR</strong></td><td class="screen">Leave Dashboard ✓</td><td class="screen">Both buttons</td><td>Same</td></tr>
+    <tr><td><strong>Employee</strong></td><td class="screen">Leave Dashboard ✓</td><td class="screen">Only <strong>+ Apply Leave</strong> (no Open approvals)</td><td>Same layout, fewer actions</td></tr>
+  </table>
+
+  <h3>Which strings backend sends (simplified)</h3>
+  <table>
+    <tr><th>Permission string</th><th>Admin</th><th>HR</th><th>Employee</th></tr>
+    <tr><td><code>hr.leave.dashboard.view</code></td><td>✓</td><td>✓</td><td>✓</td></tr>
+    <tr><td><code>hr.leave.requests.create</code></td><td>✓</td><td>✓</td><td>✓</td></tr>
+    <tr><td><code>hr.leave.approvals.view</code></td><td>✓</td><td>✓</td><td>✗</td></tr>
+    <tr><td><code>hr.payroll.processing.view</code></td><td>✓</td><td>✗</td><td>✗</td></tr>
+  </table>
+
+  <h3>Real code in leave.jsx (lines 187–218)</h3>
+  <pre class="light">export function LeaveDashboard({ companyId, employees, departments, ownEmployeeId, onNavigate }) {
+  const { leave } = useModuleAccess();   // reads list from AccessProvider
+
+  return (
+    &lt;section&gt;
+      &lt;PageHeader title="Leave Dashboard"&gt;
+        {leave.createRequest && (
+          &lt;button onClick={() =&gt; setApplying(true)}&gt;+ Apply Leave&lt;/button&gt;
+        )}
+      &lt;/PageHeader&gt;
+
+      &lt;StatGrid stats={[ ... company stats ... ]} /&gt;
+
+      &lt;Panel title="Pending requests"
+        actions={leave.viewApprovals && (
+          &lt;button onClick={() =&gt; onNavigate("leave-approvals")}&gt;
+            Open approvals
+          &lt;/button&gt;
+        )}
+      /&gt;
+    &lt;/section&gt;
+  );
+}</pre>
+
+  <p class="path">useModuleAccess.js — connects HR.* variables to the login list</p>
+  <pre class="light">leave: {
+  createRequest: access.canPerform(HR.leave.requests.create),
+  viewApprovals: access.hasPermission(HR.leave.approvals.view),
+},</pre>
+
+  <h3>File chain for Example 2 (same as Example 1 until the page opens)</h3>
+  <pre>
+1. /api/auth/me  →  permissionCodes includes leave dashboard + create (+ approvals for HR)
+2. AuthGate  →  App  →  AccessProvider
+3. navigation.js: route "leave-dashboard" needs HR.leave.dashboard.view  →  menu ON for all 3
+4. User clicks  →  routes.jsx renders LeaveDashboard
+5. leave.jsx uses flags (not ManagerOnly) — buttons appear per code
+6. API calls still checked on server
+  </pre>
+
+  <h3>Compare the two examples</h3>
+  <table>
+    <tr><th></th><th>Payroll Processing</th><th>Leave Dashboard</th></tr>
+    <tr><td>Who sees menu?</td><td>Admin only</td><td>Admin + HR + Employee</td></tr>
+    <tr><td>How page is gated</td><td><code>&lt;ManagerOnly permission=...&gt;</code> whole page</td><td>Page open for all; <code>{flag && button}</code></td></tr>
+    <tr><td>Like Angular</td><td>One big <code>*ngIf</code> around page</td><td>Small <code>*ngIf</code> on each button</td></tr>
+  </table>
+
+  <hr>
+  <p><strong>Full longer guide:</strong> <code>TL-HR-Frontend-Flow-Guide.html</code> (same folder). Start with this file first.</p>
+</body>
+</html>

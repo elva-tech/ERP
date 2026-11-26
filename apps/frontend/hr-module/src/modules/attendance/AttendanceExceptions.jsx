@@ -1,8 +1,8 @@
 
 import { useState } from "react";
+import { useModuleAccess } from "../../permissions/useModuleAccess";
 import { attendancePath } from "../../services/attendance";
 import {
-  canManage,
   compactInputClass,
   currentMonth,
   monthBounds,
@@ -26,7 +26,8 @@ export function AttendanceExceptions({
   const [status, setStatus] = useState("");
   const [department, setDepartment] = useState("");
 
-  const manager = canManage(role);
+  const { attendance: attendanceAccess } = useModuleAccess();
+  const manager = attendanceAccess.manageExceptions;
   const bounds = monthBounds(month);
 
   const records = useApi(

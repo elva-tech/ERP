@@ -19,7 +19,9 @@ import {
 
 import { reviewAttendanceRegularization } from "../services/attendance";
 import { updateEmployeeAdvance } from "../services/payroll";
-import { canManage, formatDate, formatMoney, inputClass, isAdmin, linkButton, primaryButton, submitButton, secondaryButton, useAction, useApi } from "./helpers";
+import { formatDate, formatMoney, inputClass, linkButton, primaryButton, submitButton, secondaryButton, useAction, useApi } from "./helpers";
+import { HR } from "../permissions/catalog";
+import { useModuleAccess } from "../permissions/useModuleAccess";
 import { DataTable, Field, Notice, PageHeader, Panel, StatGrid, StatusBadge } from "./ui";
 import { useConfirm } from "./useConfirm";
 
@@ -94,14 +96,24 @@ function policyToForm(policy) {
   return Object.fromEntries(POLICY_SETTINGS.map((s) => [s.key, policy?.[s.column] ?? ""]));
 }
 
-export function PayrollPolicy({ companyId, role }) {
+export function PayrollPolicy({ companyId, role: _role }) {
+  const { payroll, settings } = useModuleAccess();
   const policy = useApi(
-    canManage(role) ? policyPath({ companyId }) : null
+    payroll.managePolicy ? policyPath({ companyId }) : null,
   );
   const action = useAction();
   const data = policy.data;
 
-  if (!canManage(role)) return <Notice notice={{ type: "info", message: "The payroll policy is available to HR managers and company admins." }} />;
+  if (!payroll.managePolicy) {
+    return (
+      <Notice
+        notice={{
+          type: "info",
+          message: "You do not have permission to view payroll policy.",
+        }}
+      />
+    );
+  }
 
   return (
     <section className="space-y-5">
@@ -113,13 +125,23 @@ export function PayrollPolicy({ companyId, role }) {
       ) : policy.error ? (
         <Notice notice={{ type: "error", message: policy.error }} />
       ) : (
-        data && <PolicyEditor key={`${data.policy.version}-${data.policy.status}`} companyId={companyId} admin={isAdmin(role)} data={data} reload={policy.reload} action={action} />
+        data && (
+          <PolicyEditor
+            key={`${data.policy.version}-${data.policy.status}`}
+            companyId={companyId}
+            canEdit={payroll.managePolicy}
+            canApprove={settings.grantAdminRoles}
+            data={data}
+            reload={policy.reload}
+            action={action}
+          />
+        )
       )}
     </section>
   );
 }
 
-function PolicyEditor({ companyId, admin, data, reload, action }) {
+function PolicyEditor({ companyId, canEdit, canApprove, data, reload, action }) {
   const p = data.policy;
   const [form, setForm] = useState(() => policyToForm(p));
   const [notes, setNotes] = useState(p.notes || "");
@@ -172,12 +194,12 @@ function PolicyEditor({ companyId, admin, data, reload, action }) {
                   {POLICY_SETTINGS.filter((s) => !s.when || s.when(form)).map((s) => (
                     <Field key={s.key} label={s.label} required={!s.optional}>
                       {s.options ? (
-                        <select disabled={!admin} value={form[s.key] ?? ""} onChange={(e) => setForm({ ...form, [s.key]: e.target.value })} className={`${inputClass} ${form[s.key] === "" && !s.optional ? "border-danger/40" : ""}`}>
+                        <select disabled={!canEdit} value={form[s.key] ?? ""} onChange={(e) => setForm({ ...form, [s.key]: e.target.value })} className={`${inputClass} ${form[s.key] === "" && !s.optional ? "border-danger/40" : ""}`}>
                           <option value="">Not decided</option>
                           {Object.entries(s.options).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
                         </select>
                       ) : (
-                        <input type="number" disabled={!admin} min={s.number[0]} max={s.number[1]} step="1" value={form[s.key] ?? ""} onChange={(e) => setForm({ ...form, [s.key]: e.target.value })} className={inputClass} />
+                        <input type="number" disabled={!canEdit} min={s.number[0]} max={s.number[1]} step="1" value={form[s.key] ?? ""} onChange={(e) => setForm({ ...form, [s.key]: e.target.value })} className={inputClass} />
                       )}
                       {s.help && <p className="mt-1 text-[11px] font-normal text-muted">{s.help}</p>}
                       {approved && String(approved[s.column] ?? "") !== String(p[s.column] ?? "") && (
@@ -187,19 +209,21 @@ function PolicyEditor({ companyId, admin, data, reload, action }) {
                   ))}
                 </div>
                 <Field label="Notes (who decided, references, effective date)">
-                  <textarea rows={3} disabled={!admin} maxLength={5000} value={notes} onChange={(e) => setNotes(e.target.value)} className={inputClass} />
+                  <textarea rows={3} disabled={!canEdit} maxLength={5000} value={notes} onChange={(e) => setNotes(e.target.value)} className={inputClass} />
                 </Field>
-                {admin ? (
+                {canEdit ? (
                   <div className="flex flex-wrap justify-end gap-2 border-t border-line pt-4">
                     <button type="submit" disabled={action.busy || !dirty} className={secondaryButton}>Save draft</button>
-                    <button type="button" disabled={action.busy || dirty || p.status !== "Draft" || !p.version || missing.length > 0} onClick={approve} className={primaryButton}>
-                      Approve version {p.version || ""}
-                    </button>
+                    {canApprove && (
+                      <button type="button" disabled={action.busy || dirty || p.status !== "Draft" || !p.version || missing.length > 0} onClick={approve} className={primaryButton}>
+                        Approve version {p.version || ""}
+                      </button>
+                    )}
                   </div>
                 ) : (
-                  <p className="text-xs text-muted">Only company admins can change or approve the policy.</p>
+                  <p className="text-xs text-muted">You do not have permission to edit payroll policy.</p>
                 )}
-                {admin && dirty && <p className="text-right text-xs text-muted">Save the draft before approving it.</p>}
+                {canEdit && dirty && <p className="text-right text-xs text-muted">Save the draft before approving it.</p>}
               </form>
             </Panel>
             {confirm.dialog}
@@ -207,10 +231,11 @@ function PolicyEditor({ companyId, admin, data, reload, action }) {
   );
 }
 
-export function ApprovalDelegation({ companyId, role, members = [] }) {
-  const admin = isAdmin(role);
+export function ApprovalDelegation({ companyId, role: _role, members = [] }) {
+  const { settings } = useModuleAccess();
+  const admin = settings.manageDelegation;
   const delegates = useApi(
-    admin ? approvalDelegatesPath(companyId) : null
+    admin ? approvalDelegatesPath(companyId) : null,
   );
   const [form, setForm] = useState({ userId: "", reason: "" });
   const action = useAction();
@@ -386,12 +411,22 @@ export function MyApprovals({ companyId }) {
   );
 }
 
-export function LeaveCarryForward({ companyId, role }) {
+export function LeaveCarryForward({ companyId, role: _role }) {
+  const { leave } = useModuleAccess();
   const [fromYear, setFromYear] = useState(new Date().getFullYear());
   const [preview, setPreview] = useState(null);
   const action = useAction();
   const confirm = useConfirm();
-  if (!isAdmin(role)) return <Notice notice={{ type: "info", message: "Year-end carry-forward is run by company admins." }} />;
+  if (!leave.manageCarryForward) {
+    return (
+      <Notice
+        notice={{
+          type: "info",
+          message: "You do not have permission to run leave carry-forward.",
+        }}
+      />
+    );
+  }
 
   async function run(apply) {
     if (apply && !(await confirm.ask({ title: `Apply carry-forward to ${fromYear + 1}`, message: `Write carry-forward balances into ${fromYear + 1}? Re-running overwrites the previous carry-forward values.`, confirmLabel: "Apply" }))) return;

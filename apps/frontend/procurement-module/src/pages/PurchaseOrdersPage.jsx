@@ -10,7 +10,7 @@ import { listPurchaseOrders } from "../features/purchase-orders/purchaseOrderSer
 import { PURCHASE_ORDER_STATUS_TABS } from "../features/purchase-orders/purchaseOrderStatus.js";
 
 function PurchaseOrdersPage({ onNotify }) {
-  const list = useServerList(listPurchaseOrders, { status: "sent" });
+  const list = useServerList(listPurchaseOrders, { status: "sent", search: "" }, { pageSearch: true });
   const [isCreateOpen, setIsCreateOpen] = useState(false);
 
   function handleCreated(order) {
@@ -28,7 +28,7 @@ function PurchaseOrdersPage({ onNotify }) {
           value={list.filters.status}
           onChange={(value) => list.setFilter("status", value)}
         />
-        <PrimaryActionButton onClick={() => setIsCreateOpen(true)}>+ Create PO</PrimaryActionButton>
+        <PrimaryActionButton onClick={() => setIsCreateOpen(true)}>Create PO</PrimaryActionButton>
       </div>
 
       <Panel className="flex-1 px-[15px] pb-4 pt-4">

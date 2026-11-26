@@ -45,15 +45,18 @@ export function decideApproval(approvalId, { decision, comment, expectedVersion 
   });
 }
 
-/** PROPOSED: GET /procurement/approvals/history */
-export function listApprovalHistory({ page, pageSize, documentType, decision, dateRange }, signal) {
-  return apiRequest("/procurement/approvals/history", { query: { page, pageSize, documentType, decision, dateRange }, signal });
+/** PROPOSED: GET /procurement/approvals/history — `search` matches document number, document type label, requestedBy displayName, comment (mock implements; production TBD). */
+export function listApprovalHistory({ page, pageSize, documentType, decision, dateRange, search }, signal) {
+  return apiRequest("/procurement/approvals/history", {
+    query: { page, pageSize, documentType, decision, dateRange, search },
+    signal,
+  });
 }
 
 /** PROPOSED: GET /procurement/approvals/history/export — server-generated file with the same filters. */
-export function exportApprovalHistory({ documentType, decision, dateRange }) {
+export function exportApprovalHistory({ documentType, decision, dateRange, search }) {
   return apiRequest("/procurement/approvals/history/export", {
-    query: { documentType, decision, dateRange, format: "xlsx" },
+    query: { documentType, decision, dateRange, search, format: "xlsx" },
     responseType: "blob",
   });
 }

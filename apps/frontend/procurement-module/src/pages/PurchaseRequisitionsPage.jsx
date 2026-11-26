@@ -10,7 +10,7 @@ import { listPurchaseRequisitions } from "../features/purchase-requisitions/purc
 import { REQUISITION_STATUS_TABS } from "../features/purchase-requisitions/requisitionStatus.js";
 
 function PurchaseRequisitionsPage({ onNotify }) {
-  const list = useServerList(listPurchaseRequisitions, { status: "pending_approval" });
+  const list = useServerList(listPurchaseRequisitions, { status: "pending_approval", search: "" }, { pageSearch: true });
   const [isCreateOpen, setIsCreateOpen] = useState(false);
 
   function handleCreated(requisition) {
@@ -32,7 +32,7 @@ function PurchaseRequisitionsPage({ onNotify }) {
           value={list.filters.status}
           onChange={(value) => list.setFilter("status", value)}
         />
-        <PrimaryActionButton onClick={() => setIsCreateOpen(true)}>+ New PR</PrimaryActionButton>
+        <PrimaryActionButton onClick={() => setIsCreateOpen(true)}>New PR</PrimaryActionButton>
       </div>
 
       <Panel className="flex-1 px-[15px] pb-4 pt-4">

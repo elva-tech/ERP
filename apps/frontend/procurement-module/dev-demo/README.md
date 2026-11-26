@@ -172,18 +172,18 @@ All paths are relative to `/demo-api`. They mirror the frontend services in `src
 | GET | `/procurement/purchase-invoices/{id}` | Invoice View (items, tax/TDS, payments, balance due) |
 | POST | `/procurement/purchase-invoices/{id}/payments` | Record Partial Payment (amount, transaction ID, payment date) |
 | POST | `/procurement/attachments` | Invoice attachment upload (multipart; PDF, JPG or PNG, up to 10 MB; only metadata is kept) |
-| GET, POST | `/procurement/purchase-returns` | Returns list (`status`) and New Return |
+| GET, POST | `/procurement/purchase-returns` | Returns list (`status`, `search`) and New Return |
 | GET | `/procurement/purchase-returns/summary` | Return KPI cards |
 | GET, POST | `/procurement/subcontractors` | Subcontractor list (`search`) and Add Subcontractor |
 | GET | `/procurement/subcontractors/summary` | Subcontractor KPI cards |
-| GET, POST | `/procurement/subcontract-agreements` | Agreements list (`status`) and New Agreement |
+| GET, POST | `/procurement/subcontract-agreements` | Agreements list (`status`, `search`) and New Agreement |
 | GET | `/procurement/subcontract-agreements/summary` | Agreement KPI cards |
-| GET | `/procurement/subcontract-orders` | Subcontract Orders list (`status`) |
-| GET | `/procurement/subcontract-bills` | Subcontract Bills list (`status`) |
+| GET | `/procurement/subcontract-orders` | Subcontract Orders list (`status`, `search`) |
+| GET | `/procurement/subcontract-bills` | Subcontract Bills list (`status`, `search`) |
 | GET | `/procurement/subcontract-bills/summary` | Bill KPI cards |
 | GET | `/procurement/approvals/pending` | Approvals queue (`documentType`) |
 | POST | `/procurement/approvals/{id}/decisions` | Approve or reject (a rejection needs a comment; a stale `expectedVersion` returns 409) |
-| GET | `/procurement/approvals/history` | Approval History (`dateRange`, `documentType`, `decision`) |
+| GET | `/procurement/approvals/history` | Approval History (`dateRange`, `documentType`, `decision`, `search`) |
 | GET | `/procurement/approvals/history/export` | Approval History export (.xlsx) |
 | GET | `/procurement/reports/definitions?group=purchase` | Purchase Reports tiles |
 | GET | `/procurement/reports/generated` | Recently Generated list (page size 5) |

@@ -46,7 +46,7 @@ function LoginPage() {
   const inputBorder = (name) => (form.fieldErrors[name] ? "border-danger" : "border-[#dfe3e8]");
 
   return (
-    <div className="flex min-h-screen flex-col items-center bg-[#f1f2f2] px-4 pt-10 text-ink">
+    <div className="grid min-h-dvh place-items-center bg-[#f1f2f2] px-4 py-10 text-ink">
       <main className="w-full max-w-[450px] rounded-lg border border-[#e3e6e8] bg-surface px-10 pb-10 pt-10 shadow-[0_2px_8px_rgba(15,23,42,0.06)]">
         <div className="flex flex-col items-center text-center">
           <img src={elvaLogo} alt="" className="size-[82px] rounded-md" />
@@ -146,13 +146,13 @@ function LoginPage() {
           <button
             type="submit"
             disabled={form.isSubmitting}
-            className="h-[41px] w-full rounded-md bg-login text-[13px] font-semibold text-white hover:bg-login-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-login disabled:cursor-wait disabled:opacity-70"
+            className="h-[41px] w-full rounded-md bg-navy text-[13px] font-semibold text-white hover:bg-sidebar-active focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy disabled:cursor-wait disabled:opacity-70"
           >
             {form.isSubmitting ? "Signing in…" : "Sign In"}
           </button>
         </form>
+        <p className="mt-8 text-center text-[10px] text-placeholder">Powered by ELVA</p>
       </main>
-      <p className="mt-auto pb-8 pt-10 text-[10px] text-placeholder">Powered by ELVA</p>
     </div>
   );
 }

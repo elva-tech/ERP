@@ -1,4 +1,5 @@
-import { useCallback, useState } from "react";
+import { useState } from "react";
+import { usePageSearchField } from "../features/search/pageSearchHooks.js";
 import ListFooter from "../components/ui/ListFooter.jsx";
 import Panel from "../components/ui/Panel.jsx";
 import PrimaryActionButton from "../components/ui/PrimaryActionButton.jsx";
@@ -23,11 +24,10 @@ const SUMMARY_CARDS = [
 ];
 
 function SubcontractorsPage({ onNotify }) {
-  const list = useServerList(listSubcontractors, { search: "" });
+  const list = useServerList(listSubcontractors, { search: "" }, { pageSearch: true });
+  const { draft, setDraft } = usePageSearchField();
   const summary = useAsyncResource(getSubcontractorSummary, "subcontractor-summary");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const { setFilter } = list;
-  const handleSearch = useCallback((term) => setFilter("search", term), [setFilter]);
 
   function handleCreated(created) {
     setIsCreateOpen(false);
@@ -41,8 +41,9 @@ function SubcontractorsPage({ onNotify }) {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <SearchInput
           label="Search subcontractors"
-          value={list.filters.search}
-          onSearch={handleSearch}
+          value={draft}
+          onDraftChange={setDraft}
+          onSearch={() => {}}
           placeholder="Search by contractor name or code..."
           className="w-full sm:w-[318px]"
         />

@@ -19,9 +19,9 @@ import { apiRequest } from "../../lib/apiClient.js";
  * @property {Array<{ lineId: string, itemName: string, quantityReceived: string, unitLabel: string | null }>} lines
  */
 
-/** PROPOSED: GET /procurement/purchase-returns */
-export function listPurchaseReturns({ page, pageSize, status }, signal) {
-  return apiRequest("/procurement/purchase-returns", { query: { page, pageSize, status }, signal });
+/** PROPOSED: GET /procurement/purchase-returns — `search` matches returnNumber, supplier name, itemsSummary, source PO number (mock implements; production TBD). */
+export function listPurchaseReturns({ page, pageSize, status, search }, signal) {
+  return apiRequest("/procurement/purchase-returns", { query: { page, pageSize, status, search }, signal });
 }
 
 /** PROPOSED: GET /procurement/purchase-returns/summary */

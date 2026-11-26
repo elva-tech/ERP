@@ -1,4 +1,6 @@
-import { Bell, Menu, Search } from "lucide-react";
+import { Menu } from "lucide-react";
+import PageSearchField from "./PageSearchField.jsx";
+import NotificationBell from "./NotificationBell.jsx";
 import UserMenu from "./UserMenu.jsx";
 
 function MenuButton({ isMenuOpen, onOpenMenu }) {
@@ -16,21 +18,6 @@ function MenuButton({ isMenuOpen, onOpenMenu }) {
   );
 }
 
-// The header search is presentational until its behaviour is confirmed (PRD §5.1).
-function SearchField({ placeholder, className }) {
-  return (
-    <label className={className}>
-      <Search size={16} strokeWidth={2.25} className="shrink-0" aria-hidden="true" />
-      <span className="sr-only">Search</span>
-      <input
-        type="search"
-        placeholder={placeholder}
-        className="w-full min-w-0 bg-transparent text-[12px] text-ink outline-none placeholder:text-muted"
-      />
-    </label>
-  );
-}
-
 function TopBar({ title, titleAdornment, searchPlaceholder, variant = "default", isMenuOpen, onOpenMenu }) {
   if (variant === "ledger-detail") {
     return (
@@ -41,17 +28,8 @@ function TopBar({ title, titleAdornment, searchPlaceholder, variant = "default",
           {titleAdornment}
         </div>
         <div className="flex shrink-0 items-center gap-4">
-          <SearchField
-            placeholder={searchPlaceholder}
-            className="hidden h-[34px] w-[240px] items-center gap-2 rounded-md bg-[#f1f3f5] px-3 text-[#4b5563] focus-within:ring-2 focus-within:ring-navy/15 md:flex"
-          />
-          <button
-            type="button"
-            aria-label="Notifications"
-            className="grid size-8 place-items-center rounded-full text-[#1b2631] hover:bg-workspace"
-          >
-            <Bell size={19} aria-hidden="true" />
-          </button>
+          <PageSearchField placeholder={searchPlaceholder} variant="ledger-detail" />
+          <NotificationBell size="compact" />
           <span aria-hidden="true" className="hidden h-5 w-px bg-[#e0e0e0] sm:block" />
           <UserMenu size="compact" />
         </div>
@@ -68,17 +46,8 @@ function TopBar({ title, titleAdornment, searchPlaceholder, variant = "default",
       </div>
 
       <div className="flex shrink-0 items-center gap-4">
-        <SearchField
-          placeholder={searchPlaceholder}
-          className="hidden h-9 w-[240px] items-center gap-2 rounded-full border border-line bg-workspace px-3 text-muted focus-within:border-muted md:flex"
-        />
-        <button
-          type="button"
-          aria-label="Notifications"
-          className="grid size-9 place-items-center rounded-full bg-workspace text-ink hover:bg-line"
-        >
-          <Bell size={18} strokeWidth={2.25} aria-hidden="true" />
-        </button>
+        <PageSearchField placeholder={searchPlaceholder} />
+        <NotificationBell />
         <UserMenu />
       </div>
     </header>

@@ -113,6 +113,15 @@ function paginate(items, query, defaultPageSize = 8) {
   };
 }
 
+function listSearchTerm(query) {
+  return (query.get("search") ?? "").trim().toLowerCase();
+}
+
+function listSearchMatch(term, fields) {
+  if (!term) return true;
+  return fields.some((field) => String(field ?? "").toLowerCase().includes(term));
+}
+
 /** Largest-remainder rounding so shares add up to exactly 100.0. */
 function shares(values) {
   const total = values.reduce((sum, value) => sum + value, 0);
@@ -716,6 +725,7 @@ export function createDemoApi({ latencyMs = 250 } = {}) {
     const documentType = query.get("documentType") ?? "";
     const decision = query.get("decision") ?? "";
     const dateRange = query.get("dateRange") ?? "";
+    const search = listSearchTerm(query);
     const since =
       { last_30_days: addDays(DEMO_TODAY, -30), last_90_days: addDays(DEMO_TODAY, -90), current_financial_year: FINANCIAL_YEAR.start }[
         dateRange
@@ -725,6 +735,11 @@ export function createDemoApi({ latencyMs = 250 } = {}) {
       .filter((a) => !documentType || a.documentType === documentType)
       .filter((a) => !decision || a.status === decision)
       .filter((a) => !since || a.decidedAt.slice(0, 10) >= since)
+      .filter((a) => {
+        if (!search) return true;
+        const doc = approvalDocument(a);
+        return listSearchMatch(search, [doc.number, DOCUMENT_TYPE_LABELS[a.documentType], a.requestedBy?.displayName, a.comment]);
+      })
       .sort((a, b) => b.decidedAt.localeCompare(a.decidedAt));
   }
 
@@ -1433,8 +1448,19 @@ export function createDemoApi({ latencyMs = 250 } = {}) {
     // Purchase returns
     ["GET", /^\/procurement\/purchase-returns$/, ({ query }) => {
       const status = query.get("status") ?? "";
+      const search = listSearchTerm(query);
       const rows = state.purchaseReturns
         .filter((r) => !status || r.status === status)
+        .filter((r) => {
+          if (!search) return true;
+          const po = purchaseOrder(r.purchaseOrderId);
+          const sup = supplier(r.supplierId);
+          const lines = r.lines.map((line) => {
+            const poLine = po.lines.find((l) => l.lineId === line.lineId);
+            return { description: poLine.description, quantity: line.quantity, unitId: poLine.unitId };
+          });
+          return listSearchMatch(search, [r.returnNumber, sup?.name, itemsSummary(lines), po?.orderNumber]);
+        })
         .sort((a, b) => b.returnDate.localeCompare(a.returnDate) || b.id.localeCompare(a.id))
         .map(returnJson);
       return paginate(rows, query);
@@ -1554,8 +1580,15 @@ export function createDemoApi({ latencyMs = 250 } = {}) {
     // Subcontract agreements
     ["GET", /^\/procurement\/subcontract-agreements$/, ({ query }) => {
       const status = query.get("status") ?? "";
+      const search = listSearchTerm(query);
       const rows = state.agreements
         .filter((a) => !status || agreementEffectiveStatus(a) === status)
+        .filter((a) => {
+          if (!search) return true;
+          const sc = subcontractor(a.subcontractorId);
+          const scopeSummary = a.scopeOfWork.length > 70 ? `${a.scopeOfWork.slice(0, 67)}...` : a.scopeOfWork;
+          return listSearchMatch(search, [a.agreementNumber, sc?.name, nameOf(PROJECTS, a.projectId), scopeSummary, a.title]);
+        })
         .sort((a, b) => b.agreementDate.localeCompare(a.agreementDate) || b.id.localeCompare(a.id))
         .map(agreementJson);
       return paginate(rows, query);
@@ -1629,16 +1662,30 @@ export function createDemoApi({ latencyMs = 250 } = {}) {
     // Subcontract orders and bills (read only in the UI)
     ["GET", /^\/procurement\/subcontract-orders$/, ({ query }) => {
       const status = query.get("status") ?? "";
+      const search = listSearchTerm(query);
       const rows = state.subcontractOrders
         .filter((o) => !status || o.status === status)
+        .filter((o) => {
+          if (!search) return true;
+          const sc = subcontractor(o.subcontractorId);
+          const agr = agreement(o.agreementId);
+          return listSearchMatch(search, [o.orderNumber, sc?.name, agr?.agreementNumber, o.description]);
+        })
         .sort((a, b) => b.orderDate.localeCompare(a.orderDate) || b.id.localeCompare(a.id))
         .map(subcontractOrderJson);
       return paginate(rows, query);
     }],
     ["GET", /^\/procurement\/subcontract-bills$/, ({ query }) => {
       const status = query.get("status") ?? "";
+      const search = listSearchTerm(query);
       const rows = state.subcontractBills
         .filter((b) => !status || b.status === status)
+        .filter((b) => {
+          if (!search) return true;
+          const sc = subcontractor(b.subcontractorId);
+          const order = subcontractOrder(b.orderId);
+          return listSearchMatch(search, [b.billNumber, sc?.name, order?.orderNumber]);
+        })
         .sort((a, b) => b.billDate.localeCompare(a.billDate) || b.id.localeCompare(a.id))
         .map(billJson);
       return { ...paginate(rows, query), retentionRatePercent: String(DEMO_RULES.retentionRatePercent) };

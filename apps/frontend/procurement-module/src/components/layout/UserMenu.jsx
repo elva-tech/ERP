@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { ChevronDown, LogOut } from "lucide-react";
-import { signOut } from "../../features/auth/authService.js";
+import { clearClientSession, signOut } from "../../features/auth/authService.js";
 import { useSession } from "../../features/auth/sessionContext.js";
 import UserIdentity from "./UserIdentity.jsx";
 
@@ -36,10 +36,14 @@ function UserMenu({ size = "default" }) {
     setError(null);
     try {
       await signOut();
+      clearClientSession();
       markSignedOut();
+      setIsOpen(false);
     } catch (signOutError) {
       if (signOutError?.kind === "unauthorized") {
+        clearClientSession();
         markSignedOut();
+        setIsOpen(false);
         return;
       }
       setError(signOutError?.message ?? "Could not sign out. Try again.");

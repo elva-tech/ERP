@@ -18,9 +18,9 @@ import { apiRequest } from "../../lib/apiClient.js";
  * List responses may include `retentionRatePercent` when a single rate applies to the page (UNRESOLVED).
  */
 
-/** PROPOSED: GET /procurement/subcontract-bills */
-export function listSubcontractBills({ page, pageSize, status }, signal) {
-  return apiRequest("/procurement/subcontract-bills", { query: { page, pageSize, status }, signal });
+/** PROPOSED: GET /procurement/subcontract-bills — `search` matches billNumber, subcontractor name, order orderNumber (mock implements; production TBD). */
+export function listSubcontractBills({ page, pageSize, status, search }, signal) {
+  return apiRequest("/procurement/subcontract-bills", { query: { page, pageSize, status, search }, signal });
 }
 
 /** PROPOSED: GET /procurement/subcontract-bills/summary */

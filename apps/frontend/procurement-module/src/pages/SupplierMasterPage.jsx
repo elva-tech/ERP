@@ -12,7 +12,7 @@ import { listSuppliers } from "../features/suppliers/supplierService.js";
 import { SUPPLIER_STATUS, SUPPLIER_STATUS_FILTER_OPTIONS } from "../features/suppliers/supplierStatus.js";
 
 function SupplierMasterPage({ onNotify }) {
-  const list = useServerList(listSuppliers, { categoryId: "", status: SUPPLIER_STATUS.active });
+  const list = useServerList(listSuppliers, { categoryId: "", status: SUPPLIER_STATUS.active, search: "" }, { pageSearch: true });
   const categories = useLookupOptions("supplierCategories");
   const [isAddSupplierOpen, setIsAddSupplierOpen] = useState(false);
   const [statusChangeSupplier, setStatusChangeSupplier] = useState(null);
@@ -46,7 +46,7 @@ function SupplierMasterPage({ onNotify }) {
             onChange={(value) => list.setFilter("status", value)}
           />
         </div>
-        <PrimaryActionButton onClick={() => setIsAddSupplierOpen(true)}>+ Add Supplier</PrimaryActionButton>
+        <PrimaryActionButton onClick={() => setIsAddSupplierOpen(true)}>Add Supplier</PrimaryActionButton>
       </div>
 
       <Panel className="flex-1 px-[15px] pb-4 pt-4">

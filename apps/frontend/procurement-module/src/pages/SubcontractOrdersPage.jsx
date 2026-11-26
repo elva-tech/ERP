@@ -8,7 +8,7 @@ import { listSubcontractOrders } from "../features/subcontract-orders/subcontrac
 import { SUBCONTRACT_ORDER_STATUS_TABS } from "../features/subcontract-orders/subcontractOrderStatus.js";
 
 function SubcontractOrdersPage() {
-  const list = useServerList(listSubcontractOrders, { status: "active" });
+  const list = useServerList(listSubcontractOrders, { status: "active", search: "" }, { pageSearch: true });
 
   return (
     <div className="flex flex-1 flex-col gap-4">

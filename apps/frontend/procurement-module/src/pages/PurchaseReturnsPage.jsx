@@ -20,7 +20,7 @@ const SUMMARY_CARDS = [
 ];
 
 function PurchaseReturnsPage({ onNotify }) {
-  const list = useServerList(listPurchaseReturns, { status: "" });
+  const list = useServerList(listPurchaseReturns, { status: "", search: "" }, { pageSearch: true });
   const summary = useAsyncResource(getPurchaseReturnSummary, "purchase-return-summary");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
 

@@ -26,9 +26,9 @@ import { apiRequest } from "../../lib/apiClient.js";
  * }} SubcontractAgreementDetail
  */
 
-/** PROPOSED: GET /procurement/subcontract-agreements */
-export function listSubcontractAgreements({ page, pageSize, status }, signal) {
-  return apiRequest("/procurement/subcontract-agreements", { query: { page, pageSize, status }, signal });
+/** PROPOSED: GET /procurement/subcontract-agreements — `search` matches agreementNumber, subcontractor name, projectName, scopeSummary, title (mock implements; production TBD). */
+export function listSubcontractAgreements({ page, pageSize, status, search }, signal) {
+  return apiRequest("/procurement/subcontract-agreements", { query: { page, pageSize, status, search }, signal });
 }
 
 /** PROPOSED: GET /procurement/subcontract-agreements/summary */

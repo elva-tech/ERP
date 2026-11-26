@@ -25,7 +25,7 @@ const SUMMARY_CARDS = [
 ];
 
 function SubcontractAgreementsPage({ onNotify }) {
-  const list = useServerList(listSubcontractAgreements, { status: "" });
+  const list = useServerList(listSubcontractAgreements, { status: "", search: "" }, { pageSearch: true });
   const summary = useAsyncResource(getSubcontractAgreementSummary, "agreement-summary");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
 

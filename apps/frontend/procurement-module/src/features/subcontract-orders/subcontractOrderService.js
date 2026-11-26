@@ -16,7 +16,7 @@ import { apiRequest } from "../../lib/apiClient.js";
  * @property {SubcontractOrderStatus} status
  */
 
-/** PROPOSED: GET /procurement/subcontract-orders */
-export function listSubcontractOrders({ page, pageSize, status }, signal) {
-  return apiRequest("/procurement/subcontract-orders", { query: { page, pageSize, status }, signal });
+/** PROPOSED: GET /procurement/subcontract-orders — `search` matches orderNumber, subcontractor name, agreement number, description (mock implements; production TBD). */
+export function listSubcontractOrders({ page, pageSize, status, search }, signal) {
+  return apiRequest("/procurement/subcontract-orders", { query: { page, pageSize, status, search }, signal });
 }

@@ -15,14 +15,18 @@ import {
 } from "../features/approvals/approvalOptions.js";
 
 function ApprovalHistoryPage({ onNotify }) {
-  const list = useServerList(listApprovalHistory, { documentType: "", decision: "", dateRange: "last_30_days" });
+  const list = useServerList(
+    listApprovalHistory,
+    { documentType: "", decision: "", dateRange: "last_30_days", search: "" },
+    { pageSearch: true },
+  );
   const [isExporting, setIsExporting] = useState(false);
 
   async function handleExport() {
     setIsExporting(true);
     try {
-      const { documentType, decision, dateRange } = list.filters;
-      downloadFile(await exportApprovalHistory({ documentType, decision, dateRange }), "approval-history.xlsx");
+      const { documentType, decision, dateRange, search } = list.filters;
+      downloadFile(await exportApprovalHistory({ documentType, decision, dateRange, search }), "approval-history.xlsx");
       onNotify("Approval history exported.");
     } catch (error) {
       onNotify(error.message, "error");

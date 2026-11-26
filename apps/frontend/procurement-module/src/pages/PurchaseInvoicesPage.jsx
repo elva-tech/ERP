@@ -23,7 +23,7 @@ const SUMMARY_CARDS = [
 ];
 
 function PurchaseInvoicesPage({ onNotify }) {
-  const list = useServerList(listPurchaseInvoices, { status: "" });
+  const list = useServerList(listPurchaseInvoices, { status: "", search: "" }, { pageSearch: true });
   const summary = useAsyncResource(getPurchaseInvoiceSummary, "purchase-invoice-summary");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
 

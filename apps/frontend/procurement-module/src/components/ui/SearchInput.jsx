@@ -4,14 +4,23 @@ import { Search } from "lucide-react";
 const DEBOUNCE_MS = 350;
 
 /** Toolbar search box; the debounced term is sent to the server, nothing is filtered locally. */
-function SearchInput({ value, onSearch, placeholder, label, className = "" }) {
-  const [draft, setDraft] = useState(value);
+function SearchInput({ value, onSearch, onDraftChange, placeholder, label, className = "" }) {
+  const synced = Boolean(onDraftChange);
+  const [localDraft, setLocalDraft] = useState(value);
+  const draft = synced ? value : localDraft;
 
   useEffect(() => {
+    if (synced) return undefined;
     if (draft.trim() === value) return undefined;
     const timeoutId = window.setTimeout(() => onSearch(draft.trim()), DEBOUNCE_MS);
     return () => window.clearTimeout(timeoutId);
-  }, [draft, value, onSearch]);
+  }, [draft, synced, value, onSearch]);
+
+  function handleChange(event) {
+    const next = event.target.value;
+    if (synced) onDraftChange(next);
+    else setLocalDraft(next);
+  }
 
   return (
     <label
@@ -22,7 +31,7 @@ function SearchInput({ value, onSearch, placeholder, label, className = "" }) {
       <input
         type="search"
         value={draft}
-        onChange={(event) => setDraft(event.target.value)}
+        onChange={handleChange}
         placeholder={placeholder}
         className="w-full min-w-0 bg-transparent text-[12px] text-ink outline-none placeholder:text-muted"
       />

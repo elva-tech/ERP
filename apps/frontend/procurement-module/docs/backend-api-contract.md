@@ -397,7 +397,7 @@ The sign-in and sign-out endpoints are placeholders so the screens can be wired 
 
 | Method and path (PROPOSED) | Used by | Request | Response read |
 | --- | --- | --- | --- |
-| `GET /procurement/purchase-returns` | Purchase Returns | query `page`, `pageSize`, `status` | paginated list |
+| `GET /procurement/purchase-returns` | Purchase Returns | query `page`, `pageSize`, `status`, `search` (optional; **PROPOSED** — implemented in demo mock only until production ships it) | paginated list |
 | `GET /procurement/purchase-returns/summary` | Summary cards | none | `{ processedCount, totalValue, pendingCreditNoteCount, rejectedCount }` |
 | `GET /procurement/purchase-orders/{id}/returnable-lines` | New Return, after a PO is chosen | none | `{ supplier { id, name }, lines[]: { lineId, itemName, quantityReceived, unitLabel } }` |
 | `POST /procurement/purchase-returns` | New Return modal | body below | created return; `returnNumber` is used in the toast |
@@ -411,6 +411,7 @@ The sign-in and sign-out endpoints are placeholders so the screens can be wired 
 - **Create body:**
   - `purchaseOrderId`, `returnDate`, `resolution` (`replacement` \| `refund`), `notes`
   - `items[]: { lineId, quantity, reasonId }`. Only lines with a quantity entered are sent.
+- **`search` (PROPOSED, demo mock):** case-insensitive substring match across `returnNumber`, `supplier.name`, `itemsSummary`, and `sourceDocument.number`. Applied together with `status` on the full dataset before pagination. Default sort unchanged (`returnDate` descending).
 
 **UNRESOLVED**
 
@@ -449,7 +450,7 @@ The sign-in and sign-out endpoints are placeholders so the screens can be wired 
 
 | Method and path (PROPOSED) | Used by | Request | Response read |
 | --- | --- | --- | --- |
-| `GET /procurement/subcontract-agreements` | Subcontract Agreements | query `page`, `pageSize`, `status` | paginated list |
+| `GET /procurement/subcontract-agreements` | Subcontract Agreements | query `page`, `pageSize`, `status`, `search` (optional; **PROPOSED** — demo mock) | paginated list |
 | `GET /procurement/subcontract-agreements/summary` | Summary cards | none | `{ activeCount, cumulativeValue, completedCount, completedPeriodLabel, expiredOrPendingRenewalCount }` |
 | `GET /procurement/subcontract-agreements/{id}` | View (record detail) | none | detail below |
 | `POST /procurement/subcontract-agreements/{id}/status-changes` | View: Mark as Completed | `{ "status": "completed" }` | detail |
@@ -470,6 +471,7 @@ The sign-in and sign-out endpoints are placeholders so the screens can be wired 
   - **Active** — current date is on or before the end date and the agreement is not completed.
   - **Expired** — end date has passed and the agreement is not completed (backend-derived on read).
   - **Completed** — user chooses **Mark as Completed** on View when work is finished.
+- **`search` (PROPOSED, demo mock):** `agreementNumber`, `subcontractor.name`, `projectName`, `scopeSummary`, and agreement `title`. Combined with `status`; filter entire dataset before pagination; sort `agreementDate` descending.
 
 **UNRESOLVED**
 
@@ -486,7 +488,7 @@ The Subcontract Orders route and sidebar item are **commented out** in the front
 | | |
 | --- | --- |
 | Endpoint | **PROPOSED** `GET /procurement/subcontract-orders` |
-| Query | `page`, `pageSize`, `status` (default `active`) |
+| Query | `page`, `pageSize`, `status` (default `active`), `search` (optional; **PROPOSED** — demo mock) |
 
 **List item:**
 
@@ -494,6 +496,7 @@ The Subcontract Orders route and sidebar item are **commented out** in the front
 - `subcontractor { id, name }`, `agreement { id, agreementNumber } | null`
 - `description`, `orderValue`, `deliveryDate`, `progressPercent`
 - `status` (`draft` \| `active` \| `completed` \| `cancelled`)
+- **`search` (PROPOSED, demo mock):** `orderNumber`, `subcontractor.name`, `agreement.agreementNumber`, `description`. Combined with `status`; full-dataset filter before pagination; sort `orderDate` descending.
 
 **UNRESOLVED**
 
@@ -506,7 +509,7 @@ The Subcontract Orders route and sidebar item are **commented out** in the front
 
 | Method and path (PROPOSED) | Used by | Request | Response read |
 | --- | --- | --- | --- |
-| `GET /procurement/subcontract-bills` | Subcontract Bills | query `page`, `pageSize`, `status` | paginated list, optionally with a top-level `retentionRatePercent` |
+| `GET /procurement/subcontract-bills` | Subcontract Bills | query `page`, `pageSize`, `status`, `search` (optional; **PROPOSED** — demo mock) | paginated list, optionally with a top-level `retentionRatePercent` |
 | `GET /procurement/subcontract-bills/summary` | Summary cards | none | `{ billedThisMonth, pendingVerificationCount, approvedForPayment, retentionHeld }` |
 
 **List item:**
@@ -515,6 +518,7 @@ The Subcontract Orders route and sidebar item are **commented out** in the front
 - `subcontractor { id, name }`, `order { id, orderNumber } | null`
 - `billAmount`, `retentionAmount`, `netPayable`, `cumulativePaid` (all calculated by the backend)
 - `status` (`submitted` \| `verified` \| `approved` \| `paid`)
+- **`search` (PROPOSED, demo mock):** `billNumber`, `subcontractor.name`, `order.orderNumber`. Combined with `status`; full-dataset filter before pagination; sort `billDate` descending.
 
 **UNRESOLVED**
 
@@ -530,12 +534,13 @@ The Subcontract Orders route and sidebar item are **commented out** in the front
 | --- | --- | --- | --- |
 | `GET /procurement/approvals/pending` | Pending Approvals | query `page`, `pageSize`, `documentType` | paginated list plus top-level `totalPending` (header badge) |
 | `POST /procurement/approvals/{id}/decisions` | Approve/Reject modal | `{ "decision": "approved" \| "rejected", "comment": "string \| null", "expectedVersion": "any \| null" }` | any 2xx |
-| `GET /procurement/approvals/history` | Approval History | query `page`, `pageSize`, `documentType`, `decision`, `dateRange` | paginated list |
-| `GET /procurement/approvals/history/export` | Export History | query `documentType`, `decision`, `dateRange`, `format=xlsx` | file (blob) |
+| `GET /procurement/approvals/history` | Approval History | query `page`, `pageSize`, `documentType`, `decision`, `dateRange`, `search` (optional; **PROPOSED** — demo mock) | paginated list |
+| `GET /procurement/approvals/history/export` | Export History | query `documentType`, `decision`, `dateRange`, `search`, `format=xlsx` | file (blob) |
 
 - **`documentType` values:** `purchaseRequisition`, `purchaseOrder`, `subcontractBill`, `purchaseInvoice`.
 - **`dateRange` values:** `last_30_days` (default), `last_90_days`, `current_financial_year`. The backend
   resolves these to actual dates.
+- **`search` on history (PROPOSED, demo mock):** `document.number`, `documentTypeLabel`, `requestedBy.displayName`, `comment`. Combined with `documentType`, `decision`, and `dateRange` on the full dataset before pagination; sort `decidedAt` descending. Export uses the same filters including `search`.
 - **Pending item:**
   - `id`, `documentType`, `documentTypeLabel`, `document { id, number }`
   - `requestedBy { id, displayName }`, `submittedAt`, `amount`
@@ -622,4 +627,4 @@ The Subcontract Orders route and sidebar item are **commented out** in the front
 | Subcontract Bills "Record Bill" | Disabled | **UNRESOLVED**: form design and endpoint |
 | Bulk approval | Disabled checkbox | **UNRESOLVED**: rules |
 | Password reset ("Forgot Password?") | No request; an informational notice only | **UNRESOLVED**: see §1 |
-| Global header search | No request | **UNRESOLVED**: search scope and endpoint |
+| Global header search | Debounced TopBar query sets the active list screen’s `search` filter via `useServerList`; cleared on navigation | **PROPOSED**: production backends must implement `search` on list endpoints documented in §10–§15; demo mock implements full-dataset search for all list screens the UI wires to `pageSearch` |

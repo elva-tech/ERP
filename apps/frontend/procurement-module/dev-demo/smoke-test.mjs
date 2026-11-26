@@ -73,12 +73,17 @@ async function main() {
   await list(`${P}/purchase-orders?page=1&pageSize=8&status=sent`, "purchase orders");
   await list(`${P}/purchase-invoices?page=1&pageSize=8&status=draft`, "invoices");
   await list(`${P}/purchase-returns?page=1&pageSize=8`, "returns");
+  await list(`${P}/purchase-returns?page=1&pageSize=8&search=prn`, "returns search", false);
   await list(`${P}/subcontractors?page=1&pageSize=8`, "subcontractors");
   await list(`${P}/subcontract-agreements?page=1&pageSize=8`, "agreements");
+  await list(`${P}/subcontract-agreements?page=1&pageSize=8&search=sca`, "agreements search", false);
   await list(`${P}/subcontract-orders?page=1&pageSize=8&status=active`, "subcontract orders");
+  await list(`${P}/subcontract-orders?page=1&pageSize=8&status=active&search=sco`, "subcontract orders search", false);
   const bills = await list(`${P}/subcontract-bills?page=1&pageSize=8`, "subcontract bills");
+  await list(`${P}/subcontract-bills?page=1&pageSize=8&search=scb`, "subcontract bills search", false);
   check("bills retention rate", bills.retentionRatePercent === "5");
   await list(`${P}/approvals/history?page=1&pageSize=8&dateRange=last_30_days`, "approval history");
+  await list(`${P}/approvals/history?page=1&pageSize=8&dateRange=last_30_days&search=po`, "approval history search", false);
   await list(`${P}/reports/generated?page=1&pageSize=5`, "generated reports");
   const perf = await list(`${P}/supplier-performance?page=1&pageSize=8&periodId=pp-q2`, "supplier performance");
   check("performance highlights", perf.highlights?.bestDelivery?.supplier?.name);

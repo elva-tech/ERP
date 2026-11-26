@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import AppShell from "./components/layout/AppShell.jsx";
+import { PageSearchProvider } from "./features/search/pageSearchContext.jsx";
 import Toast from "./components/ui/Toast.jsx";
 import { DEFAULT_ROUTE, NAV_SECTIONS, ROUTES } from "./config/navigation.js";
 import SessionProvider from "./features/auth/SessionProvider.jsx";
@@ -117,7 +118,7 @@ function HeaderAdornment({ kind, value }) {
   }
   if (kind === "count") {
     return (
-      <span className="grid h-[22px] min-w-[22px] shrink-0 place-items-center rounded-full bg-brand px-1.5 text-[12px] font-bold leading-none text-white">
+      <span className="grid h-[22px] min-w-[22px] shrink-0 place-items-center rounded-full bg-navy px-1.5 text-[12px] font-bold leading-none text-white">
         {value}
       </span>
     );
@@ -206,10 +207,11 @@ function ProcurementApp({ route }) {
 
   return (
     <>
-      <AppShell
-        activeNavKey={page?.navKey ?? null}
-        navSections={navSections}
-        page={{
+      <PageSearchProvider activePath={route.path ?? route.requestedPath}>
+        <AppShell
+          activeNavKey={page?.navKey ?? null}
+          navSections={navSections}
+          page={{
           title,
           titleAdornment: page?.adornment && adornment.path === route.path && (
             <HeaderAdornment kind={page.adornment} value={adornment.value} />
@@ -218,9 +220,10 @@ function ProcurementApp({ route }) {
           headerVariant: page?.headerVariant,
           mainClassName: page?.mainClassName,
         }}
-      >
-        {content}
-      </AppShell>
+        >
+          {content}
+        </AppShell>
+      </PageSearchProvider>
       <Toast toast={toast} />
     </>
   );

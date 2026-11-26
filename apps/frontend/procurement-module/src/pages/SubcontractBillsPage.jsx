@@ -20,7 +20,7 @@ const SUMMARY_CARDS = [
 ];
 
 function SubcontractBillsPage() {
-  const list = useServerList(listSubcontractBills, { status: "" });
+  const list = useServerList(listSubcontractBills, { status: "", search: "" }, { pageSearch: true });
   const summary = useAsyncResource(getSubcontractBillSummary, "subcontract-bill-summary");
   const retentionRatePercent = list.resource.status === "success" ? list.resource.data?.retentionRatePercent : null;
 
